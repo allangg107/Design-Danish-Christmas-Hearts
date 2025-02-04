@@ -16,7 +16,10 @@ from PyQt6.QtWidgets import  (
     QHBoxLayout,
     QVBoxLayout,
     QPushButton,
-    QToolBar
+    QToolBar,
+    QMenu,
+    QLabel,
+    QWidgetAction
 )
 
 from PyQt6.QtGui import (
@@ -84,50 +87,91 @@ class MainWindow(QMainWindow):
 
         self.setStyleSheet("background-color: white;")
 
-        toolbar = QToolBar("Toolbar")
-        self.addToolBar(toolbar)
+        # Create a central widget
+        central_widget = QWidget(self)
+        self.setCentralWidget(central_widget)
 
+        main_layout = QVBoxLayout(central_widget)
+
+
+        # Create Menu toolbar and its actions
+        menu_toolbar = QToolBar("Menu toolbar")
+
+        file_button = QAction("File", self)
+        file_button_menu = self.createFileDropdownMenu()
+        file_button.setMenu(file_button_menu)
+        menu_toolbar.addAction(file_button)
+
+        view_button = QAction("View", self)
+        view_button_menu = self.createViewDropdownMenu()
+        view_button.setMenu(view_button_menu)        
+        menu_toolbar.addAction(view_button)
+
+        main_layout.addWidget(menu_toolbar)
+
+        
+        # Create Shapes toolbar and its actions
+        shapes_toolbar = QToolBar("Shapes toolbar")
 
         # Square Button
-        button_action = QAction(QIcon("icons/square.png"), "Square button", self)
-        button_action.setStatusTip("This is the square button")
+        square_button = QAction(QIcon("icons/square.png"), "Square button", self)
+        square_button.setStatusTip("This is the square button")
         #button_action.triggered.connect(self.onMyToolBarButtonClick)
-        button_action.setCheckable(True)
-        button_action.toggled.connect(self.isToggled)
-        toolbar.addAction(button_action)
+        square_button.setCheckable(True)
+        square_button.toggled.connect(self.isToggled)
+        shapes_toolbar.addAction(square_button)
 
-        toolbar.addSeparator()
+        shapes_toolbar.addSeparator()
 
         # Circle Button
-        button_action1 = QAction(QIcon("icons/circle.png"), "Circle button", self)
-        button_action1.setStatusTip("This is the circle button")
+        circle_button = QAction(QIcon("icons/circle.png"), "Circle button", self)
+        circle_button.setStatusTip("This is the circle button")
         #button_action.triggered.connect(self.onMyToolBarButtonClick)
-        button_action1.setCheckable(True)
-        button_action1.toggled.connect(self.isToggled)
-        toolbar.addAction(button_action1)
+        circle_button.setCheckable(True)
+        circle_button.toggled.connect(self.isToggled)
+        shapes_toolbar.addAction(circle_button)
 
-        # string currentMode = cursorMode; # cursorMode, rectMode, circMode, lineMode, etc.
-        # in each method, just check       if (currentMode != exampleMode) currentMode = exampleMode; else currentMode = cursorMode;
-
-        #main_layout = QHBoxLayout()
-        #main_layout = QVBoxLayout()
-
-        #main_layout.addStretch()
-
-        #layout = QHBoxLayout()
-        #layout.addWidget(QPushButton("Red", self, styleSheet="background-color: red"))
-        #layout.addWidget(QPushButton("Green", self, styleSheet="background-color: green"))
-        #layout.addWidget(QPushButton("Orange", self, styleSheet="background-color: orange"))
-        #layout.addWidget(QPushButton("Blue", self, styleSheet="background-color: blue"))
-
-        #main_layout.addLayout(layout)
+        main_layout.addWidget(shapes_toolbar)
 
 
-        widget = QWidget()
-        #widget.setLayout(main_layout)
+        # Create Colors toolbar
+        colors_toolbar = QToolBar("Colors toolbar")
+
+        colors_toolbar.addWidget(QPushButton("Red", self, styleSheet="background-color: red"))
+        colors_toolbar.addWidget(QPushButton("Green", self, styleSheet="background-color: green"))
+        # colors_toolbar.addWidget(QPushButton("Orange", self, styleSheet="background-color: orange"))
+        # colors_toolbar.addWidget(QPushButton("Blue", self, styleSheet="background-color: blue"))
+
+        main_layout.addWidget(colors_toolbar)
+
+
+        # Create Drawing widget
         self.drawing_widget = DrawingWidget()
-        self.setCentralWidget(self.drawing_widget)
+        main_layout.addWidget(self.drawing_widget)
         self.setFixedSize(QSize(1200, 700))
+
+    def createFileDropdownMenu(self):
+        file_menu = QMenu("File", self)
+        file_menu.setStyleSheet("color: black;")
+        action_new = QAction("New", self)
+        action_open = QAction("Open", self)
+        action_save = QAction("Save", self)
+        action_export = QAction("Export", self)
+        file_menu.addAction(action_new)
+        file_menu.addAction(action_open)
+        file_menu.addAction(action_save)
+        file_menu.addAction(action_export)
+        return file_menu
+
+    def createViewDropdownMenu(self):
+        view_menu = QMenu("View", self)
+        view_menu.setStyleSheet("color: black;")
+        action_zoom = QAction("Zoom", self)
+        action_fullscreen = QAction("Fullscreen", self)
+        view_menu.addAction(action_zoom)
+        view_menu.addAction(action_fullscreen)
+        return view_menu
+        
 
     def isToggled(self, checked):
         self.drawing_widget.set_drawing_mode(checked)
