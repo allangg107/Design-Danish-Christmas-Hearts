@@ -39,6 +39,7 @@ from PyQt6.QtGui import (
 # Global variable for the shape mode
 SHAPE_MODE = ShapeMode.Cursor
 
+
 class DrawingWidget(QWidget):
     # Defining the initial state
     def __init__(self):
@@ -55,14 +56,9 @@ class DrawingWidget(QWidget):
         qp = QPainter(self)
         br = QBrush(QColor(100, 10, 10, 40))
         qp.setBrush(br)
-        for shape in self.shapes:
-            if (shape[2] == ShapeMode.Square):
-                qp.drawRect(QRect(shape[0], shape[1]))  # Draw the square
-            elif (shape[2] == ShapeMode.Circle):
-                center = shape[0]
-                radius = int((abs(center.x() - shape[1].x()) + abs(center.y() - shape[1].y())) / 2)
-                qp.drawEllipse(center, radius, radius)  # Draw the circle
-
+        
+        # Redraw all the previous shapes
+        self.redrawAllShapes(qp)
 
         # Draw the current shape being created
         if self.begin != self.end:
@@ -71,6 +67,33 @@ class DrawingWidget(QWidget):
             elif (SHAPE_MODE == ShapeMode.Circle):
                 center = self.begin
                 radius = int((self.begin-self.end).manhattanLength() / 2)
+                qp.drawEllipse(center, radius, radius)
+
+    # Redraws all the shapes, while removing the ones that are erased
+    def redrawAllShapes(self, qp):
+        for shape in self.shapes[:]:  # Use a copy of the list to avoid modification issues
+            shape_type = shape[2]
+            # if in eraser mode, removes shapes that contain the point clicked
+            if SHAPE_MODE == ShapeMode.Eraser:
+                point = self.begin
+                if shape_type == ShapeMode.Square:
+                    rect = QRect(shape[0], shape[1])
+                    if rect.contains(point):
+                        self.shapes.remove(shape)
+                        continue  # Skip drawing since it's erased
+                elif shape_type == ShapeMode.Circle:
+                    center = shape[0]
+                    radius = int((abs(center.x() - shape[1].x()) + abs(center.y() - shape[1].y())) / 2)
+                    distance = ((point.x() - center.x()) ** 2 + (point.y() - center.y()) ** 2) ** 0.5
+                    if distance <= radius:
+                        self.shapes.remove(shape)
+                        continue  # Skip drawing since it's erased
+            # Draw the shape
+            if shape_type == ShapeMode.Square:
+                qp.drawRect(QRect(shape[0], shape[1]))
+            elif shape_type == ShapeMode.Circle:
+                center = shape[0]
+                radius = int((abs(center.x() - shape[1].x()) + abs(center.y() - shape[1].y())) / 2)
                 qp.drawEllipse(center, radius, radius)
 
     def mousePressEvent(self, event):
@@ -98,11 +121,14 @@ class DrawingWidget(QWidget):
         self.drawing_mode = enabled
         self.update()
 
+
 # Subclass QMainWindow to customize your application's main window
 class MainWindow(QMainWindow):
     cursor_button = None
+    eraser_button = None
     square_button = None
     circle_button = None
+
     def __init__(self):
         super().__init__()
 
@@ -160,20 +186,27 @@ class MainWindow(QMainWindow):
         shapes_toolbar = QToolBar("Shapes toolbar")
 
         # Cursor Button
-        MainWindow.cursor_button = self.createShapeButton("icons/cursor.png", "Cursor button", "This is the cursor button", ShapeMode.Cursor)
+        MainWindow.cursor_button = self.createShapeButton("Weave Toolkit/icons/cursor.png", "Cursor button", "This is the cursor button", ShapeMode.Cursor)
         shapes_toolbar.addAction(MainWindow.cursor_button)
 
         shapes_toolbar.addSeparator()
 
+        # Eraser Button
+        MainWindow.eraser_button = self.createShapeButton("Weave Toolkit/icons/eraser.png", "Eraser button", "This is the eraser button", ShapeMode.Eraser)
+        shapes_toolbar.addAction(MainWindow.eraser_button)
+
+        shapes_toolbar.addSeparator()
+
         # Square Button
-        MainWindow.square_button = self.createShapeButton("icons/square.png", "Square button", "This is the square button", ShapeMode.Square)
+        MainWindow.square_button = self.createShapeButton("Weave Toolkit/icons/square.png", "Square button", "This is the square button", ShapeMode.Square)
         shapes_toolbar.addAction(MainWindow.square_button)
 
         shapes_toolbar.addSeparator()
 
         # Circle Button
-        MainWindow.circle_button = self.createShapeButton("icons/circle.png", "Circle button", "This is the circle button", ShapeMode.Circle)
+        MainWindow.circle_button = self.createShapeButton("Weave Toolkit/icons/circle.png", "Circle button", "This is the circle button", ShapeMode.Circle)
         shapes_toolbar.addAction(MainWindow.circle_button)
+        
         return shapes_toolbar
 
     def createShapeButton(self, icon_path, button_text, status_tip, shape_mode):
@@ -208,8 +241,13 @@ class MainWindow(QMainWindow):
     def setMode(self, shape_mode):
         if shape_mode == ShapeMode.Cursor:
             self.drawing_widget.set_drawing_mode(False)
+        elif shape_mode == ShapeMode.Eraser:
+            self.drawing_widget.begin = QPoint(-1, -1) # Reset the begin point so the most recent shape isn't erased
+            self.drawing_widget.end = QPoint(-1, -1)
+            self.drawing_widget.set_drawing_mode(True)
         else:
             self.drawing_widget.set_drawing_mode(True)
+        
         global SHAPE_MODE
         SHAPE_MODE = shape_mode
 
