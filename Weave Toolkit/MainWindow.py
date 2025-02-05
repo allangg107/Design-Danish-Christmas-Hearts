@@ -35,7 +35,8 @@ from PyQt6.QtGui import (
     QIcon,
     QPainter,
     QPen,
-    QBrush
+    QBrush,
+    QPixmap
 )
 
 # Global variable for the shape mode
@@ -157,6 +158,14 @@ class MainWindow(QMainWindow):
         # Create the Drawing widget (where users draw)
         self.drawing_widget = DrawingWidget()
         main_layout.addWidget(self.drawing_widget)
+
+        # Create the output display widget
+        self.display_widget = QLabel(self)
+        pixmap = QPixmap("Weave Toolkit/icons/20201208_203402.jpg")
+        self.display_widget.setPixmap(pixmap)
+        self.display_widget.hide()  # Hide initially
+        main_layout.addWidget(self.display_widget)
+
         self.setFixedSize(QSize(1200, 700))
 
     def createMenuToolbar(self):
@@ -171,6 +180,14 @@ class MainWindow(QMainWindow):
         view_button_menu = self.createViewDropdownMenu()
         view_button.setMenu(view_button_menu)
         menu_toolbar.addAction(view_button)
+
+        update_button = QAction("Update", self)
+        update_button.triggered.connect(lambda: self.updateDisplay())
+        menu_toolbar.addAction(update_button)
+
+        edit_button = QAction("Edit", self)
+        edit_button.triggered.connect(lambda: self.editDisplay())
+        menu_toolbar.addAction(edit_button)
         
         return menu_toolbar
     
@@ -195,6 +212,14 @@ class MainWindow(QMainWindow):
         view_menu.addAction(action_zoom)
         view_menu.addAction(action_fullscreen)
         return view_menu
+
+    def updateDisplay(self):
+        self.drawing_widget.hide()
+        self.display_widget.show()
+
+    def editDisplay(self):
+        self.drawing_widget.show()
+        self.display_widget.hide()
 
     def createShapesToolbar(self):
         shapes_toolbar = QToolBar("Shapes toolbar")
