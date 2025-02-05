@@ -171,23 +171,27 @@ class MainWindow(QMainWindow):
     def createMenuToolbar(self):
         menu_toolbar = QToolBar("Menu toolbar")
 
-        file_button = QAction("File", self)
+        file_button = QPushButton("File", self)
+        file_button.setStyleSheet("background-color: lightgray; color: black;")
         file_button_menu = self.createFileDropdownMenu()
         file_button.setMenu(file_button_menu)
-        menu_toolbar.addAction(file_button)
+        menu_toolbar.addWidget(file_button)
 
-        view_button = QAction("View", self)
+        view_button = QPushButton("View", self)
+        view_button.setStyleSheet("background-color: lightgray; color: black;")
         view_button_menu = self.createViewDropdownMenu()
         view_button.setMenu(view_button_menu)
-        menu_toolbar.addAction(view_button)
+        menu_toolbar.addWidget(view_button)
 
-        update_button = QAction("Update", self)
-        update_button.triggered.connect(lambda: self.updateDisplay())
-        menu_toolbar.addAction(update_button)
+        update_button = QPushButton("Update", self)
+        update_button.setStyleSheet("background-color: lightgray; color: black;")
+        update_button.clicked.connect(lambda: self.updateDisplay())
+        menu_toolbar.addWidget(update_button)
 
-        edit_button = QAction("Edit", self)
-        edit_button.triggered.connect(lambda: self.editDisplay())
-        menu_toolbar.addAction(edit_button)
+        edit_button = QPushButton("Edit", self)
+        edit_button.setStyleSheet("background-color: lightgray; color: black;")
+        edit_button.clicked.connect(lambda: self.editDisplay())
+        menu_toolbar.addWidget(edit_button)
         
         return menu_toolbar
     
@@ -202,6 +206,7 @@ class MainWindow(QMainWindow):
         file_menu.addAction(action_open)
         file_menu.addAction(action_save)
         file_menu.addAction(action_export)
+        
         return file_menu
 
     def createViewDropdownMenu(self):
@@ -211,6 +216,7 @@ class MainWindow(QMainWindow):
         action_fullscreen = QAction("Fullscreen", self)
         view_menu.addAction(action_zoom)
         view_menu.addAction(action_fullscreen)
+        
         return view_menu
 
     def updateDisplay(self):
