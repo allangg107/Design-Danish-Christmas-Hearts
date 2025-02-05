@@ -1,11 +1,16 @@
 import sys
 
+from ShapeMode import (
+    ShapeMode
+)
+
 from PyQt6.QtCore import (
     QSize,
     Qt,
     QRectF,
     QRect,
-    QPoint
+    QPoint,
+    QPointF
 )
 
 from PyQt6.QtWidgets import  (
@@ -31,28 +36,42 @@ from PyQt6.QtGui import (
     QBrush
 )
 
+# Global variable for the shape mode
+SHAPE_MODE = ShapeMode.Cursor
+
 class DrawingWidget(QWidget):
+    # Defining the initial state
     def __init__(self):
         super().__init__()
-        self.squares = [] #Stores squares
+        self.shapes = [] #Stores shapes
         self.setGeometry(30,30,600,400)
         self.begin = QPoint()
         self.end = QPoint()
         self.drawing_mode = False
         self.show()
 
+    # Draws the current shape
     def paintEvent(self, event):
         qp = QPainter(self)
-        for square in self.squares:
-            br = QBrush(QColor(100, 10, 10, 40))  # Set color and transparency
-            qp.setBrush(br)
-            qp.drawRect(QRect(square[0], square[1]))  # Draw the square
+        br = QBrush(QColor(100, 10, 10, 40))
+        qp.setBrush(br)
+        for shape in self.shapes:
+            if (shape[2] == ShapeMode.Square):
+                qp.drawRect(QRect(shape[0], shape[1]))  # Draw the square
+            elif (shape[2] == ShapeMode.Circle):
+                center = shape[0]
+                radius = int((abs(center.x() - shape[1].x()) + abs(center.y() - shape[1].y())) / 2)
+                qp.drawEllipse(center, radius, radius)  # Draw the circle
 
-        # Draw the current square being created
+
+        # Draw the current shape being created
         if self.begin != self.end:
-            br = QBrush(QColor(100, 10, 10, 40))
-            qp.setBrush(br)
-            qp.drawRect(QRect(self.begin, self.end))
+            if (SHAPE_MODE == ShapeMode.Square):
+                qp.drawRect(QRect(self.begin, self.end))
+            elif (SHAPE_MODE == ShapeMode.Circle):
+                center = self.begin
+                radius = int((self.begin-self.end).manhattanLength() / 2)
+                qp.drawEllipse(center, radius, radius)
 
     def mousePressEvent(self, event):
         if self.drawing_mode:
@@ -67,7 +86,10 @@ class DrawingWidget(QWidget):
 
     def mouseReleaseEvent(self, event):
         if self.drawing_mode:
-            self.squares.append((self.begin, self.end))
+            if (SHAPE_MODE == ShapeMode.Square):
+                self.shapes.append([self.begin, self.end, ShapeMode.Square])
+            elif (SHAPE_MODE == ShapeMode.Circle):
+                self.shapes.append([self.begin, self.end, ShapeMode.Circle])
             self.begin = event.pos()
             self.end = event.pos()
             self.update()
@@ -76,10 +98,11 @@ class DrawingWidget(QWidget):
         self.drawing_mode = enabled
         self.update()
 
-
-
 # Subclass QMainWindow to customize your application's main window
 class MainWindow(QMainWindow):
+    cursor_button = None
+    square_button = None
+    circle_button = None
     def __init__(self):
         super().__init__()
 
@@ -93,7 +116,6 @@ class MainWindow(QMainWindow):
 
         main_layout = QVBoxLayout(central_widget)
 
-
         # Create Menu toolbar and its actions
         menu_toolbar = QToolBar("Menu toolbar")
 
@@ -104,35 +126,32 @@ class MainWindow(QMainWindow):
 
         view_button = QAction("View", self)
         view_button_menu = self.createViewDropdownMenu()
-        view_button.setMenu(view_button_menu)        
+        view_button.setMenu(view_button_menu)
         menu_toolbar.addAction(view_button)
 
         main_layout.addWidget(menu_toolbar)
 
-        
         # Create Shapes toolbar and its actions
         shapes_toolbar = QToolBar("Shapes toolbar")
 
+        # Cursor Button
+        MainWindow.cursor_button = self.createCursorButton()
+        shapes_toolbar.addAction(MainWindow.cursor_button)
+
+        shapes_toolbar.addSeparator()
+
         # Square Button
-        square_button = QAction(QIcon("icons/square.png"), "Square button", self)
-        square_button.setStatusTip("This is the square button")
-        #button_action.triggered.connect(self.onMyToolBarButtonClick)
-        square_button.setCheckable(True)
-        square_button.toggled.connect(self.isToggled)
-        shapes_toolbar.addAction(square_button)
+        MainWindow.square_button = self.createSquareButton()
+        shapes_toolbar.addAction(MainWindow.square_button)
 
         shapes_toolbar.addSeparator()
 
         # Circle Button
-        circle_button = QAction(QIcon("icons/circle.png"), "Circle button", self)
-        circle_button.setStatusTip("This is the circle button")
-        #button_action.triggered.connect(self.onMyToolBarButtonClick)
-        circle_button.setCheckable(True)
-        circle_button.toggled.connect(self.isToggled)
-        shapes_toolbar.addAction(circle_button)
+        MainWindow.circle_button = self.createCircleButton()
+
+        shapes_toolbar.addAction(MainWindow.circle_button)
 
         main_layout.addWidget(shapes_toolbar)
-
 
         # Create Colors toolbar
         colors_toolbar = QToolBar("Colors toolbar")
@@ -144,11 +163,29 @@ class MainWindow(QMainWindow):
 
         main_layout.addWidget(colors_toolbar)
 
-
         # Create Drawing widget
         self.drawing_widget = DrawingWidget()
         main_layout.addWidget(self.drawing_widget)
         self.setFixedSize(QSize(1200, 700))
+
+    def createShapeButton(self, icon_path, button_text, status_tip, shape_mode):
+        shape_button = QAction(QIcon(icon_path), button_text, self)
+        shape_button.setStatusTip(status_tip)
+        #shape_button.setCheckable(True)
+        shape_button.triggered.connect(lambda: self.setMode(shape_mode))
+        return shape_button
+
+    def createCursorButton(self):
+        square_button = self.createShapeButton("icons/cursor.png", "Cursor button", "This is the cursor button", ShapeMode.Cursor)
+        return square_button
+
+    def createSquareButton(self):
+        square_button = self.createShapeButton("icons/square.png", "Square button", "This is the square button", ShapeMode.Square)
+        return square_button
+
+    def createCircleButton(self):
+        circle_button = self.createShapeButton("icons/circle.png", "Circle button", "This is the circle button", ShapeMode.Circle)
+        return circle_button
 
     def createFileDropdownMenu(self):
         file_menu = QMenu("File", self)
@@ -171,13 +208,15 @@ class MainWindow(QMainWindow):
         view_menu.addAction(action_zoom)
         view_menu.addAction(action_fullscreen)
         return view_menu
-        
 
-    def isToggled(self, checked):
-        self.drawing_widget.set_drawing_mode(checked)
-
-    #def onMyToolBarButtonClick(self, s):
-     #   self.setCentralWidget(self.drawing_widget)
+    # Checks whether a shape button is clicked, if it is then that drawing mode is enabled
+    def setMode(self, shape_mode):
+        if shape_mode == ShapeMode.Cursor:
+            self.drawing_widget.set_drawing_mode(False)
+        else:
+            self.drawing_widget.set_drawing_mode(True)
+        global SHAPE_MODE
+        SHAPE_MODE = shape_mode
 
 
 app = QApplication(sys.argv)
