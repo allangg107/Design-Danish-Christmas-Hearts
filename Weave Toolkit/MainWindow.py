@@ -1,5 +1,7 @@
 import sys
 
+from functools import partial
+
 from ShapeMode import (
     ShapeMode
 )
@@ -38,6 +40,7 @@ from PyQt6.QtGui import (
 
 # Global variable for the shape mode
 SHAPE_MODE = ShapeMode.Cursor
+SHAPE_COLOR = QColor(0, 0, 0, 255)
 
 
 class DrawingWidget(QWidget):
@@ -54,13 +57,14 @@ class DrawingWidget(QWidget):
     # Draws the current shape
     def paintEvent(self, event):
         qp = QPainter(self)
-        br = QBrush(QColor(100, 10, 10, 40))
-        qp.setBrush(br)
+        qp.setBrush(SHAPE_COLOR)
         
         # Redraw all the previous shapes
         self.redrawAllShapes(qp)
 
         # Draw the current shape being created
+        qp.setBrush(SHAPE_COLOR)
+
         if self.begin != self.end:
             if (SHAPE_MODE == ShapeMode.Square):
                 qp.drawRect(QRect(self.begin, self.end))
@@ -73,6 +77,7 @@ class DrawingWidget(QWidget):
     def redrawAllShapes(self, qp):
         for shape in self.shapes[:]:  # Use a copy of the list to avoid modification issues
             shape_type = shape[2]
+            qp.setBrush(shape[3])
             # if in eraser mode, removes shapes that contain the point clicked
             if SHAPE_MODE == ShapeMode.Eraser:
                 point = self.begin
@@ -109,10 +114,7 @@ class DrawingWidget(QWidget):
 
     def mouseReleaseEvent(self, event):
         if self.drawing_mode:
-            if (SHAPE_MODE == ShapeMode.Square):
-                self.shapes.append([self.begin, self.end, ShapeMode.Square])
-            elif (SHAPE_MODE == ShapeMode.Circle):
-                self.shapes.append([self.begin, self.end, ShapeMode.Circle])
+            self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR])
             self.begin = event.pos()
             self.end = event.pos()
             self.update()
@@ -157,16 +159,6 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.drawing_widget)
         self.setFixedSize(QSize(1200, 700))
 
-    def createColorsToolbar(self):
-        colors_toolbar = QToolBar("Colors toolbar")
-
-        colors_toolbar.addWidget(QPushButton("Red", self, styleSheet="background-color: red"))
-        colors_toolbar.addWidget(QPushButton("Green", self, styleSheet="background-color: green"))
-        colors_toolbar.addWidget(QPushButton("Orange", self, styleSheet="background-color: orange"))
-        colors_toolbar.addWidget(QPushButton("Blue", self, styleSheet="background-color: blue"))
-        
-        return colors_toolbar
-
     def createMenuToolbar(self):
         menu_toolbar = QToolBar("Menu toolbar")
 
@@ -181,6 +173,28 @@ class MainWindow(QMainWindow):
         menu_toolbar.addAction(view_button)
         
         return menu_toolbar
+    
+    def createFileDropdownMenu(self):
+        file_menu = QMenu("File", self)
+        file_menu.setStyleSheet("color: black;")
+        action_new = QAction("New", self)
+        action_open = QAction("Open", self)
+        action_save = QAction("Save", self)
+        action_export = QAction("Export", self)
+        file_menu.addAction(action_new)
+        file_menu.addAction(action_open)
+        file_menu.addAction(action_save)
+        file_menu.addAction(action_export)
+        return file_menu
+
+    def createViewDropdownMenu(self):
+        view_menu = QMenu("View", self)
+        view_menu.setStyleSheet("color: black;")
+        action_zoom = QAction("Zoom", self)
+        action_fullscreen = QAction("Fullscreen", self)
+        view_menu.addAction(action_zoom)
+        view_menu.addAction(action_fullscreen)
+        return view_menu
 
     def createShapesToolbar(self):
         shapes_toolbar = QToolBar("Shapes toolbar")
@@ -215,29 +229,7 @@ class MainWindow(QMainWindow):
         shape_button.triggered.connect(lambda: self.setMode(shape_mode))
         return shape_button
 
-    def createFileDropdownMenu(self):
-        file_menu = QMenu("File", self)
-        file_menu.setStyleSheet("color: black;")
-        action_new = QAction("New", self)
-        action_open = QAction("Open", self)
-        action_save = QAction("Save", self)
-        action_export = QAction("Export", self)
-        file_menu.addAction(action_new)
-        file_menu.addAction(action_open)
-        file_menu.addAction(action_save)
-        file_menu.addAction(action_export)
-        return file_menu
-
-    def createViewDropdownMenu(self):
-        view_menu = QMenu("View", self)
-        view_menu.setStyleSheet("color: black;")
-        action_zoom = QAction("Zoom", self)
-        action_fullscreen = QAction("Fullscreen", self)
-        view_menu.addAction(action_zoom)
-        view_menu.addAction(action_fullscreen)
-        return view_menu
-
-    # Checks whether a shape button is clicked, if it is then that drawing mode is enabled
+    # When a shape button is clicked, it is then set to that drawing mode
     def setMode(self, shape_mode):
         if shape_mode == ShapeMode.Cursor:
             self.drawing_widget.set_drawing_mode(False)
@@ -250,6 +242,22 @@ class MainWindow(QMainWindow):
         
         global SHAPE_MODE
         SHAPE_MODE = shape_mode
+
+
+    def createColorsToolbar(self):
+        colors_toolbar = QToolBar("Colors toolbar")
+
+        colors = [("Red", "red"), ("Green", "green"), ("Orange", "orange"), ("Blue", "blue")]
+        for color_name, color_value in colors:
+            button = QPushButton(color_name, self, styleSheet=f"background-color: {color_value}")
+            button.clicked.connect(partial(self.change_color, color_value))
+            colors_toolbar.addWidget(button)
+        
+        return colors_toolbar
+    
+    def change_color(self, color):
+        global SHAPE_COLOR
+        SHAPE_COLOR = QColor(color)
 
 
 app = QApplication(sys.argv)
