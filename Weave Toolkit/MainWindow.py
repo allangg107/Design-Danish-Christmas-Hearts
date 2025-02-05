@@ -107,16 +107,41 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("Weave Toolkit")
-
         self.setStyleSheet("background-color: white;")
 
-        # Create a central widget
+        # Create the central widget
         central_widget = QWidget(self)
         self.setCentralWidget(central_widget)
-
         main_layout = QVBoxLayout(central_widget)
 
-        # Create Menu toolbar and its actions
+        # Create the Menu toolbar
+        menu_toolbar = self.createMenuToolbar()
+        main_layout.addWidget(menu_toolbar)
+
+        # Create the Shapes toolbar
+        shapes_toolbar = self.createShapesToolbar()
+        main_layout.addWidget(shapes_toolbar)
+
+        # Create the Colors toolbar
+        colors_toolbar = self.createColorsToolbar()
+        main_layout.addWidget(colors_toolbar)
+
+        # Create the Drawing widget (where users draw)
+        self.drawing_widget = DrawingWidget()
+        main_layout.addWidget(self.drawing_widget)
+        self.setFixedSize(QSize(1200, 700))
+
+    def createColorsToolbar(self):
+        colors_toolbar = QToolBar("Colors toolbar")
+
+        colors_toolbar.addWidget(QPushButton("Red", self, styleSheet="background-color: red"))
+        colors_toolbar.addWidget(QPushButton("Green", self, styleSheet="background-color: green"))
+        colors_toolbar.addWidget(QPushButton("Orange", self, styleSheet="background-color: orange"))
+        colors_toolbar.addWidget(QPushButton("Blue", self, styleSheet="background-color: blue"))
+        
+        return colors_toolbar
+
+    def createMenuToolbar(self):
         menu_toolbar = QToolBar("Menu toolbar")
 
         file_button = QAction("File", self)
@@ -128,64 +153,34 @@ class MainWindow(QMainWindow):
         view_button_menu = self.createViewDropdownMenu()
         view_button.setMenu(view_button_menu)
         menu_toolbar.addAction(view_button)
+        
+        return menu_toolbar
 
-        main_layout.addWidget(menu_toolbar)
-
-        # Create Shapes toolbar and its actions
+    def createShapesToolbar(self):
         shapes_toolbar = QToolBar("Shapes toolbar")
 
         # Cursor Button
-        MainWindow.cursor_button = self.createCursorButton()
+        MainWindow.cursor_button = self.createShapeButton("icons/cursor.png", "Cursor button", "This is the cursor button", ShapeMode.Cursor)
         shapes_toolbar.addAction(MainWindow.cursor_button)
 
         shapes_toolbar.addSeparator()
 
         # Square Button
-        MainWindow.square_button = self.createSquareButton()
+        MainWindow.square_button = self.createShapeButton("icons/square.png", "Square button", "This is the square button", ShapeMode.Square)
         shapes_toolbar.addAction(MainWindow.square_button)
 
         shapes_toolbar.addSeparator()
 
         # Circle Button
-        MainWindow.circle_button = self.createCircleButton()
-
+        MainWindow.circle_button = self.createShapeButton("icons/circle.png", "Circle button", "This is the circle button", ShapeMode.Circle)
         shapes_toolbar.addAction(MainWindow.circle_button)
-
-        main_layout.addWidget(shapes_toolbar)
-
-        # Create Colors toolbar
-        colors_toolbar = QToolBar("Colors toolbar")
-
-        colors_toolbar.addWidget(QPushButton("Red", self, styleSheet="background-color: red"))
-        colors_toolbar.addWidget(QPushButton("Green", self, styleSheet="background-color: green"))
-        # colors_toolbar.addWidget(QPushButton("Orange", self, styleSheet="background-color: orange"))
-        # colors_toolbar.addWidget(QPushButton("Blue", self, styleSheet="background-color: blue"))
-
-        main_layout.addWidget(colors_toolbar)
-
-        # Create Drawing widget
-        self.drawing_widget = DrawingWidget()
-        main_layout.addWidget(self.drawing_widget)
-        self.setFixedSize(QSize(1200, 700))
+        return shapes_toolbar
 
     def createShapeButton(self, icon_path, button_text, status_tip, shape_mode):
         shape_button = QAction(QIcon(icon_path), button_text, self)
         shape_button.setStatusTip(status_tip)
-        #shape_button.setCheckable(True)
         shape_button.triggered.connect(lambda: self.setMode(shape_mode))
         return shape_button
-
-    def createCursorButton(self):
-        square_button = self.createShapeButton("icons/cursor.png", "Cursor button", "This is the cursor button", ShapeMode.Cursor)
-        return square_button
-
-    def createSquareButton(self):
-        square_button = self.createShapeButton("icons/square.png", "Square button", "This is the square button", ShapeMode.Square)
-        return square_button
-
-    def createCircleButton(self):
-        circle_button = self.createShapeButton("icons/circle.png", "Circle button", "This is the circle button", ShapeMode.Circle)
-        return circle_button
 
     def createFileDropdownMenu(self):
         file_menu = QMenu("File", self)
