@@ -1,4 +1,5 @@
 import sys
+import math
 
 from functools import partial
 
@@ -105,6 +106,10 @@ class DrawingWidget(QWidget):
                     if distance <= radius:
                         self.shapes.remove(shape)
                         continue  # Skip drawing since it's erased
+                elif shape_type == ShapeMode.Heart:
+                    if self.RemoveHeart(point, shape[0], shape[1]):
+                        self.shapes.remove(shape)
+                        continue  # Skip drawing since it's erased
             # Draw the shape
             if shape_type == ShapeMode.Square:
                 qp.drawRect(QRect(shape[0], shape[1]))
@@ -119,14 +124,50 @@ class DrawingWidget(QWidget):
         drawpath = QPainterPath()
         width = abs(end.x() - start.x())
         height = abs(end.y() - start.y())
-        x = start.x()
-        y = start.y()
+        x_offset, y_offset = start.x() + width // 2, start.y() + height // 2
 
-        drawpath.moveTo(x + width / 2, y + height)
-        drawpath.cubicTo(x + width * 1.3, y + height * 0.3, x + width * 0.6, y - height * 0.3, x + width / 2, y)
-        drawpath.cubicTo(x - width * 0.1, y - height * 0.3, x - width * 0.3, y + height * 0.3, x + width / 2, y + height)
+        # Scale factor to fit heart inside the bounding box
+        scale_x = width / 32  
+        scale_y = height / 32  
+
+        # Start drawing the heart shape using parametric equations
+        t = 0
+        first_point = True
+        while t <= 2 * math.pi:
+            x = int(16 * math.sin(t) ** 3 * scale_x) + x_offset
+            y = int(- (13 * math.cos(t) - 5 * math.cos(2 * t) - 2 * math.cos(3 * t) - math.cos(4 * t)) * scale_y) + y_offset
+            
+            if first_point:
+                drawpath.moveTo(x, y)
+                first_point = False
+            else:
+                drawpath.lineTo(x, y)
+            t += 0.1
         qp.drawPath(drawpath)
 
+    def RemoveHeart(self, point, start, end):
+        width = abs(end.x() - start.x())
+        height = abs(end.y() - start.y())
+        x_offset, y_offset = start.x() + width // 2, start.y() + height // 2
+
+        # Scale factor
+        scale_x = width / 32  
+        scale_y = height / 32  
+
+        # Check if the point is inside the heart shape using parametric equations
+        t = 0
+        while t <= 2 * math.pi:
+            x = int(16 * math.sin(t) ** 3 * scale_x) + x_offset
+            y = int(- (13 * math.cos(t) - 5 * math.cos(2 * t) - 2 * math.cos(3 * t) - math.cos(4 * t)) * scale_y) + y_offset
+
+            # Check if the point is close to any part of the heart curve
+            if abs(point.x() - x) < 5 and abs(point.y() - y) < 5:
+                return True  # Point is inside the heart
+
+            t += 0.1
+
+        return False  # Point is outside the heart
+    
     def mousePressEvent(self, event):
         if self.drawing_mode:
             self.begin = event.pos()
