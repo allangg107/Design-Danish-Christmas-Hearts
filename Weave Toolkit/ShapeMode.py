@@ -7,3 +7,4 @@ class ShapeMode(Enum):
     Eraser = 1
     Square = 2
     Circle = 3
+    Heart = 4

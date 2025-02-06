@@ -43,7 +43,8 @@ from PyQt6.QtGui import (
     QPainter,
     QPen,
     QBrush,
-    QPixmap
+    QPixmap,
+    QPainterPath
 )
 
 # Global variable for the shape mode
@@ -80,6 +81,9 @@ class DrawingWidget(QWidget):
                 center = self.begin
                 radius = int((self.begin-self.end).manhattanLength() / 2)
                 qp.drawEllipse(center, radius, radius)
+            elif (SHAPE_MODE == ShapeMode.Heart):
+                self.drawHeart(qp, self.begin, self.end)
+
 
     # Redraws all the shapes, while removing the ones that are erased
     def redrawAllShapes(self, qp):
@@ -108,6 +112,20 @@ class DrawingWidget(QWidget):
                 center = shape[0]
                 radius = int((abs(center.x() - shape[1].x()) + abs(center.y() - shape[1].y())) / 2)
                 qp.drawEllipse(center, radius, radius)
+            elif shape_type == ShapeMode.Heart:
+                self.drawHeart(qp, shape[0], shape[1])
+
+    def drawHeart(self, qp, start, end):
+        drawpath = QPainterPath()
+        width = abs(end.x() - start.x())
+        height = abs(end.y() - start.y())
+        x = start.x()
+        y = start.y()
+
+        drawpath.moveTo(x + width / 2, y + height)
+        drawpath.cubicTo(x + width * 1.3, y + height * 0.3, x + width * 0.6, y - height * 0.3, x + width / 2, y)
+        drawpath.cubicTo(x - width * 0.1, y - height * 0.3, x - width * 0.3, y + height * 0.3, x + width / 2, y + height)
+        qp.drawPath(drawpath)
 
     def mousePressEvent(self, event):
         if self.drawing_mode:
@@ -132,12 +150,15 @@ class DrawingWidget(QWidget):
         self.update()
 
 
+
+
 # Subclass QMainWindow to customize your application's main window
 class MainWindow(QMainWindow):
     cursor_button = None
     eraser_button = None
     square_button = None
     circle_button = None
+    heart_button = None
 
     def __init__(self):
         super().__init__()
@@ -185,7 +206,7 @@ class MainWindow(QMainWindow):
         self.stacked_widget = QStackedWidget(self)
         self.stacked_widget.addWidget(self.drawing_widget)
         self.stacked_widget.addWidget(self.weave_widget)
-        #main_layout.addWidget(self.stacked_widget)
+        main_layout.addWidget(self.stacked_widget)
 
         self.setFixedSize(QSize(1200, 700))
 
@@ -272,6 +293,10 @@ class MainWindow(QMainWindow):
         # Circle Button
         MainWindow.circle_button = self.createShapeButton("icons/circle.png", "Circle button", "This is the circle button", ShapeMode.Circle)
         shapes_toolbar.addAction(MainWindow.circle_button)
+
+        # Heart Button
+        MainWindow.heart_button = self.createShapeButton("icons/heart.png", "Heart button", "This is the heart button", ShapeMode.Heart)
+        shapes_toolbar.addAction(MainWindow.heart_button)
 
         return shapes_toolbar
 
