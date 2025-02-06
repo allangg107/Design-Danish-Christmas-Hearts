@@ -2,6 +2,10 @@ import sys
 
 from functools import partial
 
+from PatternOutput import (
+    WeaveView
+)
+
 from ShapeMode import (
     ShapeMode
 )
@@ -26,7 +30,10 @@ from PyQt6.QtWidgets import  (
     QToolBar,
     QMenu,
     QLabel,
-    QWidgetAction
+    QWidgetAction,
+    QStackedLayout,
+    QStackedWidget,
+    QGraphicsScene
 )
 
 from PyQt6.QtGui import (
@@ -59,7 +66,7 @@ class DrawingWidget(QWidget):
     def paintEvent(self, event):
         qp = QPainter(self)
         qp.setBrush(SHAPE_COLOR)
-        
+
         # Redraw all the previous shapes
         self.redrawAllShapes(qp)
 
@@ -160,11 +167,25 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.drawing_widget)
 
         # Create the output display widget
-        self.display_widget = QLabel(self)
-        pixmap = QPixmap("Weave Toolkit/icons/20201208_203402.jpg")
-        self.display_widget.setPixmap(pixmap)
-        self.display_widget.hide()  # Hide initially
-        main_layout.addWidget(self.display_widget)
+        #self.display_widget = QLabel(self)
+        #pixmap = QPixmap("Weave Toolkit/icons/20201208_203402.jpg")
+        #self.display_widget.setPixmap(pixmap)
+        #self.display_widget.hide()  # Hide initially
+        #main_layout.addWidget(self.display_widget)
+
+        # Graphic Screen
+        self.scene = QGraphicsScene()
+
+        # Create the WeaveView and add to the layout
+        self.weave_widget = WeaveView(self.scene)  # This is where the grid rendering happens
+        self.weave_widget.hide()  # Hide initially, show it on button click
+        main_layout.addWidget(self.weave_widget)
+
+        # Create a stacked widget to switch between views
+        self.stacked_widget = QStackedWidget(self)
+        self.stacked_widget.addWidget(self.drawing_widget)
+        self.stacked_widget.addWidget(self.weave_widget)
+        #main_layout.addWidget(self.stacked_widget)
 
         self.setFixedSize(QSize(1200, 700))
 
@@ -192,9 +213,9 @@ class MainWindow(QMainWindow):
         edit_button.setStyleSheet("background-color: lightgray; color: black;")
         edit_button.clicked.connect(lambda: self.editDisplay())
         menu_toolbar.addWidget(edit_button)
-        
+
         return menu_toolbar
-    
+
     def createFileDropdownMenu(self):
         file_menu = QMenu("File", self)
         file_menu.setStyleSheet("color: black;")
@@ -206,7 +227,7 @@ class MainWindow(QMainWindow):
         file_menu.addAction(action_open)
         file_menu.addAction(action_save)
         file_menu.addAction(action_export)
-        
+
         return file_menu
 
     def createViewDropdownMenu(self):
@@ -216,42 +237,42 @@ class MainWindow(QMainWindow):
         action_fullscreen = QAction("Fullscreen", self)
         view_menu.addAction(action_zoom)
         view_menu.addAction(action_fullscreen)
-        
+
         return view_menu
 
     def updateDisplay(self):
-        self.drawing_widget.hide()
-        self.display_widget.show()
+        self.stacked_widget.setCurrentWidget(self.weave_widget)
+        #self.display_widget.show()
 
     def editDisplay(self):
-        self.drawing_widget.show()
-        self.display_widget.hide()
+        self.stacked_widget.setCurrentWidget(self.drawing_widget)
+        #self.display_widget.hide()
 
     def createShapesToolbar(self):
         shapes_toolbar = QToolBar("Shapes toolbar")
 
         # Cursor Button
-        MainWindow.cursor_button = self.createShapeButton("Weave Toolkit/icons/cursor.png", "Cursor button", "This is the cursor button", ShapeMode.Cursor)
+        MainWindow.cursor_button = self.createShapeButton("icons/cursor.png", "Cursor button", "This is the cursor button", ShapeMode.Cursor)
         shapes_toolbar.addAction(MainWindow.cursor_button)
 
         shapes_toolbar.addSeparator()
 
         # Eraser Button
-        MainWindow.eraser_button = self.createShapeButton("Weave Toolkit/icons/eraser.png", "Eraser button", "This is the eraser button", ShapeMode.Eraser)
+        MainWindow.eraser_button = self.createShapeButton("icons/eraser.png", "Eraser button", "This is the eraser button", ShapeMode.Eraser)
         shapes_toolbar.addAction(MainWindow.eraser_button)
 
         shapes_toolbar.addSeparator()
 
         # Square Button
-        MainWindow.square_button = self.createShapeButton("Weave Toolkit/icons/square.png", "Square button", "This is the square button", ShapeMode.Square)
+        MainWindow.square_button = self.createShapeButton("icons/square.png", "Square button", "This is the square button", ShapeMode.Square)
         shapes_toolbar.addAction(MainWindow.square_button)
 
         shapes_toolbar.addSeparator()
 
         # Circle Button
-        MainWindow.circle_button = self.createShapeButton("Weave Toolkit/icons/circle.png", "Circle button", "This is the circle button", ShapeMode.Circle)
+        MainWindow.circle_button = self.createShapeButton("icons/circle.png", "Circle button", "This is the circle button", ShapeMode.Circle)
         shapes_toolbar.addAction(MainWindow.circle_button)
-        
+
         return shapes_toolbar
 
     def createShapeButton(self, icon_path, button_text, status_tip, shape_mode):
@@ -270,7 +291,7 @@ class MainWindow(QMainWindow):
             self.drawing_widget.set_drawing_mode(True)
         else:
             self.drawing_widget.set_drawing_mode(True)
-        
+
         global SHAPE_MODE
         SHAPE_MODE = shape_mode
 
@@ -283,9 +304,9 @@ class MainWindow(QMainWindow):
             button = QPushButton(color_name, self, styleSheet=f"background-color: {color_value}")
             button.clicked.connect(partial(self.change_color, color_value))
             colors_toolbar.addWidget(button)
-        
+
         return colors_toolbar
-    
+
     def change_color(self, color):
         global SHAPE_COLOR
         SHAPE_COLOR = QColor(color)
