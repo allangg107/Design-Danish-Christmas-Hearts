@@ -286,6 +286,7 @@ class MainWindow(QMainWindow):
 
     def updateDisplay(self):
         self.stacked_widget.setCurrentWidget(self.weave_widget)
+        self.weave_widget.setShapes(self.drawing_widget.shapes)
         #self.display_widget.show()
 
     def editDisplay(self):

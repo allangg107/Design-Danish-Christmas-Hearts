@@ -1,4 +1,4 @@
-from PyQt6.QtCore import Qt, QRectF, QPoint
+from PyQt6.QtCore import Qt, QRectF, QPoint, QRect
 from PyQt6.QtGui import QPainter, QColor, QPainterPath
 from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene
 from ShapeMode import ShapeMode
@@ -8,18 +8,23 @@ class WeaveView(QGraphicsView):
     def __init__(self, scene):
         super().__init__(scene)
         self.designShapes = []
+        self.heartList = []
         self.begin = QPoint()
         self.end = QPoint()
 
         start = QPoint(5, 5)  # Top-left corner of the heart
         end = QPoint(1150, 500) # Bottom-right corner of the heart
-        self.designShapes.append([start, end, ShapeMode.Heart, QColor(255, 0, 0, 255)])
+        self.heartList.append([start, end, ShapeMode.Heart, QColor(255, 0, 0, 255)])
 
+    def setShapes(self, shapes):
+        self.designShapes = shapes
+        self.viewport().update()
+   
     def paintEvent(self, event):
         super().paintEvent(event)
         painter = QPainter(self.viewport())
-        self.draw_grid(painter)
         self.drawShapes(painter)
+        self.draw_grid(painter)
 
     def draw_grid(self, painter):
         # Set grid line color and style
@@ -35,17 +40,16 @@ class WeaveView(QGraphicsView):
             painter.drawLine(0, y, self.width(), y)
 
     def drawShapes(self, painter):
-        for shape in self.designShapes:
-            start, end, shape_type, color = shape
+        for heart in self.heartList:
+            start, end, shape_type, color = heart
             painter.setBrush(color)
+            self.drawHeart(painter, start, end, extra_shapes=self.designShapes)
 
-            if shape_type == ShapeMode.Heart:
-                self.drawHeart(painter, start, end)
-
-    def drawHeart(self, qp, start, end):
+    def drawHeart(self, qp, start, end, extra_shapes=None):
         drawpath = QPainterPath()
         width = abs(end.x() - start.x())
         height = abs(end.y() - start.y())
+        heart_center_x, heart_center_y = start.x() + width // 2, start.y() + height // 2
         x_offset, y_offset = start.x() + width // 2, start.y() + height // 2
 
         # Scale factor to fit heart inside the bounding box
@@ -66,3 +70,24 @@ class WeaveView(QGraphicsView):
                 drawpath.lineTo(x, y)
             t += 0.1
         qp.drawPath(drawpath)
+    
+        #if extra_shapes:
+            #heart_center_x = start.x() + end.x()/2 
+            
+            #for shape in extra_shapes:
+                #shape_type, color = shape[2], shape[3]
+                #qp.setBrush(color)
+
+                #shape_width = width // 4  # Scale shapes to fit inside heart
+                #shape_height = height // 4
+                
+                #shape_x = heart_center_x - shape_width // 2
+                #shape_y = heart_center_y - shape_height // 2
+                
+                            
+                
+                #if shape_type == ShapeMode.Square:
+                #    qp.drawRect(QRect(shape_x, shape_y, shape_width, shape_height))
+                #elif shape_type == ShapeMode.Circle:
+                #    qp.drawEllipse(QPoint(shape_x + shape_width // 2, shape_y + shape_height // 2), shape_width // 2, shape_height // 2)
+                
