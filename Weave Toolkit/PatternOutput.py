@@ -49,7 +49,6 @@ class WeaveView(QGraphicsView):
         drawpath = QPainterPath()
         width = abs(end.x() - start.x())
         height = abs(end.y() - start.y())
-        heart_center_x, heart_center_y = start.x() + width // 2, start.y() + height // 2
         x_offset, y_offset = start.x() + width // 2, start.y() + height // 2
 
         # Scale factor to fit heart inside the bounding box
