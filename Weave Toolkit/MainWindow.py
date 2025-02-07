@@ -62,6 +62,11 @@ class DrawingWidget(QWidget):
         self.begin = QPoint()
         self.end = QPoint()
         self.drawing_mode = False
+
+        #start = QPoint(200, 200)  # Top-left corner of the heart
+        #end = QPoint(300, 300)  # Bottom-right corner of the heart
+        #self.shapes.append([start, end, ShapeMode.Heart, QColor(255, 0, 0, 255)])
+
         self.show()
 
     # Draws the current shape
@@ -83,7 +88,7 @@ class DrawingWidget(QWidget):
                 radius = int((self.begin-self.end).manhattanLength() / 2)
                 qp.drawEllipse(center, radius, radius)
             elif (SHAPE_MODE == ShapeMode.Heart):
-                self.drawHeart(qp, self.begin, self.end)
+                WeaveView.drawHeart(self, qp, self.begin, self.end)
 
 
     # Redraws all the shapes, while removing the ones that are erased
@@ -118,32 +123,9 @@ class DrawingWidget(QWidget):
                 radius = int((abs(center.x() - shape[1].x()) + abs(center.y() - shape[1].y())) / 2)
                 qp.drawEllipse(center, radius, radius)
             elif shape_type == ShapeMode.Heart:
-                self.drawHeart(qp, shape[0], shape[1])
+                WeaveView.drawHeart(self ,qp, shape[0], shape[1])
 
-    def drawHeart(self, qp, start, end):
-        drawpath = QPainterPath()
-        width = abs(end.x() - start.x())
-        height = abs(end.y() - start.y())
-        x_offset, y_offset = start.x() + width // 2, start.y() + height // 2
-
-        # Scale factor to fit heart inside the bounding box
-        scale_x = width / 32  
-        scale_y = height / 32  
-
-        # Start drawing the heart shape using parametric equations
-        t = 0
-        first_point = True
-        while t <= 2 * math.pi:
-            x = int(16 * math.sin(t) ** 3 * scale_x) + x_offset
-            y = int(- (13 * math.cos(t) - 5 * math.cos(2 * t) - 2 * math.cos(3 * t) - math.cos(4 * t)) * scale_y) + y_offset
-            
-            if first_point:
-                drawpath.moveTo(x, y)
-                first_point = False
-            else:
-                drawpath.lineTo(x, y)
-            t += 0.1
-        qp.drawPath(drawpath)
+    
 
     def RemoveHeart(self, point, start, end):
         width = abs(end.x() - start.x())
