@@ -79,7 +79,7 @@ class DrawingWidget(QWidget):
 
         # Draw the current shape being created
         qp.setBrush(SHAPE_COLOR)
-
+        WeaveView.drawHeart(self, qp, self.begin, self.end, SHAPE_COLOR, isFilled=False, isOutline=True)
         if self.begin != self.end:
             if (SHAPE_MODE == ShapeMode.Square):
                 qp.drawRect(QRect(self.begin, self.end))
@@ -88,11 +88,12 @@ class DrawingWidget(QWidget):
                 radius = int((self.begin-self.end).manhattanLength() / 2)
                 qp.drawEllipse(center, radius, radius)
             elif (SHAPE_MODE == ShapeMode.Heart):
-                WeaveView.drawHeart(self, qp, self.begin, self.end)
+                WeaveView.drawHeart(self, qp, self.begin, self.end, SHAPE_COLOR)
 
 
     # Redraws all the shapes, while removing the ones that are erased
     def redrawAllShapes(self, qp):
+        
         for shape in self.shapes[:]:  # Use a copy of the list to avoid modification issues
             shape_type = shape[2]
             qp.setBrush(shape[3])
@@ -123,7 +124,7 @@ class DrawingWidget(QWidget):
                 radius = int((abs(center.x() - shape[1].x()) + abs(center.y() - shape[1].y())) / 2)
                 qp.drawEllipse(center, radius, radius)
             elif shape_type == ShapeMode.Heart:
-                WeaveView.drawHeart(self ,qp, shape[0], shape[1])
+                WeaveView.drawHeart(self ,qp, shape[0], shape[1], shape[3])
 
     
 

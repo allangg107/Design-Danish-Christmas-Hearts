@@ -12,9 +12,10 @@ class WeaveView(QGraphicsView):
         self.begin = QPoint()
         self.end = QPoint()
 
-        start = QPoint(5, 5)  # Top-left corner of the heart
-        end = QPoint(1150, 500) # Bottom-right corner of the heart
-        self.heartList.append([start, end, ShapeMode.Heart, QColor(255, 0, 0, 255)])
+        #start = QPoint(0, 0)  # Top-left corner of the heart
+        #end = QPoint(1170, 530) # Bottom-right corner of the heart
+        #self.heartList.append([start, end, ShapeMode.Heart, QColor(255, 0, 0, 255)])
+        #self.drawHeartOutLine()
 
     def setShapes(self, shapes):
         self.designShapes = shapes
@@ -40,12 +41,32 @@ class WeaveView(QGraphicsView):
             painter.drawLine(0, y, self.width(), y)
 
     def drawShapes(self, painter):
-        for heart in self.heartList:
-            start, end, shape_type, color = heart
-            painter.setBrush(color)
-            self.drawHeart(painter, start, end, extra_shapes=self.designShapes)
+        #heart = self.heartList[0]
+        #start, end, shape_type, color = heart
+        #self.drawHeart(painter, start, end, color, isFilled=True)
+        self.drawHeart(painter, None, None, None, isFilled=True, isOutline=True)
+        for shape in self.designShapes:
+            shape_type = shape[2]
+            painter.setBrush(shape[3])
+            if shape_type == ShapeMode.Square:
+                painter.drawRect(QRect(shape[0], shape[1]))
+            elif shape_type == ShapeMode.Circle:
+                center = shape[0]
+                radius = int((abs(center.x() - shape[1].x()) + abs(center.y() - shape[1].y())) / 2)
+                painter.drawEllipse(center, radius, radius)
+            elif shape_type == ShapeMode.Heart:
+                self.drawHeart(painter, shape[0], shape[1], shape[3])
 
-    def drawHeart(self, qp, start, end, extra_shapes=None):
+    def drawHeart(self, qp, start, end, color, isFilled = True, isOutline = False):
+        if isOutline:
+            start = QPoint(0, 0)  # Top-left corner of the heart
+            end = QPoint(1170, 530) # Bottom-right corner of the heart
+            color = QColor(255, 0, 0, 255) # Reassigns color to red
+        if isFilled == False:
+            qp.setPen(color)
+            qp.setBrush(Qt.BrushStyle.NoBrush)
+        else:
+            qp.setBrush(color)
         drawpath = QPainterPath()
         width = abs(end.x() - start.x())
         height = abs(end.y() - start.y())
@@ -69,7 +90,7 @@ class WeaveView(QGraphicsView):
                 drawpath.lineTo(x, y)
             t += 0.1
         qp.drawPath(drawpath)
-    
+
         #if extra_shapes:
             #heart_center_x = start.x() + end.x()/2 
             
