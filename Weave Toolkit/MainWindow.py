@@ -62,11 +62,6 @@ class DrawingWidget(QWidget):
         self.begin = QPoint()
         self.end = QPoint()
         self.drawing_mode = False
-
-        #start = QPoint(200, 200)  # Top-left corner of the heart
-        #end = QPoint(300, 300)  # Bottom-right corner of the heart
-        #self.shapes.append([start, end, ShapeMode.Heart, QColor(255, 0, 0, 255)])
-
         self.show()
 
     # Draws the current shape
@@ -79,7 +74,7 @@ class DrawingWidget(QWidget):
 
         # Draw the current shape being created
         qp.setBrush(SHAPE_COLOR)
-        WeaveView.drawHeart(self, qp, self.begin, self.end, SHAPE_COLOR, isFilled=False, isOutline=True)
+        
         if self.begin != self.end:
             if (SHAPE_MODE == ShapeMode.Square):
                 qp.drawRect(QRect(self.begin, self.end))

@@ -12,11 +12,6 @@ class WeaveView(QGraphicsView):
         self.begin = QPoint()
         self.end = QPoint()
 
-        #start = QPoint(0, 0)  # Top-left corner of the heart
-        #end = QPoint(1170, 530) # Bottom-right corner of the heart
-        #self.heartList.append([start, end, ShapeMode.Heart, QColor(255, 0, 0, 255)])
-        #self.drawHeartOutLine()
-
     def setShapes(self, shapes):
         self.designShapes = shapes
         self.viewport().update()
@@ -41,9 +36,6 @@ class WeaveView(QGraphicsView):
             painter.drawLine(0, y, self.width(), y)
 
     def drawShapes(self, painter):
-        #heart = self.heartList[0]
-        #start, end, shape_type, color = heart
-        #self.drawHeart(painter, start, end, color, isFilled=True)
         self.drawHeart(painter, None, None, None, isFilled=True, isOutline=True)
         for shape in self.designShapes:
             shape_type = shape[2]
