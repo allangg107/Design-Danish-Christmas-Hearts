@@ -48,13 +48,12 @@ from PyQt6.QtGui import (
     QPainterPath
 )
 
-# Global variable for the shape mode
+# Global variables for the shape mode and shape color
 SHAPE_MODE = ShapeMode.Cursor
 SHAPE_COLOR = QColor(0, 0, 0, 255)
 
-
 class DrawingWidget(QWidget):
-    # Defining the initial state
+    # Defining the initial state of the canvas
     def __init__(self):
         super().__init__()
         self.shapes = [] #Stores shapes
@@ -64,7 +63,7 @@ class DrawingWidget(QWidget):
         self.drawing_mode = False
         self.show()
 
-    # Draws the current shape
+    # Draws the current canvas state
     def paintEvent(self, event):
         qp = QPainter(self)
         qp.setBrush(SHAPE_COLOR)
@@ -72,9 +71,9 @@ class DrawingWidget(QWidget):
         # Redraw all the previous shapes
         self.redrawAllShapes(qp)
 
-        # Draw the current shape being created
         qp.setBrush(SHAPE_COLOR)
-        
+
+        # Draw the current shape being created
         if self.begin != self.end:
             if (SHAPE_MODE == ShapeMode.Square):
                 qp.drawRect(QRect(self.begin, self.end))
@@ -85,10 +84,9 @@ class DrawingWidget(QWidget):
             elif (SHAPE_MODE == ShapeMode.Heart):
                 WeaveView.drawHeart(self, qp, self.begin, self.end, SHAPE_COLOR)
 
-
     # Redraws all the shapes, while removing the ones that are erased
     def redrawAllShapes(self, qp):
-        
+
         for shape in self.shapes[:]:  # Use a copy of the list to avoid modification issues
             shape_type = shape[2]
             qp.setBrush(shape[3])
@@ -108,7 +106,7 @@ class DrawingWidget(QWidget):
                         self.shapes.remove(shape)
                         continue  # Skip drawing since it's erased
                 elif shape_type == ShapeMode.Heart:
-                    if self.RemoveHeart(point, shape[0], shape[1]):
+                    if self.removeHeart(point, shape[0], shape[1]):
                         self.shapes.remove(shape)
                         continue  # Skip drawing since it's erased
             # Draw the shape
@@ -121,16 +119,14 @@ class DrawingWidget(QWidget):
             elif shape_type == ShapeMode.Heart:
                 WeaveView.drawHeart(self ,qp, shape[0], shape[1], shape[3])
 
-    
-
-    def RemoveHeart(self, point, start, end):
+    def removeHeart(self, point, start, end):
         width = abs(end.x() - start.x())
         height = abs(end.y() - start.y())
         x_offset, y_offset = start.x() + width // 2, start.y() + height // 2
 
         # Scale factor
-        scale_x = width / 32  
-        scale_y = height / 32  
+        scale_x = width / 32
+        scale_y = height / 32
 
         # Check if the point is inside the heart shape using parametric equations
         t = 0
@@ -145,7 +141,7 @@ class DrawingWidget(QWidget):
             t += 0.1
 
         return False  # Point is outside the heart
-    
+
     def mousePressEvent(self, event):
         if self.drawing_mode:
             self.begin = event.pos()
@@ -167,9 +163,6 @@ class DrawingWidget(QWidget):
     def set_drawing_mode(self, enabled):
         self.drawing_mode = enabled
         self.update()
-
-
-
 
 # Subclass QMainWindow to customize your application's main window
 class MainWindow(QMainWindow):
@@ -275,14 +268,21 @@ class MainWindow(QMainWindow):
         view_menu.setStyleSheet("color: black;")
         action_zoom = QAction("Zoom", self)
         action_fullscreen = QAction("Fullscreen", self)
+        action_gridlines = QAction("Toggle Gridlines", self)
+        action_background_color = QAction("Change Background Color", self)
+        action_print_size = QAction("Change Print Size", self)
         view_menu.addAction(action_zoom)
         view_menu.addAction(action_fullscreen)
+        view_menu.addAction(action_gridlines)
+        view_menu.addAction(action_background_color)
+        view_menu.addAction(action_print_size)
 
         return view_menu
 
     def updateDisplay(self):
         self.stacked_widget.setCurrentWidget(self.weave_widget)
         self.weave_widget.setShapes(self.drawing_widget.shapes)
+        self.save_canvas_as_png()
         #self.display_widget.show()
 
     def editDisplay(self):
@@ -331,7 +331,7 @@ class MainWindow(QMainWindow):
         if shape_mode == ShapeMode.Cursor:
             self.drawing_widget.set_drawing_mode(False)
         elif shape_mode == ShapeMode.Eraser:
-            self.drawing_widget.begin = QPoint(-1, -1) # Reset the begin point so the most recent shape isn't erased
+            self.drawing_widget.begin = QPoint(-1, -1) # Reset the begin and end points so the most recent shape isn't erased
             self.drawing_widget.end = QPoint(-1, -1)
             self.drawing_widget.set_drawing_mode(True)
         else:
@@ -350,11 +350,33 @@ class MainWindow(QMainWindow):
             button.clicked.connect(partial(self.change_color, color_value))
             colors_toolbar.addWidget(button)
 
+        rainbow_button = QPushButton("Rainbow Button", self)
+        rainbow_button.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(
+                    x1: 0, y1: 0, x2: 1, y2: 0,
+                    stop: 0 #FF0000,
+                    stop: 0.16 #FF7F00,
+                    stop: 0.33 #FFFF00,
+                    stop: 0.5 #00FF00,
+                    stop: 0.66 #0000FF,
+                    stop: 0.83 #4B0082,
+                    stop: 1 #8B00FF
+                );
+            }
+        """)
+        colors_toolbar.addWidget(rainbow_button)
+
         return colors_toolbar
 
     def change_color(self, color):
         global SHAPE_COLOR
         SHAPE_COLOR = QColor(color)
+
+    def save_canvas_as_png(self, filename="canvas_output.png"):
+        pixmap = QPixmap(self.drawing_widget.size())  # Create pixmap of the same size
+        self.drawing_widget.render(pixmap)  # Render the widget onto the pixmap
+        pixmap.save(filename, "PNG")  # Save as PNG
 
 
 app = QApplication(sys.argv)
