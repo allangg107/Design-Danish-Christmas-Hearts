@@ -4,7 +4,9 @@ from enum import (
 
 class ShapeMode(Enum):
     Cursor = 0
-    Eraser = 1
-    Square = 2
-    Circle = 3
-    Heart = 4
+    FreeForm = 1
+    Eraser = 2
+    Line = 3
+    Square = 4
+    Circle = 5
+    Heart = 6

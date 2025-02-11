@@ -51,12 +51,14 @@ from PyQt6.QtGui import (
 # Global variables for the shape mode and shape color
 SHAPE_MODE = ShapeMode.Cursor
 SHAPE_COLOR = QColor(0, 0, 0, 255)
+PEN_WIDTH = 3
 
 class DrawingWidget(QWidget):
     # Defining the initial state of the canvas
     def __init__(self):
         super().__init__()
         self.shapes = [] #Stores shapes
+        self.free_form_points = []  # Store points for free form drawing
         self.setGeometry(30,30,600,400)
         self.begin = QPoint()
         self.end = QPoint()
@@ -72,8 +74,9 @@ class DrawingWidget(QWidget):
         self.redrawAllShapes(qp)
 
         qp.setBrush(SHAPE_COLOR)
+        qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
 
-        # Draw the current shape being created
+        # Draws the current shape as it is being created
         if self.begin != self.end:
             if (SHAPE_MODE == ShapeMode.Square):
                 qp.drawRect(QRect(self.begin, self.end))
@@ -83,6 +86,11 @@ class DrawingWidget(QWidget):
                 qp.drawEllipse(center, radius, radius)
             elif (SHAPE_MODE == ShapeMode.Heart):
                 WeaveView.drawHeart(self, qp, self.begin, self.end, SHAPE_COLOR)
+            elif (SHAPE_MODE == ShapeMode.Line):
+                qp.drawLine(self.begin, self.end)
+            elif SHAPE_MODE == ShapeMode.FreeForm:
+                for free_form_point in range(len(self.free_form_points) - 1):
+                    qp.drawLine(self.free_form_points[free_form_point], self.free_form_points[free_form_point + 1])
 
     # Redraws all the shapes, while removing the ones that are erased
     def redrawAllShapes(self, qp):
@@ -90,6 +98,7 @@ class DrawingWidget(QWidget):
         for shape in self.shapes[:]:  # Use a copy of the list to avoid modification issues
             shape_type = shape[2]
             qp.setBrush(shape[3])
+            qp.setPen(QPen(shape[3], PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)) # pen width should needs to be saved in the shape list
             # if in eraser mode, removes shapes that contain the point clicked
             if SHAPE_MODE == ShapeMode.Eraser:
                 point = self.begin
@@ -97,19 +106,28 @@ class DrawingWidget(QWidget):
                     rect = QRect(shape[0], shape[1])
                     if rect.contains(point):
                         self.shapes.remove(shape)
-                        continue  # Skip drawing since it's erased
+                        # continue  # Skip drawing since it's erased
                 elif shape_type == ShapeMode.Circle:
                     center = shape[0]
                     radius = int((abs(center.x() - shape[1].x()) + abs(center.y() - shape[1].y())) / 2)
                     distance = ((point.x() - center.x()) ** 2 + (point.y() - center.y()) ** 2) ** 0.5
                     if distance <= radius:
                         self.shapes.remove(shape)
-                        continue  # Skip drawing since it's erased
+                        # continue  # Skip drawing since it's erased
                 elif shape_type == ShapeMode.Heart:
-                    if self.removeHeart(point, shape[0], shape[1]):
+                    if self.heartContainsPoint(point, shape[0], shape[1]):
                         self.shapes.remove(shape)
-                        continue  # Skip drawing since it's erased
-            # Draw the shape
+                        # continue  # Skip drawing since it's erased
+                elif shape_type == ShapeMode.Line:
+                    if self.lineContainsPoint(point, shape[0], shape[1]):
+                        self.shapes.remove(shape)
+                        # continue # Skip drawing since it's erased
+                # elif shape_type == ShapeMode.FreeForm:
+                #     for free_form_point in range(len(shape[4]) - 1):
+                #         if self.lineContainsPoint(point, shape[4][free_form_point], shape[4][free_form_point + 1]):
+                #             self.shapes.remove(shape)
+                #             break  # Skip drawing since it's erased
+            # Draw the shape if not in eraser mode
             if shape_type == ShapeMode.Square:
                 qp.drawRect(QRect(shape[0], shape[1]))
             elif shape_type == ShapeMode.Circle:
@@ -118,8 +136,25 @@ class DrawingWidget(QWidget):
                 qp.drawEllipse(center, radius, radius)
             elif shape_type == ShapeMode.Heart:
                 WeaveView.drawHeart(self ,qp, shape[0], shape[1], shape[3])
+            elif shape_type == ShapeMode.Line:
+                qp.drawLine(shape[0], shape[1])
+            elif shape_type == ShapeMode.FreeForm:
+                for free_form_point in range(len(shape[4]) - 1):
+                    qp.drawLine(shape[4][free_form_point], shape[4][free_form_point + 1])
 
-    def removeHeart(self, point, start, end):
+    # Checks if the point is within a certain threshold of the line
+    def lineContainsPoint(self, point, begin, end, threshold=4.0):
+        area = abs((end.x() - begin.x()) * (begin.y() - point.y()) - (begin.x() - point.x()) * (end.y() - begin.y()))
+        line_length = math.sqrt((end.x() - begin.x())**2 + (end.y() - begin.y())**2)
+        
+        distance = area / line_length
+        
+        within_bounds = (min(begin.x(), end.x()) <= point.x() <= max(begin.x(), end.x())) and \
+                        (min(begin.y(), end.y()) <= point.y() <= max(begin.y(), end.y()))
+                        
+        return distance <= threshold and within_bounds
+    
+    def heartContainsPoint(self, point, start, end):
         width = abs(end.x() - start.x())
         height = abs(end.y() - start.y())
         x_offset, y_offset = start.x() + width // 2, start.y() + height // 2
@@ -146,16 +181,24 @@ class DrawingWidget(QWidget):
         if self.drawing_mode:
             self.begin = event.pos()
             self.end = event.pos()
+            if SHAPE_MODE == ShapeMode.FreeForm:
+                self.free_form_points = [event.position().toPoint()]
             self.update()
 
     def mouseMoveEvent(self, event):
         if self.drawing_mode:
             self.end = event.pos()
+            if SHAPE_MODE == ShapeMode.FreeForm:
+                self.free_form_points.append(event.position().toPoint())
             self.update()
 
     def mouseReleaseEvent(self, event):
         if self.drawing_mode:
-            self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR])
+            if SHAPE_MODE == ShapeMode.FreeForm:
+                self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, list(self.free_form_points)])
+            else:
+                self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR])
+
             self.begin = event.pos()
             self.end = event.pos()
             self.update()
@@ -167,7 +210,9 @@ class DrawingWidget(QWidget):
 # Subclass QMainWindow to customize your application's main window
 class MainWindow(QMainWindow):
     cursor_button = None
+    free_form_button = None
     eraser_button = None
+    line_button = None
     square_button = None
     circle_button = None
     heart_button = None
@@ -256,10 +301,12 @@ class MainWindow(QMainWindow):
         action_open = QAction("Open", self)
         action_save = QAction("Save", self)
         action_export = QAction("Export", self)
+        action_undo = QAction("Undo (shrt cut: ctrl + z)", self) # Need to implement stack to store shapes
         file_menu.addAction(action_new)
         file_menu.addAction(action_open)
         file_menu.addAction(action_save)
         file_menu.addAction(action_export)
+        file_menu.addAction(action_undo)
 
         return file_menu
 
@@ -293,36 +340,48 @@ class MainWindow(QMainWindow):
         shapes_toolbar = QToolBar("Shapes toolbar")
 
         # Cursor Button
-        MainWindow.cursor_button = self.createShapeButton("icons/cursor.png", "Cursor button", "This is the cursor button", ShapeMode.Cursor)
+        MainWindow.cursor_button = self.createShapeButton("icons/cursor.png", "Cursor", ShapeMode.Cursor)
         shapes_toolbar.addAction(MainWindow.cursor_button)
 
         shapes_toolbar.addSeparator()
 
+        # Free Form Button
+        MainWindow.free_form_button = self.createShapeButton("icons/free_form.png", "Free Form", ShapeMode.FreeForm)
+        shapes_toolbar.addAction(MainWindow.free_form_button)
+
+        shapes_toolbar.addSeparator()
+
         # Eraser Button
-        MainWindow.eraser_button = self.createShapeButton("icons/eraser.png", "Eraser button", "This is the eraser button", ShapeMode.Eraser)
+        MainWindow.eraser_button = self.createShapeButton("icons/eraser.png", "Eraser", ShapeMode.Eraser)
         shapes_toolbar.addAction(MainWindow.eraser_button)
 
         shapes_toolbar.addSeparator()
 
+        # Line Button
+        MainWindow.line_button = self.createShapeButton("icons/line.png", "Line", ShapeMode.Line)
+        shapes_toolbar.addAction(MainWindow.line_button)
+
+        shapes_toolbar.addSeparator()
+
         # Square Button
-        MainWindow.square_button = self.createShapeButton("icons/square.png", "Square button", "This is the square button", ShapeMode.Square)
+        MainWindow.square_button = self.createShapeButton("icons/square.png", "Square", ShapeMode.Square)
         shapes_toolbar.addAction(MainWindow.square_button)
 
         shapes_toolbar.addSeparator()
 
         # Circle Button
-        MainWindow.circle_button = self.createShapeButton("icons/circle.png", "Circle button", "This is the circle button", ShapeMode.Circle)
+        MainWindow.circle_button = self.createShapeButton("icons/circle.png", "Circle", ShapeMode.Circle)
         shapes_toolbar.addAction(MainWindow.circle_button)
 
         # Heart Button
-        MainWindow.heart_button = self.createShapeButton("icons/heart.png", "Heart button", "This is the heart button", ShapeMode.Heart)
+        MainWindow.heart_button = self.createShapeButton("icons/heart.png", "Heart", ShapeMode.Heart)
         shapes_toolbar.addAction(MainWindow.heart_button)
 
         return shapes_toolbar
 
-    def createShapeButton(self, icon_path, button_text, status_tip, shape_mode):
+    def createShapeButton(self, icon_path, button_text, shape_mode):
         shape_button = QAction(QIcon(icon_path), button_text, self)
-        shape_button.setStatusTip(status_tip)
+        # shape_button.setStatusTip(status_tip)
         shape_button.triggered.connect(lambda: self.setMode(shape_mode))
         return shape_button
 
