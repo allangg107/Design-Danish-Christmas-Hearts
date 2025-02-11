@@ -10,13 +10,59 @@ import numpy as np
 # 1. A PNG image which shows the weaving pattern (to be used by CriCut for laser cutting)
 # 2. Assembly instructions to guide the user in weaving the output image
 
-def drawLines(matrix):
-    line_color = [0,0,0]
-    for i in range(3,8):
-        matrix[i,:] = line_color
-        matrix[-i,:] = line_color
+# def drawLines(matrix):
+#     line_color = [0,0,0]
+#     for i in range(3,8):
+#         matrix[i,:] = line_color
+#         matrix[-i,:] = line_color
 
-    return matrix
+#     return matrix
+def padArray (matrix, row_padding, column_padding):
+  return np.pad(matrix, ((row_padding,row_padding),(column_padding,column_padding),(0,0)), constant_values=255), column_padding
+
+def drawLines(matrix, margin = 0, line_start = 0, isHollow = False, iter = 1):
+    line_color = (0, 0, 0)  # Black color
+    background_color = (255,255,255)
+    height, width, _ = matrix.shape
+    
+      
+    # Define inner horizontal lines
+    line_y1 = margin * 2 # First line (upper)
+    line_y2 = height-margin * 2  # Second line (lower)
+    line_x_start = line_start  # Left side start
+    line_x_end = width  # Right side end
+
+    # Define outer horizontal lines
+    line_y3 = margin # First line (upper)
+    line_y4 = height-margin  # Second line (lower)
+    # Draw two inner horizontal lines
+    cv.line(matrix, (line_x_start, line_y1), (line_x_end, line_y1), line_color, thickness=2)
+    cv.line(matrix, (line_x_start, line_y2), (line_x_end, line_y2), line_color, thickness=2)
+
+    # Draw two outer horizontal lines
+    cv.line(matrix, (line_x_start, line_y3), (line_x_end, line_y3), line_color, thickness=2)
+    cv.line(matrix, (line_x_start, line_y4), (line_x_end, line_y4), line_color, thickness=2)
+    axes = (100, (line_y4 - line_y3) // 2)  # Small width, height matches the gap
+
+    
+    # Arch at the left end
+    center = (line_x_start, (line_y3 + line_y4) // 2)  # Middle of the height at the left edge
+    cv.ellipse(matrix, center, axes, 0, 90, 270, line_color, thickness=2) # Left-facing arch
+
+    if isHollow:
+      temp_matrix = matrix
+      matrix = np.hstack((matrix, np.flip(temp_matrix, axis=1)))
+      return matrix  
+    else:
+      if iter == 0:
+        return matrix
+      else:
+        temp_matrix = np.copy(matrix)
+        temp_matrix[:] = background_color
+        temp_matrix = drawLines(temp_matrix, margin, line_start=line_start, iter=0)
+        matrix = np.hstack((matrix, np.flip(temp_matrix, axis=1)))
+        return matrix
+
 
 def makeTrans(final_output_array, color):
     # Create an empty alpha channel (fully opaque)
@@ -35,9 +81,9 @@ matrix = np.array(image)
 
 print(matrix.shape)
 
-padded_array = np.pad(matrix, ((6,6),(1,1),(0,0)), constant_values=255)
+padded_array, canvas_extended_width = padArray (matrix, 30, 130)
 
-final_output_array = drawLines(padded_array)
+final_output_array = drawLines(padded_array, 10, canvas_extended_width, iter=1)
 
 print(padded_array.shape)  # (height, width, channels)
 
@@ -45,7 +91,7 @@ print(padded_array.shape)  # (height, width, channels)
 rgba_image = makeTrans(final_output_array, [255,255,255])
 
 # Save the 3D array as a PNG file
-cv.imwrite('output_image.png', rgba_image)
+cv.imwrite('output_image.png', final_output_array)
 
 
 
