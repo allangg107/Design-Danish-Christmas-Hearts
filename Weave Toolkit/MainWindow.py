@@ -122,11 +122,11 @@ class DrawingWidget(QWidget):
                     if self.lineContainsPoint(point, shape[0], shape[1]):
                         self.shapes.remove(shape)
                         # continue # Skip drawing since it's erased
-                # elif shape_type == ShapeMode.FreeForm:
-                #     for free_form_point in range(len(shape[4]) - 1):
-                #         if self.lineContainsPoint(point, shape[4][free_form_point], shape[4][free_form_point + 1]):
-                #             self.shapes.remove(shape)
-                #             break  # Skip drawing since it's erased
+                elif shape_type == ShapeMode.FreeForm:
+                    for free_form_point in range(len(shape[4]) - 1):
+                        if self.lineContainsPoint(point, shape[4][free_form_point], shape[4][free_form_point + 1]):
+                            self.shapes.remove(shape)
+                            break  # Skip drawing since it's erased
             # Draw the shape if not in eraser mode
             if shape_type == ShapeMode.Square:
                 qp.drawRect(QRect(shape[0], shape[1]))
@@ -147,6 +147,9 @@ class DrawingWidget(QWidget):
         area = abs((end.x() - begin.x()) * (begin.y() - point.y()) - (begin.x() - point.x()) * (end.y() - begin.y()))
         line_length = math.sqrt((end.x() - begin.x())**2 + (end.y() - begin.y())**2)
         
+        if line_length == 0:
+            return False
+
         distance = area / line_length
         
         within_bounds = (min(begin.x(), end.x()) <= point.x() <= max(begin.x(), end.x())) and \
