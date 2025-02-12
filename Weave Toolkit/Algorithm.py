@@ -144,17 +144,20 @@ def showHeart(matrix, margin=10, line_start = 0):
   
   temp_matrix = np.copy(matrix)
   temp_matrix = createHeartCuts(temp_matrix, margin, line_start, sides='blank', lines='None')
-  temp_matrix = rotateImage(temp_matrix, angle= -150)
-  matrix = rotateImage(matrix, angle=-60)
-  matrix = np.pad(matrix, ((0,0),(0,500),(0,0)), constant_values=255)
-  
+  temp_matrix = rotateImage(temp_matrix, angle= -90)
+  #temp_matrix.resize((689,689,3))
+  #matrix = rotateImage(matrix, angle=-60)
+  matrix = np.pad(matrix, ((200,0),(0,200),(0,0)), constant_values=255)
+  #temp_matrix = np.pad(temp_matrix, ((0,0),(0,81),(0,0)), constant_values=255)
+  #final_matrix = np.vstack((temp_matrix,np.flip(matrix)))
   h, w, _ = temp_matrix.shape
-  y_start, x_start = 50, 120  # Adjust these for placement
+  y_start, x_start = 50, 130  # Adjust these for placement
   y_end, x_end = min(y_start + h, matrix.shape[0]), min(x_start + w, matrix.shape[1])
 
   # # Only draw black pixels from temp_matrix
   mask = np.all(temp_matrix == [0, 0, 0], axis=-1)  # Find black pixels
   matrix[y_start:y_end, x_start:x_end][mask[:y_end-y_start, :x_end-x_start]] = [0, 0, 0]
+  matrix = rotateImage(matrix, angle=-45)
   return  matrix
 
 matrix = preProcessing("canvas_output.png")
