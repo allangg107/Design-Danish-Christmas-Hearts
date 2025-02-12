@@ -17,7 +17,8 @@ from PyQt6.QtCore import (
     QRectF,
     QRect,
     QPoint,
-    QPointF
+    QPointF,
+    QEvent
 )
 
 from PyQt6.QtWidgets import  (
@@ -34,7 +35,9 @@ from PyQt6.QtWidgets import  (
     QWidgetAction,
     QStackedLayout,
     QStackedWidget,
-    QGraphicsScene
+    QGraphicsScene,
+    QGraphicsView,
+    QGraphicsProxyWidget
 )
 
 from PyQt6.QtGui import (
@@ -45,7 +48,9 @@ from PyQt6.QtGui import (
     QPen,
     QBrush,
     QPixmap,
-    QPainterPath
+    QPainterPath,
+    QImage,
+    QTransform
 )
 
 # Global variables for the shape mode and shape color
@@ -55,8 +60,9 @@ PEN_WIDTH = 3
 
 class DrawingWidget(QWidget):
     # Defining the initial state of the canvas
-    def __init__(self):
+    def __init__(self, main_window):
         super().__init__()
+        self.main_window = main_window
         self.shapes = [] #Stores shapes
         self.free_form_points = []  # Store points for free form drawing
         self.setGeometry(30,30,600,400)
@@ -69,6 +75,10 @@ class DrawingWidget(QWidget):
     def paintEvent(self, event):
         qp = QPainter(self)
         qp.setBrush(SHAPE_COLOR)
+        # Fill the background with white color
+        qp.fillRect(self.rect(), Qt.GlobalColor.lightGray)
+
+        self.drawRotatedSquareEffect(qp)
 
         # Redraw all the previous shapes
         self.redrawAllShapes(qp)
@@ -92,6 +102,54 @@ class DrawingWidget(QWidget):
                 for free_form_point in range(len(self.free_form_points) - 1):
                     qp.drawLine(self.free_form_points[free_form_point], self.free_form_points[free_form_point + 1])
 
+    def drawRotatedSquareEffect(self, qp):
+        pen = QPen(Qt.GlobalColor.black, 3)
+        qp.setPen(pen)
+        brush = QBrush(Qt.GlobalColor.lightGray)
+        qp.setBrush(brush)
+
+        width, height = self.width(), self.height()
+        margin = 0
+
+        # Coordinates of the corners of the outer square
+        x1, y1 = margin, margin
+        x2, y2 = width - margin, height - margin
+
+        # Drawing outer square
+        qp.drawRect(x1, y1, x2 - x1, y2 - y1)
+
+        # Calculate the center and half-diagonal
+        center_x, center_y = (x1 + x2) / 2, (y1 + y2) / 2
+
+        # Coordinates of the corners of the inner rotated square
+        inner_coords = [
+            (center_x, y1),
+            (x2, center_y),
+            (center_x, y2),
+            (x1, center_y)
+        ]
+
+        # Drawing inner rotated square with white fill
+        brush = QBrush(Qt.GlobalColor.white)
+        qp.setBrush(brush)
+        path = QPainterPath()
+        path.moveTo(inner_coords[0][0], inner_coords[0][1])
+        for point in inner_coords[1:]:
+            path.lineTo(point[0], point[1])
+        path.closeSubpath()
+        qp.drawPath(path)
+
+        # Draw the edges of the inner rotated square
+        for i in range(len(inner_coords)):
+            qp.drawLine(int(inner_coords[i][0]), int(inner_coords[i][1]),
+                             int(inner_coords[(i+1) % len(inner_coords)][0]),
+                             int(inner_coords[(i+1) % len(inner_coords)][1]))
+        
+        pen = QPen(SHAPE_COLOR, PEN_WIDTH)
+        qp.setPen(pen)
+        brush = QBrush(SHAPE_COLOR)
+        qp.setBrush(brush)
+    
     # Redraws all the shapes, while removing the ones that are erased
     def redrawAllShapes(self, qp):
 
@@ -142,6 +200,13 @@ class DrawingWidget(QWidget):
                 for free_form_point in range(len(shape[4]) - 1):
                     qp.drawLine(shape[4][free_form_point], shape[4][free_form_point + 1])
 
+    def get_drawing_image(self):
+        image = QImage(self.size(), QImage.Format.Format_ARGB32)
+        image.fill(Qt.GlobalColor.transparent)  # Fill with transparent color
+        painter = QPainter(image)
+        self.render(painter)  # Render the current drawing to the image
+        return image
+    
     # Checks if the point is within a certain threshold of the line
     def lineContainsPoint(self, point, begin, end, threshold=4.0):
         area = abs((end.x() - begin.x()) * (begin.y() - point.y()) - (begin.x() - point.x()) * (end.y() - begin.y()))
@@ -205,6 +270,7 @@ class DrawingWidget(QWidget):
             self.begin = event.pos()
             self.end = event.pos()
             self.update()
+            self.main_window.update_backside_image()
 
     def set_drawing_mode(self, enabled):
         self.drawing_mode = enabled
@@ -229,7 +295,7 @@ class MainWindow(QMainWindow):
         # Create the central widget
         central_widget = QWidget(self)
         self.setCentralWidget(central_widget)
-        main_layout = QHBoxLayout(central_widget)
+        main_layout = QVBoxLayout(central_widget)
 
         # Create the Menu toolbar
         menu_toolbar = self.createMenuToolbar()
@@ -243,9 +309,25 @@ class MainWindow(QMainWindow):
         colors_toolbar = self.createColorsToolbar()
         main_layout.addWidget(colors_toolbar)
 
-        # Create the Drawing widget (where users draw)
-        self.drawing_widget = DrawingWidget()
-        main_layout.addWidget(self.drawing_widget)
+        # Create the Drawing space (where users draw)
+        self.drawing_layout = QHBoxLayout()
+        self.drawing_widget = DrawingWidget(self)
+        self.drawing_backside = QLabel(self)
+        
+        # (drawing_widget background color controlled in the DrawingWidget class inside paintEvent)
+        # (drawing_backside background color copied from drawing_widget)        
+
+        self.drawing_layout.addWidget(self.drawing_widget)
+        self.drawing_layout.addWidget(self.drawing_backside)
+
+        # Create the container widget and set the background color
+        self.drawing_container = QWidget()
+        self.drawing_container.setStyleSheet("background-color: lightgrey;")  # Set light grey background
+        self.drawing_container.setLayout(self.drawing_layout)
+
+
+        self.drawing_widget.installEventFilter(self)
+        # main_layout.addWidget(self.drawing_widget)
 
         # Create the output display widget
         #self.display_widget = QLabel(self)
@@ -264,15 +346,31 @@ class MainWindow(QMainWindow):
 
         # Create a stacked widget to switch between views
         self.stacked_widget = QStackedWidget(self)
-        self.stacked_widget.addWidget(self.drawing_widget)
-        #self.stacked_widget.addWidget(self.weave_widget)
+        self.stacked_widget.addWidget(self.drawing_container)
+        self.stacked_widget.addWidget(self.weave_widget)
         main_layout.addWidget(self.stacked_widget)
 
+        self.drawing_widget.setFixedSize(500, 500)
+        self.drawing_backside.setFixedSize(500, 500)
         self.setFixedSize(QSize(1200, 700))
+        # self.setWindowState(Qt.WindowState.WindowMaximized)
+
+        self.update_backside_image()
+
+    def eventFilter(self, source, event):
+        if event.type() == QEvent.Type.MouseButtonRelease and source == self.drawing_widget:
+            self.update_backside_image()
+        return super().eventFilter(source, event)
+
+    
+    def update_backside_image(self):
+        drawing_image = self.drawing_widget.get_drawing_image()
+        mirrored_image = drawing_image.mirrored(True, False)  # Mirror horizontally
+        pixmap = QPixmap.fromImage(mirrored_image)
+        self.drawing_backside.setPixmap(pixmap)
 
     def createMenuToolbar(self):
         menu_toolbar = QToolBar("Menu toolbar")
-        menu_toolbar.setOrientation(Qt.Orientation.Vertical)
 
         file_button = QPushButton("File", self)
         file_button.setStyleSheet("background-color: lightgray; color: black;")
@@ -320,11 +418,13 @@ class MainWindow(QMainWindow):
         action_zoom = QAction("Zoom", self)
         action_fullscreen = QAction("Fullscreen", self)
         action_gridlines = QAction("Toggle Gridlines", self)
+        action_show_backside = QAction("Show/Hide Backside", self)
         action_background_color = QAction("Change Background Color", self)
         action_print_size = QAction("Change Print Size", self)
         view_menu.addAction(action_zoom)
         view_menu.addAction(action_fullscreen)
         view_menu.addAction(action_gridlines)
+        view_menu.addAction(action_show_backside)
         view_menu.addAction(action_background_color)
         view_menu.addAction(action_print_size)
 
