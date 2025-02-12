@@ -20,6 +20,31 @@ import numpy as np
 def padArray (matrix, row_padding, column_padding):
   return np.pad(matrix, ((row_padding,row_padding),(column_padding,column_padding),(0,0)), constant_values=255), column_padding
 
+def rotateImage(matrix, angle=-60):
+    """ Rotates an image by a given angle without cropping. """
+    height, width = matrix.shape[:2]
+
+    # Get the center of the image
+    center = (width // 2, height // 2)
+
+    # Compute the rotation matrix
+    rotation_matrix = cv.getRotationMatrix2D(center, angle, 1.0)
+
+    # Compute the new bounding dimensions
+    abs_cos = abs(rotation_matrix[0, 0])
+    abs_sin = abs(rotation_matrix[0, 1])
+    new_width = int(height * abs_sin + width * abs_cos)
+    new_height = int(height * abs_cos + width * abs_sin)
+
+    # Adjust the rotation matrix to keep the image centered
+    rotation_matrix[0, 2] += (new_width - width) / 2
+    rotation_matrix[1, 2] += (new_height - height) / 2
+
+    # Rotate the image
+    rotated_matrix = cv.warpAffine(matrix, rotation_matrix, (new_width, new_height), borderValue=(255, 255, 255))
+
+    return rotated_matrix
+
 def createHeartCuts(matrix, margin = 0, line_start = 0, sides='onesided'):
     line_color = (0, 0, 0)  # Black color
     background_color = (255,255,255)
@@ -78,18 +103,45 @@ def createHeartCuts(matrix, margin = 0, line_start = 0, sides='onesided'):
       final_matrix = np.vstack((matrix, temp_matrix))
       return final_matrix    
        
-
-
 def makeTrans(final_output_array, color):
     # Create an empty alpha channel (fully opaque)
     alpha_channel = np.ones((final_output_array.shape[0], final_output_array.shape[1]), dtype=np.uint8) * 255  # Fully opaque
-      # Find where the matrix is white (background)
+    # Find where the matrix is white (background)
     colored_pixels = np.all(final_output_array == color, axis=-1)
-      # Set alpha channel to 0 (fully transparent) where the pixels are white
+    # Set alpha channel to 0 (fully transparent) where the pixels are white
     alpha_channel[colored_pixels] = 0
-      # Create an RGBA image by adding the alpha channel to the original matrix
+    # Create an RGBA image by adding the alpha channel to the original matrix
     rgba_image = np.dstack((final_output_array, alpha_channel))
     return rgba_image
+
+def showHeart(matrix, margin=10, line_start = 0): 
+  line_color = (0, 0, 0)  # Black color
+  background_color = (255,255,255)
+  height, width, _ = matrix.shape
+  line_x_start = line_start  # Left side start
+  line_x_end = width  # Right side end
+  line_y1 = margin # First line (upper)
+  line_y2 = height-margin  # Second line (lower)
+  
+  # Draw two outer horizontal lines
+  cv.line(matrix, (line_x_start, line_y1), (line_x_end, line_y1), line_color, thickness=2)
+  cv.line(matrix, (line_x_start, line_y2), (line_x_end, line_y2), line_color, thickness=2)
+  axes = (100, (line_y2 - line_y1) // 2)  # Small width, height matches the gap
+
+  # Arch at the left end
+  center = (line_x_start, (line_y1 + line_y2) // 2)  # Middle of the height at the left edge
+  cv.ellipse(matrix, center, axes, 0, 90, 270, line_color, thickness=2) # Left-facing arch
+  temp_matrix = np.copy(matrix)
+  #temp_matrix = temp_matrix[:] = background_color
+  temp_matrix = createHeartCuts(temp_matrix, margin, line_start, sides='blank')
+  temp_matrix = rotateImage(temp_matrix, angle= -120)
+  matrix = rotateImage(matrix)
+  black_pixels = np.all(temp_matrix == [0, 0, 0], axis=-1)
+  matrix[black_pixels] = [0, 0, 0]
+  #final_matrix = np.hstack((matrix, temp_matrix))
+  #final_matrix = matrix[temp_matrix]
+  #print ("temp", temp_matrix)
+  return  matrix #final_matrix
 
 image = cv.imread("canvas_output.png", cv.IMREAD_UNCHANGED)  # Load as is (including alpha)
 
@@ -97,17 +149,20 @@ matrix = np.array(image)
 
 print(matrix.shape)
 
-padded_array, canvas_extended_width = padArray (matrix, 40, 130)
+padded_array, canvas_extended_width = padArray(matrix, 40, 130)
+test_matrix = np.copy(matrix) 
+test_matrix_padded, canvas_width = padArray(test_matrix, 40, 130)
 
 final_output_array = createHeartCuts(padded_array, 10, canvas_extended_width, 'onesided')
 
 print(padded_array.shape)  # (height, width, channels)
-
+test_matrix = showHeart(test_matrix_padded, 10, canvas_width)
 # second input is background color user chooses from MainWindow wip
 rgba_image = makeTrans(final_output_array, [255,255,255])
 
 # Save the 3D array as a PNG file
-cv.imwrite('output_image.png', rgba_image)
+cv.imwrite('output_image.png', final_output_array)
+cv.imwrite('image.png', test_matrix)
 
 
 
