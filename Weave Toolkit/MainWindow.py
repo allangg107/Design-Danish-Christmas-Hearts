@@ -229,7 +229,7 @@ class MainWindow(QMainWindow):
         # Create the central widget
         central_widget = QWidget(self)
         self.setCentralWidget(central_widget)
-        main_layout = QVBoxLayout(central_widget)
+        main_layout = QHBoxLayout(central_widget)
 
         # Create the Menu toolbar
         menu_toolbar = self.createMenuToolbar()
@@ -265,13 +265,14 @@ class MainWindow(QMainWindow):
         # Create a stacked widget to switch between views
         self.stacked_widget = QStackedWidget(self)
         self.stacked_widget.addWidget(self.drawing_widget)
-        self.stacked_widget.addWidget(self.weave_widget)
+        #self.stacked_widget.addWidget(self.weave_widget)
         main_layout.addWidget(self.stacked_widget)
 
         self.setFixedSize(QSize(1200, 700))
 
     def createMenuToolbar(self):
         menu_toolbar = QToolBar("Menu toolbar")
+        menu_toolbar.setOrientation(Qt.Orientation.Vertical)
 
         file_button = QPushButton("File", self)
         file_button.setStyleSheet("background-color: lightgray; color: black;")
