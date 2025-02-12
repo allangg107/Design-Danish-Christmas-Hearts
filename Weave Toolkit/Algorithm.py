@@ -45,7 +45,7 @@ def rotateImage(matrix, angle=-60):
 
     return rotated_matrix
 
-def createHeartCuts(matrix, margin = 10, line_start = 0, sides='onesided'):
+def createHeartCuts(matrix, margin = 10, line_start = 0, sides='onesided', lines='both'):
     line_color = (0, 0, 0)  # Black color
     background_color = (255,255,255)
     height, width, _ = matrix.shape
@@ -61,9 +61,10 @@ def createHeartCuts(matrix, margin = 10, line_start = 0, sides='onesided'):
     line_y3 = margin # First line (upper)
     line_y4 = height-margin  # Second line (lower)
 
-    # Draw two inner horizontal lines
-    cv.line(matrix, (line_x_start, line_y1), (line_x_end, line_y1), line_color, thickness=3)
-    cv.line(matrix, (line_x_start, line_y2), (line_x_end, line_y2), line_color, thickness=3)
+    if lines=='both':
+      # Draw two inner horizontal lines
+      cv.line(matrix, (line_x_start, line_y1), (line_x_end, line_y1), line_color, thickness=3)
+      cv.line(matrix, (line_x_start, line_y2), (line_x_end, line_y2), line_color, thickness=3)
 
     # Draw two outer horizontal lines
     cv.line(matrix, (line_x_start, line_y3), (line_x_end, line_y3), line_color, thickness=3)
@@ -72,7 +73,7 @@ def createHeartCuts(matrix, margin = 10, line_start = 0, sides='onesided'):
 
     # Arch at the left end
     center = (line_x_start, (line_y3 + line_y4) // 2)  # Middle of the height at the left edge
-    cv.ellipse(matrix, center, axes, 0, 90, 270, line_color, thickness=10) # Left-facing arch
+    cv.ellipse(matrix, center, axes, 0, 90, 270, line_color, thickness=3) # Left-facing arch
 
     # Does nothing just exists to prevent infinite recursion i.e. it is the recursive stop
     if sides == 'None':
@@ -82,14 +83,14 @@ def createHeartCuts(matrix, margin = 10, line_start = 0, sides='onesided'):
     # Creates a blank pattern on one side of one half of the heart
     elif sides == 'blank':
       matrix[:] = background_color
-      matrix = createHeartCuts(matrix, margin, line_start=line_start, sides='None')
+      matrix = createHeartCuts(matrix, margin, line_start=line_start, sides='None', lines=lines)
       return matrix
     
     # Creates the pattern on both sides of one half of the heart
     elif sides == 'twosided':
       temp_matrix = np.copy(matrix)
       matrix = np.hstack((matrix, np.flip(matrix, axis=1)))
-      temp_matrix = createHeartCuts(temp_matrix, margin, line_start=line_start, sides='blank')
+      temp_matrix = createHeartCuts(temp_matrix, margin, line_start=line_start, sides='blank', lines=lines)
       temp_matrix = np.hstack((temp_matrix, np.flip(temp_matrix, axis=1)))
       final_matrix = np.vstack((matrix, temp_matrix))
       return final_matrix
@@ -97,7 +98,7 @@ def createHeartCuts(matrix, margin = 10, line_start = 0, sides='onesided'):
     # Creates the pattern on one side of one half of the heart
     elif sides == 'onesided':
       temp_matrix = np.copy(matrix)
-      temp_matrix = createHeartCuts(temp_matrix, margin, line_start=line_start, sides='blank')
+      temp_matrix = createHeartCuts(temp_matrix, margin, line_start=line_start, sides='blank', lines=lines)
       matrix = np.hstack((matrix, np.flip(temp_matrix, axis=1)))
       temp_matrix = np.hstack((temp_matrix, np.flip(temp_matrix, axis=1)))
       final_matrix = np.vstack((matrix, temp_matrix))
@@ -124,24 +125,29 @@ def showHeart(matrix, margin=10, line_start = 0):
   line_y2 = height-margin  # Second line (lower)
   
   # Draw two outer horizontal lines
-  cv.line(matrix, (line_x_start, line_y1), (line_x_end, line_y1), line_color, thickness=2)
-  cv.line(matrix, (line_x_start, line_y2), (line_x_end, line_y2), line_color, thickness=2)
+  cv.line(matrix, (line_x_start, line_y1), (line_x_end, line_y1), line_color, thickness=3)
+  cv.line(matrix, (line_x_start, line_y2), (line_x_end, line_y2), line_color, thickness=3)
   axes = (100, (line_y2 - line_y1) // 2)  # Small width, height matches the gap
 
   # Arch at the left end
   center = (line_x_start, (line_y1 + line_y2) // 2)  # Middle of the height at the left edge
-  cv.ellipse(matrix, center, axes, 0, 90, 270, line_color, thickness=2) # Left-facing arch
+  cv.ellipse(matrix, center, axes, 0, 90, 270, line_color, thickness=3) # Left-facing arch
+  
   temp_matrix = np.copy(matrix)
-  #temp_matrix = temp_matrix[:] = background_color
-  temp_matrix = createHeartCuts(temp_matrix, margin, line_start, sides='blank')
-  temp_matrix = rotateImage(temp_matrix, angle= -160)
-  matrix = rotateImage(matrix, angle=-80)
-  #black_pixels = np.all(temp_matrix == [0, 0, 0], axis=-1)
-  #matrix[black_pixels] = [0, 0, 0]
-  #final_matrix = np.hstack((matrix, temp_matrix))
-  #final_matrix = matrix[temp_matrix]
-  #print ("temp", temp_matrix)
-  return  temp_matrix #final_matrix
+  temp_matrix[:] = background_color
+  temp_matrix = createHeartCuts(temp_matrix, margin, line_start, sides='blank', lines='None')
+  temp_matrix = rotateImage(temp_matrix, angle= -150)
+  matrix = rotateImage(matrix, angle=-60)
+  matrix = np.pad(matrix, ((0,0),(0,500),(0,0)), constant_values=255)
+  
+  h, w, _ = temp_matrix.shape
+  y_start, x_start = 230, 320  # Adjust these for placement
+  y_end, x_end = min(y_start + h, matrix.shape[0]), min(x_start + w, matrix.shape[1])
+
+  # Only draw black pixels from temp_matrix
+  mask = np.all(temp_matrix == [0, 0, 0], axis=-1)  # Find black pixels
+  matrix[y_start:y_end, x_start:x_end][mask[:y_end-y_start, :x_end-x_start]] = [0, 0, 0]
+  return  matrix
 
 image = cv.imread("canvas_output.png", cv.IMREAD_UNCHANGED)  # Load as is (including alpha)
 
