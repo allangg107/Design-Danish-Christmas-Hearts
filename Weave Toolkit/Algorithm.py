@@ -44,13 +44,13 @@ def rotateImage(matrix, angle=-60):
 
     return rotated_matrix
 
-def preProcessing(image_path):
+def preProcessing(image):
   #image = cv.imread(image_path, cv.IMREAD_UNCHANGED)  # Load as is (including alpha)
   #print(image_path)
   # Converts image to a matrix and rotates the canvas
   #new_image = np.array(image_path)
-  new_image = image_path
-  new_image= rotateImage(new_image, angle=45)
+  #new_image = image
+  new_image= rotateImage(image, angle=45)
   
   # Removes the canvas lines and non-draw zones from the image
   matrix = new_image[180:-179,179:-180]

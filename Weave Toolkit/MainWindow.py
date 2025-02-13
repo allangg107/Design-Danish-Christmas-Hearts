@@ -5,9 +5,9 @@ import numpy as np
 
 from functools import partial
 
-from PatternOutput import (
-    WeaveView
-)
+#from PatternOutput import (
+#    WeaveView
+#)
 
 from ShapeMode import (
     ShapeMode
@@ -100,7 +100,7 @@ class DrawingWidget(QWidget):
                 radius = int((self.begin-self.end).manhattanLength() / 2)
                 qp.drawEllipse(center, radius, radius)
             elif (SHAPE_MODE == ShapeMode.Heart):
-                WeaveView.drawHeart(self, qp, self.begin, self.end, SHAPE_COLOR)
+                self.drawHeart(qp, self.begin, self.end, SHAPE_COLOR)
             elif (SHAPE_MODE == ShapeMode.Line):
                 qp.drawLine(self.begin, self.end)
             elif SHAPE_MODE == ShapeMode.FreeForm:
@@ -198,7 +198,7 @@ class DrawingWidget(QWidget):
                 radius = int((abs(center.x() - shape[1].x()) + abs(center.y() - shape[1].y())) / 2)
                 qp.drawEllipse(center, radius, radius)
             elif shape_type == ShapeMode.Heart:
-                WeaveView.drawHeart(self ,qp, shape[0], shape[1], shape[3])
+                self.drawHeart(qp, shape[0], shape[1], shape[3])
             elif shape_type == ShapeMode.Line:
                 qp.drawLine(shape[0], shape[1])
             elif shape_type == ShapeMode.FreeForm:
@@ -211,6 +211,32 @@ class DrawingWidget(QWidget):
         painter = QPainter(image)
         self.render(painter)  # Render the current drawing to the image
         return image
+    
+    def drawHeart(self, qp, start, end, color):
+        qp.setBrush(color)
+        drawpath = QPainterPath()
+        width = abs(end.x() - start.x())
+        height = abs(end.y() - start.y())
+        x_offset, y_offset = start.x() + width // 2, start.y() + height // 2
+
+        # Scale factor to fit heart inside the bounding box
+        scale_x = width / 32  
+        scale_y = height / 32  
+
+        # Start drawing the heart shape using parametric equations
+        t = 0
+        first_point = True
+        while t <= 2 * math.pi:
+            x = int(16 * math.sin(t) ** 3 * scale_x) + x_offset
+            y = int(- (13 * math.cos(t) - 5 * math.cos(2 * t) - 2 * math.cos(3 * t) - math.cos(4 * t)) * scale_y) + y_offset
+            
+            if first_point:
+                drawpath.moveTo(x, y)
+                first_point = False
+            else:
+                drawpath.lineTo(x, y)
+            t += 0.1
+        qp.drawPath(drawpath)
     
     # Checks if the point is within a certain threshold of the line
     def lineContainsPoint(self, point, begin, end, threshold=4.0):
@@ -345,14 +371,14 @@ class MainWindow(QMainWindow):
         self.scene = QGraphicsScene()
 
         # Create the WeaveView and add to the layout
-        self.weave_widget = WeaveView(self.scene)  # This is where the grid rendering happens
-        self.weave_widget.hide()  # Hide initially, show it on button click
-        main_layout.addWidget(self.weave_widget)
+        #self.weave_widget = WeaveView(self.scene)  # This is where the grid rendering happens
+        #self.weave_widget.hide()  # Hide initially, show it on button click
+        #main_layout.addWidget(self.weave_widget)
 
         # Create a stacked widget to switch between views
         self.stacked_widget = QStackedWidget(self)
         self.stacked_widget.addWidget(self.drawing_container)
-        self.stacked_widget.addWidget(self.weave_widget)
+        #self.stacked_widget.addWidget(self.weave_widget)
         main_layout.addWidget(self.stacked_widget)
 
         self.drawing_widget.setFixedSize(500, 500)
@@ -403,12 +429,26 @@ class MainWindow(QMainWindow):
 
     def createFileDropdownMenu(self):
         file_menu = QMenu("File", self)
-        file_menu.setStyleSheet("color: black;")
+        file_menu.setStyleSheet("""
+        QMenu::item {
+            color: black;
+            background: transparent;
+        }
+        QMenu::item:selected {
+            background-color: #D3D3D3;  /* Lighter gray */
+            color: black;
+        }
+        """)
+        # Create actions
         action_new = QAction("New", self)
         action_open = QAction("Open", self)
         action_save = QAction("Save", self)
+        action_save.triggered.connect(lambda: self.save_canvas_as_png())
         action_export = QAction("Export", self)
+        action_export.triggered.connect(lambda: self.exportHeart())
         action_undo = QAction("Undo (shrt cut: ctrl + z)", self) # Need to implement stack to store shapes
+        
+        # Add actions to the menu
         file_menu.addAction(action_new)
         file_menu.addAction(action_open)
         file_menu.addAction(action_save)
@@ -446,6 +486,7 @@ class MainWindow(QMainWindow):
         
         if write_to_image:
             cv.imwrite('image.png', heart)
+
         # Shows the design created by the users on the heart
         pixmap = QPixmap(heart)
         self.drawing_backside.setPixmap(pixmap)
@@ -557,7 +598,10 @@ class MainWindow(QMainWindow):
         pixmap = QPixmap(self.drawing_widget.size())  # Create pixmap of the same size
         self.drawing_widget.render(pixmap)  # Render the widget onto the pixmap
         pixmap.save(filename, "PNG")  # Save as PNG
-    
+    def exportHeart(self):
+        arr = self.pixmapToCvImage()
+        mainAlgorithm(arr,'create')
+
     def pixmapToCvImage(self):
         pixmap = QPixmap(self.drawing_widget.size())  # Create pixmap of the same size
         self.drawing_widget.render(pixmap)
