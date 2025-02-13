@@ -1,5 +1,7 @@
 import sys
 import math
+import cv2 as cv
+import numpy as np
 
 from functools import partial
 
@@ -51,6 +53,9 @@ from PyQt6.QtGui import (
     QPainterPath,
     QImage,
     QTransform
+)
+from Algorithm import (
+    mainAlgorithm
 )
 
 # Global variables for the shape mode and shape color
@@ -430,15 +435,27 @@ class MainWindow(QMainWindow):
 
         return view_menu
 
-    def updateDisplay(self):
-        self.stacked_widget.setCurrentWidget(self.weave_widget)
-        self.weave_widget.setShapes(self.drawing_widget.shapes)
-        self.save_canvas_as_png()
-        #self.display_widget.show()
+    def updateDisplay(self, write_to_image = False):
+        #self.stacked_widget.setCurrentWidget(self.weave_widget)
+        #self.weave_widget.setShapes(self.drawing_widget.shapes)
+        #self.save_canvas_as_png()
+        
+        arr = self.pixmapToCvImage()
+        #mainAlgorithm(arr,'create')
+        heart = self.cvImageToPixmap(mainAlgorithm(arr, 'show'))
+        
+        if write_to_image:
+            cv.imwrite('image.png', heart)
+        # Shows the design created by the users on the heart
+        pixmap = QPixmap(heart)
+        self.drawing_backside.setPixmap(pixmap)
+        self.drawing_backside.setScaledContents(True)
+        
 
     def editDisplay(self):
         self.stacked_widget.setCurrentWidget(self.drawing_widget)
         #self.display_widget.hide()
+        self.update_backside_image()
 
     def createShapesToolbar(self):
         shapes_toolbar = QToolBar("Shapes toolbar")
@@ -540,6 +557,34 @@ class MainWindow(QMainWindow):
         pixmap = QPixmap(self.drawing_widget.size())  # Create pixmap of the same size
         self.drawing_widget.render(pixmap)  # Render the widget onto the pixmap
         pixmap.save(filename, "PNG")  # Save as PNG
+    
+    def pixmapToCvImage(self):
+        pixmap = QPixmap(self.drawing_widget.size())  # Create pixmap of the same size
+        self.drawing_widget.render(pixmap)
+        image = pixmap.toImage()
+        width, height = image.width(), image.height()
+
+        # Convert QImage to format RGB888 (3 channels)
+        image = image.convertToFormat(QImage.Format.Format_RGB888)
+
+        # Get image data as bytes
+        ptr = image.bits()
+        ptr.setsize(image.sizeInBytes())
+
+        # Convert to NumPy array and reshape (H, W, 3)
+        arr = np.array(ptr).reshape((height, width, 3))
+
+        # Convert RGB to BGR for OpenCV
+        arr = cv.cvtColor(arr, cv.COLOR_RGB2BGR)
+
+        return arr
+    
+    def cvImageToPixmap(self, cv_img):
+        height, width, channel = cv_img.shape
+        bytes_per_line = 3 * width  # RGB format uses 3 bytes per pixel
+        cv_img_rgb = cv.cvtColor(cv_img, cv.COLOR_BGR2RGB)  # Convert BGR to RGB
+        q_image = QImage(cv_img_rgb.data, width, height, bytes_per_line, QImage.Format.Format_RGB888)
+        return QPixmap.fromImage(q_image)
 
 
 app = QApplication(sys.argv)

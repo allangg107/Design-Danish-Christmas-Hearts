@@ -45,15 +45,21 @@ def rotateImage(matrix, angle=-60):
     return rotated_matrix
 
 def preProcessing(image_path):
-  image = cv.imread(image_path, cv.IMREAD_UNCHANGED)  # Load as is (including alpha)
-
+  #image = cv.imread(image_path, cv.IMREAD_UNCHANGED)  # Load as is (including alpha)
+  #print(image_path)
   # Converts image to a matrix and rotates the canvas
-  new_image = np.array(image)
+  #new_image = np.array(image_path)
+  new_image = image_path
   new_image= rotateImage(new_image, angle=45)
   
   # Removes the canvas lines and non-draw zones from the image
-  matrix = new_image[180:-179,179:-179]
-  return matrix
+  matrix = new_image[180:-179,179:-180]
+
+  # Might have to be put outside preprocessing eventually
+  padded_array, canvas_extended_width = padArray(matrix, 130, 340)
+  show_matrix = np.copy(matrix) 
+  show_matrix_padded, canvas_width = padArray(show_matrix, 130, 340)
+  return padded_array, show_matrix_padded, canvas_extended_width, canvas_width
 
 def createHeartCuts(matrix, margin = 10, line_start = 0, sides='onesided', lines='both'):
     line_color = (0, 0, 0)  # Black color
@@ -157,24 +163,32 @@ def showHeart(matrix, margin=10, line_start = 0):
   # # Only draw black pixels from temp_matrix
   mask = np.all(temp_matrix == [0, 0, 0], axis=-1)  # Find black pixels
   matrix[y_start:y_end, x_start:x_end][mask[:y_end-y_start, :x_end-x_start]] = [0, 0, 0]
+  
+  # Returns the heart
   matrix = rotateImage(matrix, angle=-45)
   return  matrix
 
-matrix = preProcessing("canvas_output.png")
-padded_array, canvas_extended_width = padArray(matrix, 130, 340)
-test_matrix = np.copy(matrix) 
-test_matrix_padded, canvas_width = padArray(test_matrix, 130, 340)
-print(matrix.shape)
-final_output_array = createHeartCuts(padded_array, 31, canvas_extended_width, 'onesided')
+def mainAlgorithm(img, function = 'create'):
+  processed_image, shown_image, processed_canvas_width, shown_image_canvas_width  = preProcessing(img)
+  match function:
+    case 'create':
+      final_output_array = createHeartCuts(processed_image, 31, processed_canvas_width, 'onesided')
 
-print(padded_array.shape)  # (height, width, channels)
-test_matrix = showHeart(test_matrix_padded, 31, canvas_width)
-# second input is background color user chooses from MainWindow wip
-rgba_image = makeTrans(final_output_array, [255,255,255])
+      # second input is background color user chooses from MainWindow wip
+      rgba_image = makeTrans(final_output_array, [255,255,255])
+      cv.imwrite('output_image.png', rgba_image)
+    case 'show':
+      return showHeart(shown_image, 31, shown_image_canvas_width)         
+    case _:
+      return 'error'
+
+#print(matrix.shape)
+
 
 # Save the 3D array as a PNG file
-cv.imwrite('output_image.png', final_output_array)
-cv.imwrite('image.png', test_matrix)
+
+#cv.imwrite('image.png', test_matrix)
+#cv.imshow('image', test_matrix)
 
 
 

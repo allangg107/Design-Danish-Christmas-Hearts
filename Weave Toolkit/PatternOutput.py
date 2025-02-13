@@ -19,8 +19,8 @@ class WeaveView(QGraphicsView):
     def paintEvent(self, event):
         super().paintEvent(event)
         painter = QPainter(self.viewport())
-        self.drawShapes(painter)
-        self.draw_grid(painter)
+        #self.drawShapes(painter)
+        #self.draw_grid(painter)
 
     def draw_grid(self, painter):
         # Set grid line color and style
