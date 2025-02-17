@@ -20,7 +20,7 @@ from PyQt6.QtCore import (
     QRect,
     QPoint,
     QPointF,
-    QEvent
+    QEvent,
 )
 
 from PyQt6.QtWidgets import  (
@@ -52,7 +52,8 @@ from PyQt6.QtGui import (
     QPixmap,
     QPainterPath,
     QImage,
-    QTransform
+    QTransform,
+    QPolygon
 )
 from Algorithm import (
     mainAlgorithm
@@ -108,6 +109,8 @@ class DrawingWidget(QWidget):
                 for free_form_point in range(len(self.free_form_points) - 1):
                     qp.drawLine(self.free_form_points[free_form_point], self.free_form_points[free_form_point + 1])
 
+        self.redrawBorder(qp)
+
     def drawRotatedSquareEffect(self, qp):
         pen = QPen(Qt.GlobalColor.black, 3)
         qp.setPen(pen)
@@ -150,15 +153,14 @@ class DrawingWidget(QWidget):
             qp.drawLine(int(inner_coords[i][0]), int(inner_coords[i][1]),
                              int(inner_coords[(i+1) % len(inner_coords)][0]),
                              int(inner_coords[(i+1) % len(inner_coords)][1]))
-        
+
         pen = QPen(SHAPE_COLOR, PEN_WIDTH)
         qp.setPen(pen)
         brush = QBrush(SHAPE_COLOR)
         qp.setBrush(brush)
-    
+
     # Redraws all the shapes, while removing the ones that are erased
     def redrawAllShapes(self, qp):
-
         for shape in self.shapes[:]:  # Use a copy of the list to avoid modification issues
             shape_type = shape[2]
             qp.setBrush(SHAPE_COLOR) # set to shape[3] if we want to change color to stored shape color instead of global color
@@ -206,13 +208,66 @@ class DrawingWidget(QWidget):
                 for free_form_point in range(len(shape[4]) - 1):
                     qp.drawLine(shape[4][free_form_point], shape[4][free_form_point + 1])
 
+    def redrawBorder(self, qp):
+        pen = QPen(Qt.GlobalColor.black, 3)
+        qp.setPen(pen)
+        brush = QBrush(Qt.GlobalColor.lightGray)
+        qp.setBrush(brush)
+
+        width, height = self.width(), self.height()
+        margin = 0
+
+        # Coordinates of the corners of the outer square
+        x1, y1 = margin, margin
+        x2, y2 = width - margin, height - margin
+
+        corner1Points = [QPoint(0,0), QPoint((x1 + x2) // 2,0), QPoint(0, (y1 + y2) // 2)]
+        corner1 = QPolygon(corner1Points)
+
+        corner2Points = [QPoint(width,0), QPoint((x1 + x2) // 2,0), QPoint(width, (y1 + y2) // 2)]
+        corner2 = QPolygon(corner2Points)
+
+        corner3Points = [QPoint(0,height), QPoint((x1 + x2) // 2,height), QPoint(0, (y1 + y2) // 2)]
+        corner3 = QPolygon(corner3Points)
+
+        corner4Points = [QPoint(width,height), QPoint((x1 + x2) // 2,height), QPoint(width, (y1 + y2) // 2)]
+        corner4 = QPolygon(corner4Points)
+
+        # Drawing outer square
+        qp.drawPolygon (corner1)
+        qp.drawPolygon (corner2)
+        qp.drawPolygon (corner3)
+        qp.drawPolygon (corner4)
+
+        # Calculate the center and half-diagonal
+        center_x, center_y = (x1 + x2) / 2, (y1 + y2) / 2
+
+        # Coordinates of the corners of the inner rotated square
+        inner_coords = [
+            (center_x, y1),
+            (x2, center_y),
+            (center_x, y2),
+            (x1, center_y)
+        ]
+
+        # Draw the edges of the inner rotated square
+        for i in range(len(inner_coords)):
+            qp.drawLine(int(inner_coords[i][0]), int(inner_coords[i][1]),
+                             int(inner_coords[(i+1) % len(inner_coords)][0]),
+                             int(inner_coords[(i+1) % len(inner_coords)][1]))
+
+        brush = QBrush(SHAPE_COLOR)
+        qp.setBrush(brush)
+        pen = QPen(SHAPE_COLOR, PEN_WIDTH)
+        qp.setPen(pen)
+
     def get_drawing_image(self):
         image = QImage(self.size(), QImage.Format.Format_ARGB32)
         image.fill(Qt.GlobalColor.transparent)  # Fill with transparent color
         painter = QPainter(image)
         self.render(painter)  # Render the current drawing to the image
         return image
-    
+
     def drawHeart(self, qp, start, end, color):
         qp.setBrush(color)
         drawpath = QPainterPath()
@@ -221,8 +276,8 @@ class DrawingWidget(QWidget):
         x_offset, y_offset = start.x() + width // 2, start.y() + height // 2
 
         # Scale factor to fit heart inside the bounding box
-        scale_x = width / 32  
-        scale_y = height / 32  
+        scale_x = width / 32
+        scale_y = height / 32
 
         # Start drawing the heart shape using parametric equations
         t = 0
@@ -230,7 +285,7 @@ class DrawingWidget(QWidget):
         while t <= 2 * math.pi:
             x = int(16 * math.sin(t) ** 3 * scale_x) + x_offset
             y = int(- (13 * math.cos(t) - 5 * math.cos(2 * t) - 2 * math.cos(3 * t) - math.cos(4 * t)) * scale_y) + y_offset
-            
+
             if first_point:
                 drawpath.moveTo(x, y)
                 first_point = False
@@ -238,22 +293,22 @@ class DrawingWidget(QWidget):
                 drawpath.lineTo(x, y)
             t += 0.1
         qp.drawPath(drawpath)
-    
+
     # Checks if the point is within a certain threshold of the line
     def lineContainsPoint(self, point, begin, end, threshold=4.0):
         area = abs((end.x() - begin.x()) * (begin.y() - point.y()) - (begin.x() - point.x()) * (end.y() - begin.y()))
         line_length = math.sqrt((end.x() - begin.x())**2 + (end.y() - begin.y())**2)
-        
+
         if line_length == 0:
             return False
 
         distance = area / line_length
-        
+
         within_bounds = (min(begin.x(), end.x()) <= point.x() <= max(begin.x(), end.x())) and \
                         (min(begin.y(), end.y()) <= point.y() <= max(begin.y(), end.y()))
-                        
+
         return distance <= threshold and within_bounds
-    
+
     def heartContainsPoint(self, point, start, end):
         width = abs(end.x() - start.x())
         height = abs(end.y() - start.y())
@@ -345,7 +400,7 @@ class MainWindow(QMainWindow):
         self.drawing_layout = QHBoxLayout()
         self.drawing_widget_layout = QVBoxLayout()
         self.drawing_backside_layout = QVBoxLayout()
-        
+
         self.drawing_layout.addLayout(self.drawing_widget_layout)
         self.drawing_layout.addLayout(self.drawing_backside_layout)
 
@@ -359,9 +414,9 @@ class MainWindow(QMainWindow):
 
         self.drawing_widget = DrawingWidget(self)
         self.drawing_backside = QLabel(self)
-        
+
         # (drawing_widget background color controlled in the DrawingWidget class inside paintEvent)
-        # (drawing_backside background color copied from drawing_widget)        
+        # (drawing_backside background color copied from drawing_widget)
 
         self.drawing_widget_layout.addWidget(self.drawing_widget)
         self.drawing_backside_layout.addWidget(self.drawing_backside)
@@ -461,7 +516,7 @@ class MainWindow(QMainWindow):
         action_export = QAction("Export", self)
         action_export.triggered.connect(lambda: self.exportHeart())
         action_undo = QAction("Undo (shrt cut: ctrl + z)", self) # Need to implement stack to store shapes
-        
+
         # Add actions to the menu
         file_menu.addAction(action_new)
         file_menu.addAction(action_open)
@@ -493,11 +548,11 @@ class MainWindow(QMainWindow):
         #self.stacked_widget.setCurrentWidget(self.weave_widget)
         #self.weave_widget.setShapes(self.drawing_widget.shapes)
         #self.save_canvas_as_png()
-        
+
         arr = self.pixmapToCvImage()
         #mainAlgorithm(arr,'create')
         heart = self.cvImageToPixmap(mainAlgorithm(arr, 'show'))
-        
+
         if write_to_image:
             cv.imwrite('image.png', heart)
 
@@ -505,7 +560,7 @@ class MainWindow(QMainWindow):
         pixmap = QPixmap(heart)
         self.drawing_backside.setPixmap(pixmap)
         self.drawing_backside.setScaledContents(True)
-        
+
 
     def editDisplay(self):
         self.stacked_widget.setCurrentWidget(self.drawing_widget)
@@ -566,7 +621,7 @@ class MainWindow(QMainWindow):
         if shape_mode == ShapeMode.Cursor:
             self.drawing_widget.set_drawing_mode(False)
         elif shape_mode == ShapeMode.Eraser:
-            self.drawing_widget.begin = QPoint(-1, -1) # Reset the begin and end points so the most recent shape isn't erased
+            self.drawing_widget.begin = QPoint(-999, -999) # Reset the begin and end points so the most recent shape isn't erased
             self.drawing_widget.end = QPoint(-1, -1)
             self.drawing_widget.set_drawing_mode(True)
         else:
@@ -658,7 +713,7 @@ class MainWindow(QMainWindow):
         arr = cv.cvtColor(arr, cv.COLOR_RGB2BGR)
 
         return arr
-    
+
     def cvImageToPixmap(self, cv_img):
         height, width, channel = cv_img.shape
         bytes_per_line = 3 * width  # RGB format uses 3 bytes per pixel
