@@ -549,6 +549,8 @@ class MainWindow(QMainWindow):
         #self.weave_widget.setShapes(self.drawing_widget.shapes)
         #self.save_canvas_as_png()
 
+        self.backside_label.setText("Front Side final product:")
+
         arr = self.pixmapToCvImage()
         #mainAlgorithm(arr,'create')
         heart = self.cvImageToPixmap(mainAlgorithm(arr, 'show'))
@@ -563,6 +565,7 @@ class MainWindow(QMainWindow):
 
 
     def editDisplay(self):
+        self.backside_label.setText("Back Side (not modifiable):")
         self.stacked_widget.setCurrentWidget(self.drawing_widget)
         #self.display_widget.hide()
         self.update_backside_image()
