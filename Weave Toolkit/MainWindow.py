@@ -343,14 +343,28 @@ class MainWindow(QMainWindow):
 
         # Create the Drawing space (where users draw)
         self.drawing_layout = QHBoxLayout()
+        self.drawing_widget_layout = QVBoxLayout()
+        self.drawing_backside_layout = QVBoxLayout()
+        
+        self.drawing_layout.addLayout(self.drawing_widget_layout)
+        self.drawing_layout.addLayout(self.drawing_backside_layout)
+
+        self.drawing_label = QLabel("Front Side:")
+        self.drawing_label.setStyleSheet("color: black;")
+        self.backside_label = QLabel("Back Side (not modifiable):")
+        self.backside_label.setStyleSheet("color: black;")
+
+        self.drawing_widget_layout.addWidget(self.drawing_label)
+        self.drawing_backside_layout.addWidget(self.backside_label)
+
         self.drawing_widget = DrawingWidget(self)
         self.drawing_backside = QLabel(self)
         
         # (drawing_widget background color controlled in the DrawingWidget class inside paintEvent)
         # (drawing_backside background color copied from drawing_widget)        
 
-        self.drawing_layout.addWidget(self.drawing_widget)
-        self.drawing_layout.addWidget(self.drawing_backside)
+        self.drawing_widget_layout.addWidget(self.drawing_widget)
+        self.drawing_backside_layout.addWidget(self.drawing_backside)
 
         # Create the container widget and set the background color
         self.drawing_container = QWidget()
@@ -565,6 +579,10 @@ class MainWindow(QMainWindow):
     def createColorsToolbar(self):
         colors_toolbar = QToolBar("Colors toolbar")
 
+        foreground_label = QLabel("Foreground Colors: ")
+        foreground_label.setStyleSheet("color: black;")
+        colors_toolbar.addWidget(foreground_label)
+
         foreground_colors = [("Red", "red"), ("Green", "green"), ("Orange", "orange"), ("Blue", "blue")]
         for color_name, color_value in foreground_colors:
             button = QPushButton(color_name, self, styleSheet=f"background-color: {color_value}")
@@ -587,6 +605,10 @@ class MainWindow(QMainWindow):
             }
         """)
         colors_toolbar.addWidget(rainbow_button)
+
+        background_label = QLabel("Background Colors: ")
+        background_label.setStyleSheet("color: black;")
+        colors_toolbar.addWidget(background_label)
 
         background_colors = [("Red", "red"), ("Green", "green"), ("Orange", "orange"), ("Blue", "blue"), ("White", "white")]
         for color_name, color_value in background_colors:
