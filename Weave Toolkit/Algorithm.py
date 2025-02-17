@@ -54,14 +54,102 @@ def preProcessing(image):
   
   # Removes the canvas lines and non-draw zones from the image
   matrix = new_image[180:-179,179:-180]
-
+  #print('here', matrix.shape)
   # Might have to be put outside preprocessing eventually
   padded_array, canvas_extended_width = padArray(matrix, 130, 340)
   show_matrix = np.copy(matrix) 
   show_matrix_padded, canvas_width = padArray(show_matrix, 130, 340)
   return padded_array, show_matrix_padded, canvas_extended_width, canvas_width
 
-def createHeartCuts(matrix, margin = 10, line_start = 0, sides='onesided', lines='both'):
+def preprocessing2ElectricBoogaloo(image_path):
+  image_path = cv.imread(image_path, cv.IMREAD_UNCHANGED)  # Load as is (including alpha)
+  
+  # Converts image to a matrix and rotates the canvas
+  image = np.array(image_path)
+  #new_image = image
+  new_image = rotateImage(image, angle=45)
+  cv.imwrite('org_image.png', image)
+
+  matrix = new_image[180:-179,179:-180]
+  
+  cv.imwrite('image.png', matrix)
+
+  new_matrix = rotateImage(matrix, angle=-45)
+  
+  cv.imwrite('image1.png', new_matrix)
+  return new_matrix
+
+def find_non_white_columns_color(image):
+
+    # Identify white pixels (assumed threshold: 250 in all channels)
+    white_mask = np.all(image > 250, axis=2)
+
+    # Find columns where at least one pixel is NOT white
+    non_white_columns = np.any(~white_mask, axis=0)
+
+    # Get indices
+    non_white_column_indices = np.where(non_white_columns)[0]
+
+    return non_white_column_indices
+
+def split_matrix_by_columns(matrix, non_white_indices):
+    """
+    Splits the input matrix into sub-matrices based on the indices where there is a gap greater than 1.
+    
+    Parameters:
+    - matrix: The original image matrix (NumPy array)
+    - non_white_indices: The column indices that contain non-white pixels
+
+    Returns:
+    - List of sub-matrices split at gaps
+    """
+    if len(non_white_indices) == 0:
+        return [matrix]  # No split needed if no non-white columns exist
+
+    # Find the splits based on gaps
+    split_points = np.where(np.diff(non_white_indices) > 1)[0]  # Indices where gaps occur
+    split_indices = np.split(non_white_indices, split_points + 1)  # Split indices into groups
+
+    # Extract sub-matrices based on split_indices
+    sub_matrices = [matrix[:, indices] for indices in split_indices]
+
+    return sub_matrices
+
+# # Assume `find_non_white_columns_color()` returns non-white column indices
+ #non_white_columns = find_non_white_columns_color()  
+
+# # Split the matrix based on column gaps
+# sub_matrices = split_matrix_by_columns(image, non_white_columns)
+def split_matrix_by_non_white_columns(matrix, non_white_indices):
+    # Load image
+    #image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)  # Convert to grayscale
+
+    # Threshold: Identify non-white pixels (assuming white is 255)
+    #_, binary = cv2.threshold(image, 254, 255, cv2.THRESH_BINARY)
+
+    # Find columns with at least one non-white pixel
+    #non_white_columns = np.any(binary < 255, axis=0)
+    #non_white_column_indices = np.where(non_white_columns)[0]
+
+    # Split indices into groups where consecutive indices are <= 1 apart
+    split_indices = np.split(non_white_indices, np.where(np.diff(non_white_indices) > 1)[0] + 1)
+
+    # Extract sub-matrices and find their middle column
+    sub_matrices = []
+    middle_columns = []
+
+    for group in split_indices:
+        if len(group) > 0:
+            start_col, end_col = group[0], group[-1]  # Get start and end columns
+            sub_matrix = matrix[:, start_col:end_col + 1]  # Extract sub-matrix
+            middle_col = (start_col + end_col) // 2  # Find middle column
+
+            sub_matrices.append(sub_matrix)
+            middle_columns.append((start_col,middle_col,end_col))
+
+    return sub_matrices, middle_columns
+
+def createHeartCutsChild(matrix, margin = 10, line_start = 0, sides='onesided', lines='both'):
     line_color = (0, 0, 0)  # Black color
     background_color = (255,255,255)
     height, width, _ = matrix.shape
@@ -98,14 +186,14 @@ def createHeartCuts(matrix, margin = 10, line_start = 0, sides='onesided', lines
     # Creates a blank pattern on one side of one half of the heart
     elif sides == 'blank':
       matrix[:] = background_color
-      matrix = createHeartCuts(matrix, margin, line_start=line_start, sides='None', lines=lines)
+      matrix = createHeartCutsChild(matrix, margin, line_start=line_start, sides='None', lines=lines)
       return matrix
     
     # Creates the pattern on both sides of one half of the heart
     elif sides == 'twosided':
       temp_matrix = np.copy(matrix)
       matrix = np.hstack((matrix, np.flip(matrix, axis=1)))
-      temp_matrix = createHeartCuts(temp_matrix, margin, line_start=line_start, sides='blank', lines=lines)
+      temp_matrix = createHeartCutsChild(temp_matrix, margin, line_start=line_start, sides='blank', lines=lines)
       temp_matrix = np.hstack((temp_matrix, np.flip(temp_matrix, axis=1)))
       final_matrix = np.vstack((matrix, temp_matrix))
       return final_matrix
@@ -113,11 +201,52 @@ def createHeartCuts(matrix, margin = 10, line_start = 0, sides='onesided', lines
     # Creates the pattern on one side of one half of the heart
     elif sides == 'onesided':
       temp_matrix = np.copy(matrix)
-      temp_matrix = createHeartCuts(temp_matrix, margin, line_start=line_start, sides='blank', lines=lines)
+      temp_matrix = createHeartCutsChild(temp_matrix, margin, line_start=line_start, sides='blank', lines=lines)
       matrix = np.hstack((matrix, np.flip(temp_matrix, axis=1)))
       temp_matrix = np.hstack((temp_matrix, np.flip(temp_matrix, axis=1)))
       final_matrix = np.vstack((matrix, temp_matrix))
-      return final_matrix    
+      return final_matrix   
+
+def createHeartCuts(matrix, middle_m, margin = 10, line_start = 0, sides='blank', symmetry='symmetrical'):
+    line_color = (0, 0, 0)  # Black color
+    background_color = (255,255,255)
+    height, width, _ = matrix.shape
+      
+    # Define inner horizontal lines
+    line_y1 = margin * 4 # First line (upper)
+    line_y2 = height-margin * 4  # Second line (lower)
+    line_x_start = line_start  # Left side start
+    line_x_end = width  # Right side end
+
+    # Define outer horizontal lines
+    line_y3 = margin # First line (upper)
+    line_y4 = height-margin  # Second line (lower)
+
+    
+    # Draw two inner horizontal lines
+    #cv.line(matrix, (line_x_start, line_y1), (line_x_end, line_y1), line_color, thickness=3)
+    #cv.line(matrix, (line_x_start, line_y2), (line_x_end, line_y2), line_color, thickness=3)
+
+    # Draw two outer horizontal lines
+    #cv.line(matrix, (line_x_start, line_y3), (line_x_end, line_y3), line_color, thickness=3)
+    #cv.line(matrix, (line_x_start, line_y4), (line_x_end, line_y4), line_color, thickness=3)
+    axes = (330, (line_y4 - line_y3) // 2)  # Small width, height matches the gap
+
+    # Arch at the left end
+    center = (line_x_start, (line_y3 + line_y4) // 2)  # Middle of the height at the left edge
+    #cv.ellipse(matrix, center, axes, 0, 90, 270, line_color, thickness=3) # Left-facing arch
+
+    if symmetry == 'symmetrical':
+      #for j in range(len(matrix)): 
+      for i in middle_m: 
+        matrix[:, i[1]:i[2]+1] = background_color
+      #matrix = rotateImage(matrix, angle=45)
+      cv.line(matrix, (middle_m[0][1], 492), (492, 0), line_color, thickness=3)
+      #cv.line(matrix, (middle_m[1][1], 0), (middle_m[1][1], 492), line_color, thickness=3)
+      cv.imwrite('output.png', matrix)
+
+      return matrix
+    else: return None 
        
 def makeTrans(final_output_array, color):
     # Create an empty alpha channel (fully opaque)
@@ -149,7 +278,7 @@ def showHeart(matrix, margin=10, line_start = 0):
   cv.ellipse(matrix, center, axes, 0, 90, 270, line_color, thickness=3) # Left-facing arch
   
   temp_matrix = np.copy(matrix)
-  temp_matrix = createHeartCuts(temp_matrix, margin, line_start, sides='blank', lines='None')
+  temp_matrix = createHeartCutsChild(temp_matrix, margin, line_start, sides='blank', lines='None')
   temp_matrix = rotateImage(temp_matrix, angle= -90)
   #temp_matrix.resize((689,689,3))
   #matrix = rotateImage(matrix, angle=-60)
@@ -172,7 +301,7 @@ def mainAlgorithm(img, function = 'create'):
   processed_image, shown_image, processed_canvas_width, shown_image_canvas_width  = preProcessing(img)
   match function:
     case 'create':
-      final_output_array = createHeartCuts(processed_image, 31, processed_canvas_width, 'onesided')
+      final_output_array = createHeartCutsChild(processed_image, 31, processed_canvas_width, 'onesided')
 
       # second input is background color user chooses from MainWindow wip
       rgba_image = makeTrans(final_output_array, [255,255,255])
@@ -182,8 +311,17 @@ def mainAlgorithm(img, function = 'create'):
     case _:
       return 'error'
 
-#print(matrix.shape)
+#print (preprocessing2ElectricBoogaloo('canvas_output.png'))
+a_m = preprocessing2ElectricBoogaloo('canvas_output.png')
+print(a_m.shape)
+index_arr = find_non_white_columns_color(a_m)
 
+kk, km = split_matrix_by_non_white_columns(a_m, index_arr)
+#print(f"Number of sub-matrices: {len(kk)}")
+#print(km[0][0])
+#print(a_m.shape)
+
+createHeartCuts(a_m,km)
 
 # Save the 3D array as a PNG file
 
