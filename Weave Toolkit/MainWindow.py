@@ -61,6 +61,7 @@ from Algorithm import (
 # Global variables for the shape mode and shape color
 SHAPE_MODE = ShapeMode.Cursor
 SHAPE_COLOR = QColor(0, 0, 0, 255)
+BACKGROUND_COLOR = QColor(255, 255, 255, 255)
 PEN_WIDTH = 3
 
 class DrawingWidget(QWidget):
@@ -80,7 +81,7 @@ class DrawingWidget(QWidget):
     def paintEvent(self, event):
         qp = QPainter(self)
         qp.setBrush(SHAPE_COLOR)
-        # Fill the background with white color
+        # Fill the background with light gray color
         qp.fillRect(self.rect(), Qt.GlobalColor.lightGray)
 
         self.drawRotatedSquareEffect(qp)
@@ -134,8 +135,8 @@ class DrawingWidget(QWidget):
             (x1, center_y)
         ]
 
-        # Drawing inner rotated square with white fill
-        brush = QBrush(Qt.GlobalColor.white)
+        # Drawing inner rotated square with selected background fill
+        brush = QBrush(BACKGROUND_COLOR)
         qp.setBrush(brush)
         path = QPainterPath()
         path.moveTo(inner_coords[0][0], inner_coords[0][1])
@@ -160,8 +161,8 @@ class DrawingWidget(QWidget):
 
         for shape in self.shapes[:]:  # Use a copy of the list to avoid modification issues
             shape_type = shape[2]
-            qp.setBrush(shape[3])
-            qp.setPen(QPen(shape[3], PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)) # pen width should needs to be saved in the shape list
+            qp.setBrush(SHAPE_COLOR) # set to shape[3] if we want to change color to stored shape color instead of global color
+            qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)) # pen width should needs to be saved in the shape list
             # if in eraser mode, removes shapes that contain the point clicked
             if SHAPE_MODE == ShapeMode.Eraser:
                 point = self.begin
@@ -198,7 +199,7 @@ class DrawingWidget(QWidget):
                 radius = int((abs(center.x() - shape[1].x()) + abs(center.y() - shape[1].y())) / 2)
                 qp.drawEllipse(center, radius, radius)
             elif shape_type == ShapeMode.Heart:
-                self.drawHeart(qp, shape[0], shape[1], shape[3])
+                self.drawHeart(qp, shape[0], shape[1], SHAPE_COLOR)
             elif shape_type == ShapeMode.Line:
                 qp.drawLine(shape[0], shape[1])
             elif shape_type == ShapeMode.FreeForm:
@@ -393,7 +394,6 @@ class MainWindow(QMainWindow):
             self.update_backside_image()
         return super().eventFilter(source, event)
 
-    
     def update_backside_image(self):
         drawing_image = self.drawing_widget.get_drawing_image()
         mirrored_image = drawing_image.mirrored(True, False)  # Mirror horizontally
@@ -565,10 +565,10 @@ class MainWindow(QMainWindow):
     def createColorsToolbar(self):
         colors_toolbar = QToolBar("Colors toolbar")
 
-        colors = [("Red", "red"), ("Green", "green"), ("Orange", "orange"), ("Blue", "blue")]
-        for color_name, color_value in colors:
+        foreground_colors = [("Red", "red"), ("Green", "green"), ("Orange", "orange"), ("Blue", "blue")]
+        for color_name, color_value in foreground_colors:
             button = QPushButton(color_name, self, styleSheet=f"background-color: {color_value}")
-            button.clicked.connect(partial(self.change_color, color_value))
+            button.clicked.connect(partial(self.change_foreground_color, color_value))
             colors_toolbar.addWidget(button)
 
         rainbow_button = QPushButton("Rainbow Button", self)
@@ -588,11 +588,25 @@ class MainWindow(QMainWindow):
         """)
         colors_toolbar.addWidget(rainbow_button)
 
+        background_colors = [("Red", "red"), ("Green", "green"), ("Orange", "orange"), ("Blue", "blue"), ("White", "white")]
+        for color_name, color_value in background_colors:
+            button = QPushButton(color_name, self, styleSheet=f"background-color: {color_value}")
+            button.clicked.connect(partial(self.change_background_color, color_value))
+            colors_toolbar.addWidget(button)
+
         return colors_toolbar
 
-    def change_color(self, color):
+    def change_foreground_color(self, color):
         global SHAPE_COLOR
         SHAPE_COLOR = QColor(color)
+        self.update()
+        self.update_backside_image()
+
+    def change_background_color(self, color):
+        global BACKGROUND_COLOR
+        BACKGROUND_COLOR = QColor(color)
+        self.update()
+        self.update_backside_image()
 
     def save_canvas_as_png(self, filename="canvas_output.png"):
         pixmap = QPixmap(self.drawing_widget.size())  # Create pixmap of the same size
