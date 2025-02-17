@@ -44,6 +44,72 @@ def rotateImage(matrix, angle=-60):
 
     return rotated_matrix
 
+def find_non_white_rows_columns(image):
+
+    # Identify white pixels (assumed threshold: 250 in all channels)
+    white_mask = np.all(image > 250, axis=2)
+
+    # Find columns where at least one pixel is NOT white
+    non_white_columns = np.any(~white_mask, axis=0)
+    
+    # Find rows where at least one pixel is NOT white
+    non_white_rows = np.any(~white_mask, axis=1)
+
+    # Get indices
+    non_white_column_indices = np.where(non_white_columns)[0]
+    non_white_row_indices = np.where(non_white_rows)[0]
+
+    return non_white_column_indices, non_white_row_indices
+
+def split_matrix_by_non_white_columns(matrix, non_white_indices):
+    # Load image
+    #image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)  # Convert to grayscale
+
+    # Threshold: Identify non-white pixels (assuming white is 255)
+    #_, binary = cv2.threshold(image, 254, 255, cv2.THRESH_BINARY)
+
+    # Find columns with at least one non-white pixel
+    #non_white_columns = np.any(binary < 255, axis=0)
+    #non_white_column_indices = np.where(non_white_columns)[0]
+
+    # Split indices into groups where consecutive indices are <= 1 apart
+    split_indices = np.split(non_white_indices, np.where(np.diff(non_white_indices) > 1)[0] + 1)
+
+    # Extract sub-matrices and find their middle column
+    sub_matrices = []
+    middle_columns = []
+
+    for group in split_indices:
+        if len(group) > 0:
+            start_col, end_col = group[0], group[-1]  # Get start and end columns
+            sub_matrix = matrix[:, start_col:end_col + 1]  # Extract sub-matrix
+            middle_col = (start_col + end_col) // 2  # Find middle column
+
+            sub_matrices.append(sub_matrix)
+            middle_columns.append((start_col,middle_col,end_col))
+
+    return sub_matrices, middle_columns
+
+def split_matrix_by_non_white_rows(matrix, non_white_indices):
+
+    # Split indices into groups where consecutive indices are <= 1 apart
+    split_indices = np.split(non_white_indices, np.where(np.diff(non_white_indices) > 1)[0] + 1)
+
+    # Extract sub-matrices and find their middle row
+    sub_matrices = []
+    middle_rows = []
+
+    for group in split_indices:
+        if len(group) > 0:
+            start_row, end_row = group[0], group[-1]  # Get start and end rows
+            sub_matrix = matrix[start_row:end_row + 1, :]  # Extract sub-matrix
+            middle_row = (start_row + end_row) // 2  # Find middle row
+
+            sub_matrices.append(sub_matrix)
+            middle_rows.append((start_row,middle_row,end_row))
+
+    return sub_matrices, middle_rows
+
 def preProcessing(image):
   #image = cv.imread(image_path, cv.IMREAD_UNCHANGED)  # Load as is (including alpha)
   #print(image_path)
@@ -79,75 +145,6 @@ def preprocessing2ElectricBoogaloo(image_path):
   cv.imwrite('image1.png', new_matrix)
   return new_matrix
 
-def find_non_white_columns_color(image):
-
-    # Identify white pixels (assumed threshold: 250 in all channels)
-    white_mask = np.all(image > 250, axis=2)
-
-    # Find columns where at least one pixel is NOT white
-    non_white_columns = np.any(~white_mask, axis=0)
-
-    # Get indices
-    non_white_column_indices = np.where(non_white_columns)[0]
-
-    return non_white_column_indices
-
-def split_matrix_by_columns(matrix, non_white_indices):
-    """
-    Splits the input matrix into sub-matrices based on the indices where there is a gap greater than 1.
-    
-    Parameters:
-    - matrix: The original image matrix (NumPy array)
-    - non_white_indices: The column indices that contain non-white pixels
-
-    Returns:
-    - List of sub-matrices split at gaps
-    """
-    if len(non_white_indices) == 0:
-        return [matrix]  # No split needed if no non-white columns exist
-
-    # Find the splits based on gaps
-    split_points = np.where(np.diff(non_white_indices) > 1)[0]  # Indices where gaps occur
-    split_indices = np.split(non_white_indices, split_points + 1)  # Split indices into groups
-
-    # Extract sub-matrices based on split_indices
-    sub_matrices = [matrix[:, indices] for indices in split_indices]
-
-    return sub_matrices
-
-# # Assume `find_non_white_columns_color()` returns non-white column indices
- #non_white_columns = find_non_white_columns_color()  
-
-# # Split the matrix based on column gaps
-# sub_matrices = split_matrix_by_columns(image, non_white_columns)
-def split_matrix_by_non_white_columns(matrix, non_white_indices):
-    # Load image
-    #image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)  # Convert to grayscale
-
-    # Threshold: Identify non-white pixels (assuming white is 255)
-    #_, binary = cv2.threshold(image, 254, 255, cv2.THRESH_BINARY)
-
-    # Find columns with at least one non-white pixel
-    #non_white_columns = np.any(binary < 255, axis=0)
-    #non_white_column_indices = np.where(non_white_columns)[0]
-
-    # Split indices into groups where consecutive indices are <= 1 apart
-    split_indices = np.split(non_white_indices, np.where(np.diff(non_white_indices) > 1)[0] + 1)
-
-    # Extract sub-matrices and find their middle column
-    sub_matrices = []
-    middle_columns = []
-
-    for group in split_indices:
-        if len(group) > 0:
-            start_col, end_col = group[0], group[-1]  # Get start and end columns
-            sub_matrix = matrix[:, start_col:end_col + 1]  # Extract sub-matrix
-            middle_col = (start_col + end_col) // 2  # Find middle column
-
-            sub_matrices.append(sub_matrix)
-            middle_columns.append((start_col,middle_col,end_col))
-
-    return sub_matrices, middle_columns
 
 def createHeartCutsChild(matrix, margin = 10, line_start = 0, sides='onesided', lines='both'):
     line_color = (0, 0, 0)  # Black color
@@ -240,9 +237,19 @@ def createHeartCuts(matrix, middle_m, margin = 10, line_start = 0, sides='blank'
       #for j in range(len(matrix)): 
       for i in middle_m: 
         matrix[:, i[1]:i[2]+1] = background_color
-      #matrix = rotateImage(matrix, angle=45)
-      cv.line(matrix, (middle_m[0][1], 492), (492, 0), line_color, thickness=3)
-      #cv.line(matrix, (middle_m[1][1], 0), (middle_m[1][1], 492), line_color, thickness=3)
+      
+      #cv.line(matrix, (middle_m[0][1], 194), (middle_m[0][2], 0), line_color, thickness=3)
+      matrix = rotateImage(matrix, angle=45)
+      non_white_columns, non_white_rows = find_non_white_rows_columns(matrix)
+      print('columns', non_white_columns)
+      print('rows', non_white_rows)
+      _, points_list = split_matrix_by_non_white_rows(matrix, non_white_rows)
+      _, points_list1 = split_matrix_by_non_white_columns(matrix, non_white_columns)
+      #print(np.linalg.norm(matrix[points_list1[1][0]],matrix[:][points_list[0][0]]))
+      #print(points_list)
+      #print(points_list1)
+      #cv.line(matrix, (points_list1[1][0]+10, 0), (points_list1[1][0]+10, points_list[0][0]+5), line_color, thickness=3)
+      #cv.line(matrix, (points_list1[0][0]+10, 0), (points_list1[0][0]+10, points_list[1][0]+5), line_color, thickness=3)
       cv.imwrite('output.png', matrix)
 
       return matrix
@@ -312,16 +319,16 @@ def mainAlgorithm(img, function = 'create'):
       return 'error'
 
 #print (preprocessing2ElectricBoogaloo('canvas_output.png'))
-a_m = preprocessing2ElectricBoogaloo('canvas_output.png')
-print(a_m.shape)
-index_arr = find_non_white_columns_color(a_m)
+# a_m = preprocessing2ElectricBoogaloo('canvas_output.png')
+# print(a_m.shape)
+# index_arr, _ = find_non_white_rows_columns(a_m)
 
-kk, km = split_matrix_by_non_white_columns(a_m, index_arr)
-#print(f"Number of sub-matrices: {len(kk)}")
-#print(km[0][0])
-#print(a_m.shape)
+# kk, km = split_matrix_by_non_white_columns(a_m, index_arr)
+# #print(f"Number of sub-matrices: {len(kk)}")
+# #print(km[0][0])
+# #print(a_m.shape)
 
-createHeartCuts(a_m,km)
+# createHeartCuts(a_m,km)
 
 # Save the 3D array as a PNG file
 
