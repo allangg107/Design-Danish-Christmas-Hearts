@@ -4,6 +4,8 @@ import cv2 as cv
 
 import numpy as np
 
+import math
+
 # Will be called when the user presses the "Update" button
 
 # The algorithm will be given a PNG image of the desired pattern as input and return 2 things:
@@ -267,42 +269,38 @@ def makeTrans(final_output_array, color):
     return rgba_image
 
 def showHeart(matrix, margin=10, line_start = 0): 
-  line_color = (0, 0, 0)  # Black color
-  background_color = (255,255,255)
-  height, width, _ = matrix.shape
-  line_x_start = line_start  # Left side start
-  line_x_end = width  # Right side end
-  line_y1 = margin # First line (upper)
-  line_y2 = height-margin  # Second line (lower)
-  
-  # Draw two outer horizontal lines
-  cv.line(matrix, (line_x_start, line_y1), (line_x_end, line_y1), line_color, thickness=3)
-  cv.line(matrix, (line_x_start, line_y2), (line_x_end, line_y2), line_color, thickness=3)
-  axes = (330, (line_y2 - line_y1) // 2)  # Small width, height matches the gap
+    line_color = (0, 0, 0)  # Black color
+    height, width, _ = matrix.shape
+    square_size = min(width, height) // 2  # Ensuring a balanced square
+    center = (square_size, square_size)
 
-  # Arch at the left end
-  center = (line_x_start, (line_y1 + line_y2) // 2)  # Middle of the height at the left edge
-  cv.ellipse(matrix, center, axes, 0, 90, 270, line_color, thickness=3) # Left-facing arch
-  
-  temp_matrix = np.copy(matrix)
-  temp_matrix = createHeartCutsChild(temp_matrix, margin, line_start, sides='blank', lines='None')
-  temp_matrix = rotateImage(temp_matrix, angle= -90)
-  #temp_matrix.resize((689,689,3))
-  #matrix = rotateImage(matrix, angle=-60)
-  matrix = np.pad(matrix, ((200,0),(0,200),(0,0)), constant_values=255)
-  #temp_matrix = np.pad(temp_matrix, ((0,0),(0,81),(0,0)), constant_values=255)
-  #final_matrix = np.vstack((temp_matrix,np.flip(matrix)))
-  h, w, _ = temp_matrix.shape
-  y_start, x_start = 50, 130  # Adjust these for placement
-  y_end, x_end = min(y_start + h, matrix.shape[0]), min(x_start + w, matrix.shape[1])
+    # Create a blank mask
+    mask = np.full_like(matrix, 255)
 
-  # # Only draw black pixels from temp_matrix
-  mask = np.all(temp_matrix == [0, 0, 0], axis=-1)  # Find black pixels
-  matrix[y_start:y_end, x_start:x_end][mask[:y_end-y_start, :x_end-x_start]] = [0, 0, 0]
-  
-  # Returns the heart
-  matrix = rotateImage(matrix, angle=-45)
-  return  matrix
+    # Define square corners
+    half_size = square_size // 2
+    points = np.array([
+        [center[0] - half_size, center[1]],
+        [center[0], center[1] - half_size],
+        [center[0] + half_size, center[1]],
+        [center[0], center[1] + half_size]
+    ])
+
+    # Draw the rotated square (diamond)
+    cv.polylines(mask, [points], isClosed=True, color=line_color, thickness=3)
+
+    # Draw a circle at the center of the square
+    point1 = [center[0] - half_size, center[1]]
+    point2 = [center[0], center[1] + half_size]
+
+    square_width = math.sqrt((point2[0] - point1[0]) ** 2 + (point2[1] - point1[1]) ** 2)
+    radius = math.floor(square_width // 2)
+    halfway_point_upper_left = [(center[0] - half_size + center[0]) // 2, (center[1] + center[1] - half_size) //2]
+    halfway_point_upper_right = [(center[0] + center[0] + half_size) // 2, (center[1] - half_size + center[1]) //2]
+    cv.ellipse(mask, halfway_point_upper_left, (radius, radius), 0, -225, -45, line_color, thickness=3)
+    cv.ellipse(mask, halfway_point_upper_right, (radius, radius), 0, -135, 45, line_color, 3)
+
+    return mask
 
 def mainAlgorithm(img, function = 'create'):
   processed_image, shown_image, processed_canvas_width, shown_image_canvas_width  = preProcessing(img)
