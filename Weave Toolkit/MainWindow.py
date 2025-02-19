@@ -39,7 +39,8 @@ from PyQt6.QtWidgets import  (
     QStackedWidget,
     QGraphicsScene,
     QGraphicsView,
-    QGraphicsProxyWidget
+    QGraphicsProxyWidget,
+    QSlider
 )
 
 from PyQt6.QtGui import (
@@ -102,7 +103,7 @@ class DrawingWidget(QWidget):
                 radius = int((self.begin-self.end).manhattanLength() / 2)
                 qp.drawEllipse(center, radius, radius)
             elif (SHAPE_MODE == ShapeMode.Heart):
-                self.drawHeart(qp, self.begin, self.end, SHAPE_COLOR)
+                self.drawHeart(qp, self.begin, self.end, SHAPE_COLOR, PEN_WIDTH)
             elif (SHAPE_MODE == ShapeMode.Line):
                 qp.drawLine(self.begin, self.end)
             elif SHAPE_MODE == ShapeMode.FreeForm:
@@ -201,12 +202,15 @@ class DrawingWidget(QWidget):
                 radius = int((abs(center.x() - shape[1].x()) + abs(center.y() - shape[1].y())) / 2)
                 qp.drawEllipse(center, radius, radius)
             elif shape_type == ShapeMode.Heart:
-                self.drawHeart(qp, shape[0], shape[1], SHAPE_COLOR)
+                self.drawHeart(qp, shape[0], shape[1], SHAPE_COLOR, shape[5])
             elif shape_type == ShapeMode.Line:
+                qp.setPen(QPen(SHAPE_COLOR, shape[5], Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
                 qp.drawLine(shape[0], shape[1])
             elif shape_type == ShapeMode.FreeForm:
+                qp.setPen(QPen(SHAPE_COLOR, shape[5], Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
                 for free_form_point in range(len(shape[4]) - 1):
                     qp.drawLine(shape[4][free_form_point], shape[4][free_form_point + 1])
+            qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
 
     def redrawBorder(self, qp):
         pen = QPen(Qt.GlobalColor.black, 3)
@@ -268,8 +272,9 @@ class DrawingWidget(QWidget):
         self.render(painter)  # Render the current drawing to the image
         return image
 
-    def drawHeart(self, qp, start, end, color):
+    def drawHeart(self, qp, start, end, color, pen_width):
         qp.setBrush(color)
+        qp.setPen(QPen(color, pen_width, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
         drawpath = QPainterPath()
         width = abs(end.x() - start.x())
         height = abs(end.y() - start.y())
@@ -293,6 +298,8 @@ class DrawingWidget(QWidget):
                 drawpath.lineTo(x, y)
             t += 0.1
         qp.drawPath(drawpath)
+
+        qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
 
     # Checks if the point is within a certain threshold of the line
     def lineContainsPoint(self, point, begin, end, threshold=4.0):
@@ -350,9 +357,12 @@ class DrawingWidget(QWidget):
     def mouseReleaseEvent(self, event):
         if self.drawing_mode:
             if SHAPE_MODE == ShapeMode.FreeForm:
-                self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, list(self.free_form_points)])
+                self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, list(self.free_form_points), PEN_WIDTH])
             else:
-                self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR])
+                if (SHAPE_MODE == ShapeMode.Line) or (SHAPE_MODE == ShapeMode.Heart):
+                    self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, [], PEN_WIDTH])
+                else:
+                    self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR])
 
             self.begin = event.pos()
             self.end = event.pos()
@@ -674,7 +684,37 @@ class MainWindow(QMainWindow):
             button.clicked.connect(partial(self.change_background_color, color_value))
             colors_toolbar.addWidget(button)
 
+        colors_toolbar.addWidget(self.addStrokeWidthWidget())
+
         return colors_toolbar
+
+    def addStrokeWidthWidget(self):
+        self.stroke_width_layout = QVBoxLayout()
+        
+        # Create a label to show the current stroke width
+        initial_stroke_width = 3
+        self.stroke_width_label = QLabel(f'Stroke Width: {initial_stroke_width}', self)
+        self.stroke_width_label.setStyleSheet("color: black;")
+        self.stroke_width_layout.addWidget(self.stroke_width_label)
+        
+        # Create a slider for selecting stroke width
+        self.stroke_width_slider = QSlider(Qt.Orientation.Horizontal, self)
+        self.stroke_width_slider.setMinimum(1)
+        self.stroke_width_slider.setMaximum(20)
+        self.stroke_width_slider.setValue(initial_stroke_width)
+        self.stroke_width_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.stroke_width_slider.setTickInterval(1)
+        self.stroke_width_slider.valueChanged.connect(self.updateStrokeWidth)
+        self.stroke_width_layout.addWidget(self.stroke_width_slider)
+
+        stroke_width_container = QWidget()
+        stroke_width_container.setLayout(self.stroke_width_layout)
+        return stroke_width_container
+    
+    def updateStrokeWidth(self, value):
+        self.stroke_width_label.setText(f'Stroke Width: {value}')
+        global PEN_WIDTH
+        PEN_WIDTH = value
 
     def change_foreground_color(self, color):
         global SHAPE_COLOR
