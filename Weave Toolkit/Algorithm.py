@@ -231,10 +231,9 @@ def createHeartCuts(matrix, margin = 10, sides='blank', symmetry='symmetrical'):
     _, middle_m = split_matrix_by_non_white_columns(matrix,index_arr)
 
     if symmetry == 'symmetrical': 
-      # Cuts the shapes in half
       for i in middle_m: 
         matrix[:, i[1]:i[2]+1] = background_color
-      #cv.imwrite('test.png', matrix)
+
       # rotates and pads the image
       matrix_2 = rotateImage(matrix, angle=45)
       #cv.imwrite('test2.png', matrix_2)
