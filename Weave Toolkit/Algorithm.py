@@ -21,6 +21,16 @@ import math
 #     return matrix
 def padArray (matrix, row_padding, column_padding):
   return np.pad(matrix, ((row_padding,row_padding),(column_padding, 0),(0,0)), constant_values=255), column_padding
+
+def upscale_image(image, scale_factor):
+    height, width = image.shape[:2]
+    new_width = int(width * scale_factor)
+    new_height = int(height * scale_factor)
+
+    # Use INTER_NEAREST to maintain sharp lines
+    upscaled = cv.resize(image, (new_width, new_height), interpolation=cv.INTER_NEAREST)
+
+    return upscaled
  
 def rotateImage(matrix, angle=-60):
     height, width = matrix.shape[:2]
@@ -63,23 +73,42 @@ def find_non_white_rows_columns(image):
 
     return non_white_column_indices, non_white_row_indices
 
+# Helper function for drawing lines in CreateHeartCuts which finds the column_index 
+# of the first and last pixel of a figure based on the pixels known row locations
+def find_non_white_column_pix_in_row_in_img(matrix,row_indicies):
+    
+    res_list = []
+    counter = 0
+    
+    for submatrix in row_indicies:
+      pix_columns_max = []
+      pix_columns_min = []
+      for i in submatrix:
+          max = 0
+          min = len(matrix[0])
+          for j in range(len(matrix[0])):
+            if matrix[i][j][0] != 255:
+              if j > max:
+                max = j
+              if j < min:
+                min = j
+          pix_columns_max.append(max)
+          pix_columns_min.append(min)
+      res_list.append([counter,pix_columns_min[0],np.max(pix_columns_max)])
+      counter +=1 
+
+    return res_list
+      
+
 def split_matrix_by_non_white_columns(matrix, non_white_indices):
-    # Load image
-    #image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)  # Convert to grayscale
-
-    # Threshold: Identify non-white pixels (assuming white is 255)
-    #_, binary = cv2.threshold(image, 254, 255, cv2.THRESH_BINARY)
-
-    # Find columns with at least one non-white pixel
-    #non_white_columns = np.any(binary < 255, axis=0)
-    #non_white_column_indices = np.where(non_white_columns)[0]
-
+   
     # Split indices into groups where consecutive indices are <= 1 apart
     split_indices = np.split(non_white_indices, np.where(np.diff(non_white_indices) > 1)[0] + 1)
 
     # Extract sub-matrices and find their middle column
     sub_matrices = []
     middle_columns = []
+    column_indicies = []
 
     for group in split_indices:
         if len(group) > 0:
@@ -89,6 +118,7 @@ def split_matrix_by_non_white_columns(matrix, non_white_indices):
 
             sub_matrices.append(sub_matrix)
             middle_columns.append((start_col,middle_col,end_col))
+            
 
     return sub_matrices, middle_columns
 
@@ -100,7 +130,7 @@ def split_matrix_by_non_white_rows(matrix, non_white_indices):
     # Extract sub-matrices and find their middle row
     sub_matrices = []
     middle_rows = []
-
+    row_indicies = []
     for group in split_indices:
         if len(group) > 0:
             start_row, end_row = group[0], group[-1]  # Get start and end rows
@@ -109,44 +139,31 @@ def split_matrix_by_non_white_rows(matrix, non_white_indices):
 
             sub_matrices.append(sub_matrix)
             middle_rows.append((start_row,middle_row,end_row))
+            row_indicies.append(group)
 
-    return sub_matrices, middle_rows
+    return sub_matrices, middle_rows, row_indicies
 
 def preProcessing(image):
-  #image = cv.imread(image_path, cv.IMREAD_UNCHANGED)  # Load as is (including alpha)
-  #print(image_path)
-  # Converts image to a matrix and rotates the canvas
-  #new_image = np.array(image_path)
-  #new_image = image
   new_image= rotateImage(image, angle=45)
   
   # Removes the canvas lines and non-draw zones from the image
   matrix = new_image[180:-179,179:-180]
-  #print('here', matrix.shape)
+  
   # Might have to be put outside preprocessing eventually
   padded_array, canvas_extended_width = padArray(matrix, 130, 340)
   show_matrix = np.copy(matrix) 
   show_matrix_padded, canvas_width = padArray(show_matrix, 130, 340)
   return padded_array, show_matrix_padded, canvas_extended_width, canvas_width
 
-def preprocessing2ElectricBoogaloo(image_path):
-  image_path = cv.imread(image_path, cv.IMREAD_UNCHANGED)  # Load as is (including alpha)
+def preprocessingSymmetry(image):
+  #image_path = cv.imread(image_path, cv.IMREAD_UNCHANGED)  # Load as is (including alpha)
   
   # Converts image to a matrix and rotates the canvas
-  image = np.array(image_path)
-  #new_image = image
+  #image = np.array(image_path)
   new_image = rotateImage(image, angle=45)
-  cv.imwrite('org_image.png', image)
-
   matrix = new_image[180:-179,179:-180]
-  
-  cv.imwrite('image.png', matrix)
-
   new_matrix = rotateImage(matrix, angle=-45)
-  
-  cv.imwrite('image1.png', new_matrix)
   return new_matrix
-
 
 def createHeartCutsChild(matrix, margin = 10, line_start = 0, sides='onesided', lines='both'):
     line_color = (0, 0, 0)  # Black color
@@ -206,56 +223,70 @@ def createHeartCutsChild(matrix, margin = 10, line_start = 0, sides='onesided', 
       final_matrix = np.vstack((matrix, temp_matrix))
       return final_matrix   
 
-def createHeartCuts(matrix, middle_m, margin = 10, line_start = 0, sides='blank', symmetry='symmetrical'):
+def createHeartCuts(matrix, margin = 10, sides='blank', symmetry='symmetrical'):
     line_color = (0, 0, 0)  # Black color
     background_color = (255,255,255)
-    height, width, _ = matrix.shape
-      
-    # Define inner horizontal lines
-    line_y1 = margin * 4 # First line (upper)
-    line_y2 = height-margin * 4  # Second line (lower)
-    line_x_start = line_start  # Left side start
-    line_x_end = width  # Right side end
-
-    # Define outer horizontal lines
-    line_y3 = margin # First line (upper)
-    line_y4 = height-margin  # Second line (lower)
-
     
-    # Draw two inner horizontal lines
-    #cv.line(matrix, (line_x_start, line_y1), (line_x_end, line_y1), line_color, thickness=3)
-    #cv.line(matrix, (line_x_start, line_y2), (line_x_end, line_y2), line_color, thickness=3)
+    index_arr, _ = find_non_white_rows_columns(matrix)
+    _, middle_m = split_matrix_by_non_white_columns(matrix,index_arr)
 
-    # Draw two outer horizontal lines
-    #cv.line(matrix, (line_x_start, line_y3), (line_x_end, line_y3), line_color, thickness=3)
-    #cv.line(matrix, (line_x_start, line_y4), (line_x_end, line_y4), line_color, thickness=3)
-    axes = (330, (line_y4 - line_y3) // 2)  # Small width, height matches the gap
-
-    # Arch at the left end
-    center = (line_x_start, (line_y3 + line_y4) // 2)  # Middle of the height at the left edge
-    #cv.ellipse(matrix, center, axes, 0, 90, 270, line_color, thickness=3) # Left-facing arch
-
-    if symmetry == 'symmetrical':
-      #for j in range(len(matrix)): 
+    if symmetry == 'symmetrical': 
+      # Cuts the shapes in half
       for i in middle_m: 
         matrix[:, i[1]:i[2]+1] = background_color
+      #cv.imwrite('test.png', matrix)
+      # rotates and pads the image
+      matrix_2 = rotateImage(matrix, angle=45)
+      #cv.imwrite('test2.png', matrix_2)
+      matrix_2 = np.pad(matrix_2, ((0,100),(0, 0),(0,0)), constant_values=255)
       
-      #cv.line(matrix, (middle_m[0][1], 194), (middle_m[0][2], 0), line_color, thickness=3)
-      matrix = rotateImage(matrix, angle=45)
-      non_white_columns, non_white_rows = find_non_white_rows_columns(matrix)
-      print('columns', non_white_columns)
-      print('rows', non_white_rows)
-      _, points_list = split_matrix_by_non_white_rows(matrix, non_white_rows)
-      _, points_list1 = split_matrix_by_non_white_columns(matrix, non_white_columns)
-      #print(np.linalg.norm(matrix[points_list1[1][0]],matrix[:][points_list[0][0]]))
-      #print(points_list)
-      #print(points_list1)
-      #cv.line(matrix, (points_list1[1][0]+10, 0), (points_list1[1][0]+10, points_list[0][0]+5), line_color, thickness=3)
-      #cv.line(matrix, (points_list1[0][0]+10, 0), (points_list1[0][0]+10, points_list[1][0]+5), line_color, thickness=3)
-      cv.imwrite('output.png', matrix)
+      # Finds the non_white_rows for the padded image
+      _, non_white_rows = find_non_white_rows_columns(matrix_2)
+     
+      _, points_list, row_indicies = split_matrix_by_non_white_rows(matrix_2, non_white_rows)
 
-      return matrix
-    else: return None 
+      pix_columns = find_non_white_column_pix_in_row_in_img(matrix_2,row_indicies)
+
+      ## Draws the cutting flaps for the cricut 
+      height, width, _ = matrix_2.shape
+      
+      # Define outer vertical lines
+      line_x1 = margin  # Leftmost vertical line
+      line_x2 = width - margin  # Rightmost vertical line
+
+      # Define inner vertical lines
+      line_x3 = margin * 4  # Inner left vertical line
+      line_x4 = width - margin * 4  # Inner right vertical line
+
+      line_y_start = 0  # Top start
+      line_y_end = height - margin * 4  # Bottom end
+
+      # Draws the figure lines baserd on the amount of present figures in th4e picture
+      for i in range(len(pix_columns)):
+        cv.line(matrix_2, (pix_columns[i][2]-5, line_y_end), (pix_columns[i][2]-5, points_list[i][2]-10), line_color, thickness=3)
+        cv.line(matrix_2, (pix_columns[i][1], line_y_start), (pix_columns[i][1], points_list[i][0]+10), line_color, thickness=3)
+          
+    # Draw two inner vertical lines
+      cv.line(matrix_2, (line_x3, line_y_start), (line_x3, line_y_end), line_color, thickness=3)
+      cv.line(matrix_2, (line_x4, line_y_start), (line_x4, line_y_end), line_color, thickness=3)
+
+      # Draw two outer vertical lines
+      cv.line(matrix_2, (line_x1, line_y_start), (line_x1, line_y_end), line_color, thickness=3)
+      cv.line(matrix_2, (line_x2, line_y_start), (line_x2, line_y_end), line_color, thickness=3)
+
+      # Arch at the bottom between the two outer vertical lines
+      axes = ((line_x2 - line_x1) // 2, 120)  # Width based on gap, height of arch
+      center = ((line_x1 + line_x2) // 2, line_y_end)  # Center at bottom middle
+
+      cv.ellipse(matrix_2, center, axes, 0, 0, 180, line_color, thickness=3)  # Bottom-facing arch
+
+    # Creates the cutout
+    upscaled_img = upscale_image(matrix_2, 5)
+    copy_img = np.copy(upscaled_img)
+    stacked_img = np.vstack((np.flip(rotateImage(copy_img, angle=180),axis=1), upscaled_img))
+    copy_stack = np.copy(stacked_img)
+    
+    return np.hstack((copy_stack, stacked_img))
        
 def makeTrans(final_output_array, color):
     # Create an empty alpha channel (fully opaque)
@@ -303,16 +334,25 @@ def showHeart(matrix, margin=10, line_start = 0):
     return mask
 
 def mainAlgorithm(img, function = 'create'):
-  processed_image, shown_image, processed_canvas_width, shown_image_canvas_width  = preProcessing(img)
+  
   match function:
     case 'create':
+      processed_image, shown_image, processed_canvas_width, shown_image_canvas_width  = preProcessing(img)
       final_output_array = createHeartCutsChild(processed_image, 31, processed_canvas_width, 'onesided')
 
       # second input is background color user chooses from MainWindow wip
       rgba_image = makeTrans(final_output_array, [255,255,255])
       cv.imwrite('output_image.png', rgba_image)
+
+    case 'create_symmetry':
+      processed_image = preprocessingSymmetry(img)
+      final_output_array = createHeartCuts(processed_image)   
+      #rgba_image = makeTrans(final_output_array, [255,255,255])
+      cv.imwrite('output_image.png', final_output_array)      
+
     case 'show':
       return showHeart(shown_image, 31, shown_image_canvas_width)         
+     
     case _:
       return 'error'
 
