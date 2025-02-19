@@ -40,7 +40,8 @@ from PyQt6.QtWidgets import  (
     QGraphicsScene,
     QGraphicsView,
     QGraphicsProxyWidget,
-    QSlider
+    QSlider,
+    QCheckBox
 )
 
 from PyQt6.QtGui import (
@@ -65,6 +66,7 @@ SHAPE_MODE = ShapeMode.Cursor
 SHAPE_COLOR = QColor(0, 0, 0, 255)
 BACKGROUND_COLOR = QColor(255, 255, 255, 255)
 PEN_WIDTH = 3
+FILLED = False
 
 class DrawingWidget(QWidget):
     # Defining the initial state of the canvas
@@ -97,13 +99,11 @@ class DrawingWidget(QWidget):
         # Draws the current shape as it is being created
         if self.begin != self.end:
             if (SHAPE_MODE == ShapeMode.Square):
-                qp.drawRect(QRect(self.begin, self.end))
+                self.drawSquare(qp, self.begin, self.end, SHAPE_COLOR, PEN_WIDTH, FILLED)
             elif (SHAPE_MODE == ShapeMode.Circle):
-                center = self.begin
-                radius = int((self.begin-self.end).manhattanLength() / 2)
-                qp.drawEllipse(center, radius, radius)
+                self.drawCircle(qp, self.begin, self.end, SHAPE_COLOR, PEN_WIDTH, FILLED)
             elif (SHAPE_MODE == ShapeMode.Heart):
-                self.drawHeart(qp, self.begin, self.end, SHAPE_COLOR, PEN_WIDTH)
+                self.drawHeart(qp, self.begin, self.end, SHAPE_COLOR, PEN_WIDTH, FILLED)
             elif (SHAPE_MODE == ShapeMode.Line):
                 qp.drawLine(self.begin, self.end)
             elif SHAPE_MODE == ShapeMode.FreeForm:
@@ -196,13 +196,11 @@ class DrawingWidget(QWidget):
                             break  # Skip drawing since it's erased
             # Draw the shape if not in eraser mode
             if shape_type == ShapeMode.Square:
-                qp.drawRect(QRect(shape[0], shape[1]))
+                self.drawSquare(qp, shape[0], shape[1], SHAPE_COLOR, shape[5], shape[6])
             elif shape_type == ShapeMode.Circle:
-                center = shape[0]
-                radius = int((abs(center.x() - shape[1].x()) + abs(center.y() - shape[1].y())) / 2)
-                qp.drawEllipse(center, radius, radius)
+                self.drawCircle(qp, shape[0], shape[1], SHAPE_COLOR, shape[5], shape[6])
             elif shape_type == ShapeMode.Heart:
-                self.drawHeart(qp, shape[0], shape[1], SHAPE_COLOR, shape[5])
+                self.drawHeart(qp, shape[0], shape[1], SHAPE_COLOR, shape[5], shape[6])
             elif shape_type == ShapeMode.Line:
                 qp.setPen(QPen(SHAPE_COLOR, shape[5], Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
                 qp.drawLine(shape[0], shape[1])
@@ -272,34 +270,48 @@ class DrawingWidget(QWidget):
         self.render(painter)  # Render the current drawing to the image
         return image
 
-    def drawHeart(self, qp, start, end, color, pen_width):
-        qp.setBrush(color)
-        qp.setPen(QPen(color, pen_width, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
-        drawpath = QPainterPath()
+    def drawSquare(self, qp, start, end, color, pen_width, filled):
+        self.penAndBrushSetup(qp, color, pen_width, filled)
+
+        qp.drawRect(QRect(start, end))
+
+        qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+
+    def drawCircle(self, qp, start, end, color, pen_width, filled):
+        self.penAndBrushSetup(qp, color, pen_width, filled)
+
+        center = start
+        radius = int((start-end).manhattanLength() / 2)
+        qp.drawEllipse(center, radius, radius)
+
+        qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+    
+    def drawHeart(self, qp, start, end, color, pen_width, filled):
+        self.penAndBrushSetup(qp, color, pen_width, filled)
+        
+        # Calculate width and height
         width = abs(end.x() - start.x())
         height = abs(end.y() - start.y())
-        x_offset, y_offset = start.x() + width // 2, start.y() + height // 2
+        x_offset = start.x()
+        y_offset = start.y()
 
-        # Scale factor to fit heart inside the bounding box
-        scale_x = width / 32
-        scale_y = height / 32
+        # Create the heart shape using QPainterPath
+        drawpath = QPainterPath()
+        drawpath.moveTo(x_offset + width / 2, y_offset + height / 4)
+        drawpath.cubicTo(x_offset + width * 0.75, y_offset - height / 4, x_offset + width * 1.5, y_offset + height / 2, x_offset + width / 2, y_offset + height)
+        drawpath.cubicTo(x_offset - width * 0.5, y_offset + height / 2, x_offset + width * 0.25, y_offset - height / 4, x_offset + width / 2, y_offset + height / 4)
 
-        # Start drawing the heart shape using parametric equations
-        t = 0
-        first_point = True
-        while t <= 2 * math.pi:
-            x = int(16 * math.sin(t) ** 3 * scale_x) + x_offset
-            y = int(- (13 * math.cos(t) - 5 * math.cos(2 * t) - 2 * math.cos(3 * t) - math.cos(4 * t)) * scale_y) + y_offset
-
-            if first_point:
-                drawpath.moveTo(x, y)
-                first_point = False
-            else:
-                drawpath.lineTo(x, y)
-            t += 0.1
         qp.drawPath(drawpath)
 
         qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+
+    def penAndBrushSetup(self, qp, color, pen_width, filled):
+        if filled:
+            qp.setBrush(color)
+        else:
+            qp.setBrush(Qt.BrushStyle.NoBrush)
+
+        qp.setPen(QPen(color, pen_width, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
 
     # Checks if the point is within a certain threshold of the line
     def lineContainsPoint(self, point, begin, end, threshold=4.0):
@@ -359,10 +371,7 @@ class DrawingWidget(QWidget):
             if SHAPE_MODE == ShapeMode.FreeForm:
                 self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, list(self.free_form_points), PEN_WIDTH])
             else:
-                if (SHAPE_MODE == ShapeMode.Line) or (SHAPE_MODE == ShapeMode.Heart):
-                    self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, [], PEN_WIDTH])
-                else:
-                    self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR])
+                self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, [], PEN_WIDTH, FILLED])
 
             self.begin = event.pos()
             self.end = event.pos()
@@ -621,7 +630,20 @@ class MainWindow(QMainWindow):
         MainWindow.heart_button = self.createShapeButton("icons/heart.png", "Heart", ShapeMode.Heart)
         shapes_toolbar.addAction(MainWindow.heart_button)
 
+        self.fill_checkbox_label = QLabel("Fill Shape:")
+        self.fill_checkbox_label.setStyleSheet("color: black;")
+        shapes_toolbar.addWidget(self.fill_checkbox_label)
+        self.fill_checkbox = QCheckBox('', self)
+        self.fill_checkbox.setStyleSheet("background: light grey;")
+        self.fill_checkbox.stateChanged.connect(self.updateFilledState)
+        shapes_toolbar.addWidget(self.fill_checkbox)
+
         return shapes_toolbar
+    
+    def updateFilledState(self, state):
+        global FILLED
+        FILLED = state == Qt.CheckState.Checked.value
+        # Update the fill state in your drawing logic
 
     def createShapeButton(self, icon_path, button_text, shape_mode):
         shape_button = QAction(QIcon(icon_path), button_text, self)
@@ -684,11 +706,11 @@ class MainWindow(QMainWindow):
             button.clicked.connect(partial(self.change_background_color, color_value))
             colors_toolbar.addWidget(button)
 
-        colors_toolbar.addWidget(self.addStrokeWidthWidget())
+        colors_toolbar.addWidget(self.createStrokeWidthWidget())
 
         return colors_toolbar
 
-    def addStrokeWidthWidget(self):
+    def createStrokeWidthWidget(self):
         self.stroke_width_layout = QVBoxLayout()
         
         # Create a label to show the current stroke width
