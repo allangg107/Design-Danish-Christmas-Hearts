@@ -31,7 +31,17 @@ def upscale_image(image, scale_factor):
     upscaled = cv.resize(image, (new_width, new_height), interpolation=cv.INTER_NEAREST)
 
     return upscaled
- 
+
+def downscale_image(image, scale_factor):
+    height, width = image.shape[:2]
+    new_width = int(width // scale_factor)
+    new_height = int(height // scale_factor)
+
+    # Use INTER_NEAREST to maintain sharp lines
+    downscaled = cv.resize(image, (new_width, new_height), interpolation=cv.INTER_NEAREST)
+
+    return downscaled
+
 def rotateImage(matrix, angle=-60):
     height, width = matrix.shape[:2]
 
@@ -63,7 +73,7 @@ def find_non_white_rows_columns(image):
 
     # Find columns where at least one pixel is NOT white
     non_white_columns = np.any(~white_mask, axis=0)
-    
+
     # Find rows where at least one pixel is NOT white
     non_white_rows = np.any(~white_mask, axis=1)
 
@@ -73,13 +83,13 @@ def find_non_white_rows_columns(image):
 
     return non_white_column_indices, non_white_row_indices
 
-# Helper function for drawing lines in CreateHeartCuts which finds the column_index 
+# Helper function for drawing lines in CreateHeartCuts which finds the column_index
 # of the first and last pixel of a figure based on the pixels known row locations
 def find_non_white_column_pix_in_row_in_img(matrix,row_indicies):
-    
+
     res_list = []
     counter = 0
-    
+
     for submatrix in row_indicies:
       pix_columns_max = []
       pix_columns_min = []
@@ -95,13 +105,13 @@ def find_non_white_column_pix_in_row_in_img(matrix,row_indicies):
           pix_columns_max.append(max)
           pix_columns_min.append(min)
       res_list.append([counter,pix_columns_min[0],np.max(pix_columns_max)])
-      counter +=1 
+      counter +=1
 
     return res_list
-      
+
 
 def split_matrix_by_non_white_columns(matrix, non_white_indices):
-   
+
     # Split indices into groups where consecutive indices are <= 1 apart
     split_indices = np.split(non_white_indices, np.where(np.diff(non_white_indices) > 1)[0] + 1)
 
@@ -118,7 +128,7 @@ def split_matrix_by_non_white_columns(matrix, non_white_indices):
 
             sub_matrices.append(sub_matrix)
             middle_columns.append((start_col,middle_col,end_col))
-            
+
 
     return sub_matrices, middle_columns
 
@@ -144,20 +154,20 @@ def split_matrix_by_non_white_rows(matrix, non_white_indices):
     return sub_matrices, middle_rows, row_indicies
 
 def preProcessing(image):
-  new_image= rotateImage(image, angle=45)
-  
+  new_image= rotateImage(image, angle=-45)
+
   # Removes the canvas lines and non-draw zones from the image
-  matrix = new_image[180:-179,179:-180]
-  
+  matrix = new_image[180:-180,180:-180]
+
   # Might have to be put outside preprocessing eventually
   padded_array, canvas_extended_width = padArray(matrix, 130, 340)
-  show_matrix = np.copy(matrix) 
+  show_matrix = np.copy(matrix)
   show_matrix_padded, canvas_width = padArray(show_matrix, 130, 340)
   return padded_array, show_matrix_padded, canvas_extended_width, canvas_width
 
 def preprocessingSymmetry(image):
   #image_path = cv.imread(image_path, cv.IMREAD_UNCHANGED)  # Load as is (including alpha)
-  
+
   # Converts image to a matrix and rotates the canvas
   #image = np.array(image_path)
   new_image = rotateImage(image, angle=45)
@@ -169,7 +179,7 @@ def createHeartCutsChild(matrix, margin = 10, line_start = 0, sides='onesided', 
     line_color = (0, 0, 0)  # Black color
     background_color = (255,255,255)
     height, width, _ = matrix.shape
-      
+
     # Define inner horizontal lines
     line_y1 = margin * 4 # First line (upper)
     line_y2 = height-margin * 4  # Second line (lower)
@@ -196,15 +206,15 @@ def createHeartCutsChild(matrix, margin = 10, line_start = 0, sides='onesided', 
 
     # Does nothing just exists to prevent infinite recursion i.e. it is the recursive stop
     if sides == 'None':
-      
+
       return matrix
-    
+
     # Creates a blank pattern on one side of one half of the heart
     elif sides == 'blank':
       matrix[:] = background_color
       matrix = createHeartCutsChild(matrix, margin, line_start=line_start, sides='None', lines=lines)
       return matrix
-    
+
     # Creates the pattern on both sides of one half of the heart
     elif sides == 'twosided':
       temp_matrix = np.copy(matrix)
@@ -213,7 +223,7 @@ def createHeartCutsChild(matrix, margin = 10, line_start = 0, sides='onesided', 
       temp_matrix = np.hstack((temp_matrix, np.flip(temp_matrix, axis=1)))
       final_matrix = np.vstack((matrix, temp_matrix))
       return final_matrix
-    
+
     # Creates the pattern on one side of one half of the heart
     elif sides == 'onesided':
       temp_matrix = np.copy(matrix)
@@ -221,34 +231,34 @@ def createHeartCutsChild(matrix, margin = 10, line_start = 0, sides='onesided', 
       matrix = np.hstack((matrix, np.flip(temp_matrix, axis=1)))
       temp_matrix = np.hstack((temp_matrix, np.flip(temp_matrix, axis=1)))
       final_matrix = np.vstack((matrix, temp_matrix))
-      return final_matrix   
+      return final_matrix
 
 def createHeartCuts(matrix, margin = 10, sides='blank', symmetry='symmetrical'):
     line_color = (0, 0, 0)  # Black color
     background_color = (255,255,255)
-    
+
     index_arr, _ = find_non_white_rows_columns(matrix)
     _, middle_m = split_matrix_by_non_white_columns(matrix,index_arr)
 
-    if symmetry == 'symmetrical': 
-      for i in middle_m: 
+    if symmetry == 'symmetrical':
+      for i in middle_m:
         matrix[:, i[1]:i[2]+1] = background_color
 
       # rotates and pads the image
       matrix_2 = rotateImage(matrix, angle=45)
       #cv.imwrite('test2.png', matrix_2)
       matrix_2 = np.pad(matrix_2, ((0,100),(0, 0),(0,0)), constant_values=255)
-      
+
       # Finds the non_white_rows for the padded image
       _, non_white_rows = find_non_white_rows_columns(matrix_2)
-     
+
       _, points_list, row_indicies = split_matrix_by_non_white_rows(matrix_2, non_white_rows)
 
       pix_columns = find_non_white_column_pix_in_row_in_img(matrix_2,row_indicies)
 
-      ## Draws the cutting flaps for the cricut 
+      ## Draws the cutting flaps for the cricut
       height, width, _ = matrix_2.shape
-      
+
       # Define outer vertical lines
       line_x1 = margin  # Leftmost vertical line
       line_x2 = width - margin  # Rightmost vertical line
@@ -264,7 +274,7 @@ def createHeartCuts(matrix, margin = 10, sides='blank', symmetry='symmetrical'):
       for i in range(len(pix_columns)):
         cv.line(matrix_2, (pix_columns[i][2]-5, line_y_end), (pix_columns[i][2]-5, points_list[i][2]-10), line_color, thickness=3)
         cv.line(matrix_2, (pix_columns[i][1], line_y_start), (pix_columns[i][1], points_list[i][0]+10), line_color, thickness=3)
-          
+
     # Draw two inner vertical lines
       cv.line(matrix_2, (line_x3, line_y_start), (line_x3, line_y_end), line_color, thickness=3)
       cv.line(matrix_2, (line_x4, line_y_start), (line_x4, line_y_end), line_color, thickness=3)
@@ -284,9 +294,9 @@ def createHeartCuts(matrix, margin = 10, sides='blank', symmetry='symmetrical'):
     copy_img = np.copy(upscaled_img)
     stacked_img = np.vstack((np.flip(rotateImage(copy_img, angle=180),axis=1), upscaled_img))
     copy_stack = np.copy(stacked_img)
-    
+
     return np.hstack((copy_stack, stacked_img))
-       
+
 def makeTrans(final_output_array, color):
     # Create an empty alpha channel (fully opaque)
     alpha_channel = np.ones((final_output_array.shape[0], final_output_array.shape[1]), dtype=np.uint8) * 255  # Fully opaque
@@ -298,14 +308,18 @@ def makeTrans(final_output_array, color):
     rgba_image = np.dstack((final_output_array, alpha_channel))
     return rgba_image
 
-def showHeart(matrix, margin=10, line_start = 0): 
+def showHeart(image, margin=10, line_start = 0):
+    rotated_image = rotateImage(image, angle=-45)
+    # Removes the canvas lines and non-draw zones from the image
+    isolated_pattern = rotated_image[180:-180,180:-180] # these numbers are hardcoded for now
+
     line_color = (0, 0, 0)  # Black color
-    height, width, _ = matrix.shape
-    square_size = min(width, height) // 2  # Ensuring a balanced square
-    center = (square_size, square_size)
+    height, width, _ = isolated_pattern.shape # isolated_pattern's shape is a square
+    square_size = height // 2  # Ensuring a balanced square
+    center = (height // 2, height // 2)
 
     # Create a blank mask
-    mask = np.full_like(matrix, 255)
+    mask = np.full_like(isolated_pattern, 255)
 
     # Define square corners
     half_size = square_size // 2
@@ -330,28 +344,43 @@ def showHeart(matrix, margin=10, line_start = 0):
     cv.ellipse(mask, halfway_point_upper_left, (radius, radius), 0, -225, -45, line_color, thickness=3)
     cv.ellipse(mask, halfway_point_upper_right, (radius, radius), 0, -135, 45, line_color, 3)
 
-    return mask
+    rotated_mask = rotateImage(mask, -45)
+
+    square_width_rounded = math.floor(square_width) - 15
+    scaled_pattern = cv.resize(isolated_pattern, (square_width_rounded, square_width_rounded), interpolation=cv.INTER_NEAREST) # scaled to fit inside the square of the heart
+                                     
+    # Calculate coordinates to overlay scaled_pattern on the square portion of the heart
+    x_center = (rotated_mask.shape[1] - square_width_rounded) // 2
+    y_center = (rotated_mask.shape[0] - square_width_rounded) // 2
+
+    # Overlay scaled_pattern onto the square portion of the heart
+    rotated_mask[y_center:y_center + square_width_rounded, x_center:x_center + square_width_rounded] = scaled_pattern
+
+    reverse_rotated_mask = rotateImage(rotated_mask, 45)
+
+    return reverse_rotated_mask
 
 def mainAlgorithm(img, function = 'create'):
-  
+
   match function:
     case 'create':
       processed_image, shown_image, processed_canvas_width, shown_image_canvas_width  = preProcessing(img)
       final_output_array = createHeartCutsChild(processed_image, 31, processed_canvas_width, 'onesided')
-
       # second input is background color user chooses from MainWindow wip
       rgba_image = makeTrans(final_output_array, [255,255,255])
       cv.imwrite('output_image.png', rgba_image)
 
     case 'create_symmetry':
       processed_image = preprocessingSymmetry(img)
-      final_output_array = createHeartCuts(processed_image)   
+      final_output_array = createHeartCuts(processed_image)
       #rgba_image = makeTrans(final_output_array, [255,255,255])
-      cv.imwrite('output_image.png', final_output_array)      
+      cv.imwrite('output_image.png', final_output_array)
 
     case 'show':
-      return showHeart(shown_image, 31, shown_image_canvas_width)         
-     
+      processed_image, shown_image, processed_canvas_width, shown_image_canvas_width  = preProcessing(img)
+      # cv.imshow('shown_image', shown_image)
+      return showHeart(img, 31, shown_image_canvas_width)
+
     case _:
       return 'error'
 
