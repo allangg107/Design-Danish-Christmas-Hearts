@@ -229,6 +229,7 @@ def symmetryStencil(matrix, non_colored_rows, margin=10, line_start=0, line_colo
   cv.ellipse(matrix, center, axes, 0, 0, 180, line_color, thickness=3)  # Bottom-facing arch
 
   return matrix
+
 def createHeartCutoutSimplestpattern(matrix, line_start = 0, sides='onesided', line_color=(0,0,0), background_color=(255,255,255)):
   matrix = baseStencil(matrix, 31, line_start)
   # Creates the pattern on both sides of one half of the heart
