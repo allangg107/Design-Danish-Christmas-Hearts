@@ -285,10 +285,10 @@ class DrawingWidget(QWidget):
         qp.drawEllipse(center, radius, radius)
 
         qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
-    
+
     def drawHeart(self, qp, start, end, color, pen_width, filled):
         self.penAndBrushSetup(qp, color, pen_width, filled)
-        
+
         # Calculate width and height
         width = abs(end.x() - start.x())
         height = abs(end.y() - start.y())
@@ -483,6 +483,7 @@ class MainWindow(QMainWindow):
         return super().eventFilter(source, event)
 
     def update_backside_image(self):
+        self.backside_label.setText("Back Side (not modifiable):")
         drawing_image = self.drawing_widget.get_drawing_image()
         mirrored_image = drawing_image.mirrored(True, False)  # Mirror horizontally
         pixmap = QPixmap.fromImage(mirrored_image)
@@ -639,7 +640,7 @@ class MainWindow(QMainWindow):
         shapes_toolbar.addWidget(self.fill_checkbox)
 
         return shapes_toolbar
-    
+
     def updateFilledState(self, state):
         global FILLED
         FILLED = state == Qt.CheckState.Checked.value
@@ -712,13 +713,13 @@ class MainWindow(QMainWindow):
 
     def createStrokeWidthWidget(self):
         self.stroke_width_layout = QVBoxLayout()
-        
+
         # Create a label to show the current stroke width
         initial_stroke_width = 3
         self.stroke_width_label = QLabel(f'Stroke Width: {initial_stroke_width}', self)
         self.stroke_width_label.setStyleSheet("color: black;")
         self.stroke_width_layout.addWidget(self.stroke_width_label)
-        
+
         # Create a slider for selecting stroke width
         self.stroke_width_slider = QSlider(Qt.Orientation.Horizontal, self)
         self.stroke_width_slider.setMinimum(1)
@@ -732,7 +733,7 @@ class MainWindow(QMainWindow):
         stroke_width_container = QWidget()
         stroke_width_container.setLayout(self.stroke_width_layout)
         return stroke_width_container
-    
+
     def updateStrokeWidth(self, value):
         self.stroke_width_label.setText(f'Stroke Width: {value}')
         global PEN_WIDTH
