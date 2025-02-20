@@ -1,5 +1,6 @@
 import sys
 import math
+import svgwrite
 import cv2 as cv
 import numpy as np
 
@@ -11,6 +12,10 @@ from functools import partial
 
 from ShapeMode import (
     ShapeMode
+)
+
+from PyQt6.QtSvg import (
+    QSvgGenerator
 )
 
 from PyQt6.QtCore import (
@@ -41,7 +46,8 @@ from PyQt6.QtWidgets import  (
     QGraphicsView,
     QGraphicsProxyWidget,
     QSlider,
-    QCheckBox
+    QCheckBox,
+    QDialog
 )
 
 from PyQt6.QtGui import (
@@ -382,6 +388,29 @@ class DrawingWidget(QWidget):
         self.drawing_mode = enabled
         self.update()
 
+class GuideWindow(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Guide Window")
+
+        layout = QVBoxLayout()
+
+        # Add an image to the layout
+        image_label = QLabel(self)
+        pixmap = QPixmap('output_image.png')  # Replace with the path to your image file
+        pixmap.scaledToHeight(600)
+        image_label.setPixmap(pixmap)
+        image_label.setFixedSize(QSize(600, 600))
+        layout.addWidget(image_label)
+
+        # Add some text to the layout
+        text_label = QLabel("This is some text displayed in the popup window.")
+        layout.addWidget(text_label)
+
+        self.setLayout(layout)
+
+        self.setFixedSize(QSize(1200, 700))
+
 # Subclass QMainWindow to customize your application's main window
 class MainWindow(QMainWindow):
     cursor_button = None
@@ -514,6 +543,12 @@ class MainWindow(QMainWindow):
         edit_button.clicked.connect(lambda: self.editDisplay())
         menu_toolbar.addWidget(edit_button)
 
+        weaving_pattern_button = QPushButton("Weaving Pattern", self)
+        weaving_pattern_button.setStyleSheet("background-color: lightgray; color: black;")
+        weaving_pattern_button_menu = self.createWeavingPatternDropdownMenu()
+        weaving_pattern_button.setMenu(weaving_pattern_button_menu)
+        menu_toolbar.addWidget(weaving_pattern_button)
+
         return menu_toolbar
 
     def createFileDropdownMenu(self):
@@ -533,15 +568,21 @@ class MainWindow(QMainWindow):
         action_open = QAction("Open", self)
         action_save = QAction("Save", self)
         action_save.triggered.connect(lambda: self.save_canvas_as_png())
+        action_save_svg = QAction("Save as SVG", self)
+        action_save_svg.triggered.connect(lambda: self.save_as_svg("svg_file.svg"))
         action_export = QAction("Export", self)
         action_export.triggered.connect(lambda: self.exportHeart())
+        action_guide_export = QAction("Export Guide", self)
+        action_guide_export.triggered.connect(lambda: self.exportGuide())
         action_undo = QAction("Undo (shrt cut: ctrl + z)", self) # Need to implement stack to store shapes
 
         # Add actions to the menu
         file_menu.addAction(action_new)
         file_menu.addAction(action_open)
         file_menu.addAction(action_save)
+        file_menu.addAction(action_save_svg)
         file_menu.addAction(action_export)
+        file_menu.addAction(action_guide_export)
         file_menu.addAction(action_undo)
 
         return file_menu
@@ -564,6 +605,33 @@ class MainWindow(QMainWindow):
 
         return view_menu
 
+    def createWeavingPatternDropdownMenu(self):
+        weaving_pattern_menu = QMenu("Weaving Pattern", self)
+        weaving_pattern_menu.setStyleSheet("""
+        QMenu::item {
+            color: black;
+            background: transparent;
+        }
+        QMenu::item:selected {
+            background-color: #D3D3D3;  /* Lighter gray */
+            color: black;
+        }
+        """)
+        # Create actions
+        action_simple = QAction("Simple", self)
+        action_symetrical = QAction("Symetrical", self)
+        action_asymetrical = QAction("Asymetrical", self)
+        action_simple.triggered.connect(lambda: self.setWeavingPattern("simple"))
+        action_symetrical.triggered.connect(lambda: self.setWeavingPattern("symetrical"))
+        action_asymetrical.triggered.connect(lambda: self.setWeavingPattern("asymetrical"))
+
+        # Add actions to the menu
+        weaving_pattern_menu.addAction(action_simple)
+        weaving_pattern_menu.addAction(action_symetrical)
+        weaving_pattern_menu.addAction(action_asymetrical)
+
+        return weaving_pattern_menu
+
     def updateDisplay(self, write_to_image = False):
         #self.stacked_widget.setCurrentWidget(self.weave_widget)
         #self.weave_widget.setShapes(self.drawing_widget.shapes)
@@ -580,8 +648,17 @@ class MainWindow(QMainWindow):
 
         # Shows the design created by the users on the heart
         pixmap = QPixmap(heart)
-        self.drawing_backside.setPixmap(pixmap)
-        self.drawing_backside.setScaledContents(True)
+
+        scaled_pixmap = pixmap.scaled(
+            self.drawing_backside.width() * 2,
+            self.drawing_backside.height() * 2,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation
+            )
+        self.drawing_backside.setPixmap(scaled_pixmap)
+        self.drawing_backside.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        #self.drawing_backside.setPixmap(pixmap)
+        #self.drawing_backside.setScaledContents(True)
 
 
     def editDisplay(self):
@@ -755,9 +832,40 @@ class MainWindow(QMainWindow):
         pixmap = QPixmap(self.drawing_widget.size())  # Create pixmap of the same size
         self.drawing_widget.render(pixmap)  # Render the widget onto the pixmap
         pixmap.save(filename, "PNG")  # Save as PNG
+
     def exportHeart(self):
         arr = self.pixmapToCvImage()
         mainAlgorithm(arr,'create')
+
+    def save_as_svg(self, file_path):
+        svg_generator = QSvgGenerator()
+        svg_generator.setFileName(file_path)  # Path to save the SVG file
+        svg_generator.setSize(self.size())    # Set the size of the SVG to match the widget size
+        svg_generator.setViewBox(self.rect())  # Set the view box to the widget's dimensions
+        svg_generator.setTitle("Drawing")      # Optional title for the SVG
+
+        painter = QPainter(svg_generator)
+        self.drawing_widget.redrawAllShapes(painter)
+        painter.end()
+
+    def pixmap_to_svg(pixmap, svg_file_path):
+        # Create an SVG generator
+        svg_gen = QSvgGenerator()
+        svg_gen.setFileName(svg_file_path)
+        svg_gen.setSize(pixmap.size())
+        svg_gen.setViewBox(pixmap.rect())
+        svg_gen.setTitle("Pixmap to SVG")
+        svg_gen.setDescription("Converted from QPixmap to SVG using PyQt6")
+
+        # Create a QPainter to draw the pixmap onto the SVG generator
+        painter = QPainter(svg_gen)
+        painter.drawPixmap(0, 0, pixmap)
+        painter.end()
+
+
+    def exportGuide(self):
+        guide_window = GuideWindow()
+        guide_window.exec()
 
     def pixmapToCvImage(self):
         pixmap = QPixmap(self.drawing_widget.size())  # Create pixmap of the same size
@@ -786,6 +894,10 @@ class MainWindow(QMainWindow):
         cv_img_rgb = cv.cvtColor(cv_img, cv.COLOR_BGR2RGB)  # Convert BGR to RGB
         q_image = QImage(cv_img_rgb.data, width, height, bytes_per_line, QImage.Format.Format_RGB888)
         return QPixmap.fromImage(q_image)
+
+    def setWeavingPattern(self, pattern = "simple"):
+        # set the weaving pattern as approriate
+        print("Weaving Pattern set to: " + pattern)
 
 
 app = QApplication(sys.argv)

@@ -69,7 +69,7 @@ def rotateImage(matrix, angle=-60):
 def find_non_background_colored_rows_columns(image, background_color=(255,255,255)):
 
     pixel_color = background_color[0]-5
-    # Identify colored pixels 
+    # Identify colored pixels
     mask = np.all(image > pixel_color, axis=2)
 
     # Find columns where at least one pixel is NOT the pixel color
@@ -155,10 +155,10 @@ def split_matrix_by_non_background_colored_rows(matrix, non_colored_indices):
 
 def preProcessing(image):
   new_image= rotateImage(image, angle=45)
-  
+
   # Removes the canvas lines and non-draw zones from the image
   matrix = new_image[180:-180,180:-180]
-  show_matrix = np.copy(matrix) 
+  show_matrix = np.copy(matrix)
   sym_matrix = rotateImage(matrix, angle=-45)
   return matrix, show_matrix, sym_matrix
 
@@ -190,14 +190,14 @@ def baseStencil(matrix, margin=31, line_start=0, line_color = (0,0,0)):
   return matrix
 
 def symmetryStencil(matrix, non_colored_rows, margin=10, line_start=0, line_color = (0,0,0)):
-  # Splits the by non-white rows and saves the figures start, middle and end row as well as the 
+  # Splits the by non-white rows and saves the figures start, middle and end row as well as the
   # row indicies of the figures highest and lowest pixels
   _, points_list, row_indicies = split_matrix_by_non_background_colored_rows(matrix, non_colored_rows)
 
   pix_columns = find_non_background_colored_column_pix_in_row_in_img(matrix,row_indicies)
-  ## Draws the cutting flaps for the cricut 
+  ## Draws the cutting flaps for the cricut
   height, width, _ = matrix.shape
-  
+
   # Define outer vertical lines
   line_x1 = margin  # Leftmost vertical line
   line_x2 = width - margin  # Rightmost vertical line
@@ -213,7 +213,7 @@ def symmetryStencil(matrix, non_colored_rows, margin=10, line_start=0, line_colo
   for i in range(len(pix_columns)):
     cv.line(matrix, (pix_columns[i][2]-5, line_y_end), (pix_columns[i][2]-5, points_list[i][2]-10), line_color, thickness=3)
     cv.line(matrix, (pix_columns[i][1], line_y_start), (pix_columns[i][1], points_list[i][0]+10), line_color, thickness=3)
-      
+
   # Draw two inner vertical lines
   cv.line(matrix, (line_x3, line_y_start), (line_x3, line_y_end), line_color, thickness=3)
   cv.line(matrix, (line_x4, line_y_start), (line_x4, line_y_end), line_color, thickness=3)
@@ -241,7 +241,7 @@ def createHeartCutoutSimplestpattern(matrix, line_start = 0, sides='onesided', l
     temp_matrix = np.hstack((temp_matrix, np.flip(temp_matrix, axis=1)))
     final_matrix = np.vstack((matrix, temp_matrix))
     return final_matrix
-  
+
   # Creates the pattern on one side of one half of the heart
   elif sides == 'onesided':
     temp_matrix = np.copy(matrix)
@@ -250,32 +250,32 @@ def createHeartCutoutSimplestpattern(matrix, line_start = 0, sides='onesided', l
     matrix = np.hstack((matrix, np.flip(temp_matrix, axis=1)))
     temp_matrix = np.hstack((temp_matrix, np.flip(temp_matrix, axis=1)))
     final_matrix = np.vstack((matrix, temp_matrix))
-    return final_matrix   
+    return final_matrix
 
 def createHeartCutoutSymmetrical(matrix, symmetry='symmetrical', line_color=(0,0,0), background_color=(255,255,255)):
     index_arr, _ = find_non_background_colored_rows_columns(matrix)
     _, middle_m, _= split_matrix_by_non_background_colored_columns(matrix,index_arr)
 
-    if symmetry == 'symmetrical': 
-      for i in middle_m: 
+    if symmetry == 'symmetrical':
+      for i in middle_m:
         matrix[:, i[1]:i[2]+1] = background_color
 
       # rotates and pads the image
       matrix_2 = rotateImage(matrix, angle=45)
       matrix_2 = np.pad(matrix_2, ((0,100),(0, 0),(0,0)), constant_values=255)
-      
+
       # Finds the non_white_rows for the padded image
       _, non_white_rows = find_non_background_colored_rows_columns(matrix_2)
-     
+
       # creates the stencil for the cutout
       res_matrix = symmetryStencil(matrix_2, non_white_rows, line_color=line_color)
-      
+
       # Creates the cutout
       upscaled_img = upscale_image(res_matrix, 5)
       copy_img = np.copy(upscaled_img)
       stacked_img = np.vstack((np.flip(rotateImage(copy_img, angle=180),axis=1), upscaled_img))
       copy_stack = np.copy(stacked_img)
-    
+
     return np.hstack((copy_stack, stacked_img))
 
 def makeTrans(final_output_array, color):
@@ -293,8 +293,8 @@ def createFinalHeartDisplay(image):
     image = rotateImage(image, angle=-90)
     line_color = (0, 0, 0)  # Black color
     height, width, _ = image.shape # isolated_pattern's shape is a square
-    square_size = height // 2  # Ensuring a balanced square
-    center = (height // 2, height // 2)
+    square_size =   height // 2  # Ensuring a balanced square
+    center = (height // 2, width // 2)
 
     # Create a blank mask
     mask = np.full_like(image, 255)
@@ -325,8 +325,8 @@ def createFinalHeartDisplay(image):
     rotated_mask = rotateImage(mask, -45)
 
     square_width_rounded = math.floor(square_width) - 15
-    scaled_pattern = cv.resize(image, (square_width_rounded, square_width_rounded), interpolation=cv.INTER_NEAREST) # scaled to fit inside the square of the heart
-                                     
+    scaled_pattern = cv.resize(image, (square_width_rounded, square_width_rounded), interpolation=cv.INTER_LANCZOS4) # scaled to fit inside the square of the heart
+
     # Calculate coordinates to overlay scaled_pattern on the square portion of the heart
     x_center = (rotated_mask.shape[1] - square_width_rounded) // 2
     y_center = (rotated_mask.shape[0] - square_width_rounded) // 2
@@ -335,8 +335,11 @@ def createFinalHeartDisplay(image):
     rotated_mask[y_center:y_center + square_width_rounded, x_center:x_center + square_width_rounded] = scaled_pattern
 
     reverse_rotated_mask = rotateImage(rotated_mask, 45)
-  
+
     return reverse_rotated_mask
+
+
+
 
 def mainAlgorithm(img, function = 'create'):
   create_matrix, shown_image, sym_matrix = preProcessing(img)
@@ -350,15 +353,20 @@ def mainAlgorithm(img, function = 'create'):
       cv.imwrite('output_image.png', rgba_image)
 
     case 'create_symmetry':
-      final_output_array = createHeartCutoutSymmetrical(sym_matrix)   
+      final_output_array = createHeartCutoutSymmetrical(sym_matrix)
       rgba_image = makeTrans(final_output_array, [255,255,255])
-      cv.imwrite('output_image.png', final_output_array) 
+      cv.imwrite('output_image.png', final_output_array)
 
     case 'show':
-     return createFinalHeartDisplay(shown_image)
+        return createFinalHeartDisplay(shown_image)
+
 
     case _:
       return 'error'
+
+#heart_display = createFinalHeartDisplay(shown_image)
+#     upscaled_heart = upscale_image(heart_display, scale_factor=15)
+#     return upscaled_heart
 
 # Save the 3D array as a PNG file
 
