@@ -6,16 +6,13 @@ import numpy as np
 
 from functools import partial
 
-#from PatternOutput import (
-#    WeaveView
-#)
-
 from ShapeMode import (
     ShapeMode
 )
 
 from PyQt6.QtSvg import (
-    QSvgGenerator
+    QSvgGenerator,
+    QSvgRenderer
 )
 
 from PyQt6.QtCore import (
@@ -63,9 +60,15 @@ from PyQt6.QtGui import (
     QTransform,
     QPolygon
 )
+
 from Algorithm import (
     mainAlgorithm
 )
+
+from VectorAlgo import (
+    mainAlgorithmSvg
+)
+
 
 # Global variables for the shape mode and shape color
 SHAPE_MODE = ShapeMode.Cursor
@@ -538,6 +541,11 @@ class MainWindow(QMainWindow):
         update_button.clicked.connect(lambda: self.updateDisplay())
         menu_toolbar.addWidget(update_button)
 
+        update_button_svg = QPushButton("Update SVG", self)
+        update_button_svg.setStyleSheet("background-color: lightgray; color: black;")
+        update_button_svg.clicked.connect(lambda: self.updateDisplaySvg())
+        menu_toolbar.addWidget(update_button_svg)
+
         edit_button = QPushButton("Edit", self)
         edit_button.setStyleSheet("background-color: lightgray; color: black;")
         edit_button.clicked.connect(lambda: self.editDisplay())
@@ -631,6 +639,16 @@ class MainWindow(QMainWindow):
         weaving_pattern_menu.addAction(action_asymetrical)
 
         return weaving_pattern_menu
+
+    def updateDisplaySvg(self):
+        self.backside_label.setText("Front Side final product:")
+
+        svg_file_path = "svg_file.svg"
+        rendered_image = QSvgRenderer(svg_file_path)
+
+        mainAlgorithmSvg(svg_file_path, "show")
+
+
 
     def updateDisplay(self, write_to_image = False):
         #self.stacked_widget.setCurrentWidget(self.weave_widget)
