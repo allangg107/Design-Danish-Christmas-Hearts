@@ -642,12 +642,23 @@ class MainWindow(QMainWindow):
 
     def updateDisplaySvg(self):
         self.backside_label.setText("Front Side final product:")
-
         svg_file_path = "svg_file.svg"
-        rendered_image = QSvgRenderer(svg_file_path)
+        heart = self.cvImageToPixmap(mainAlgorithmSvg(svg_file_path, "show"))
 
-        mainAlgorithmSvg(svg_file_path, "show")
+        # Shows the design created by the users on the heart
+        pixmap = QPixmap(heart)
 
+        scaled_pixmap = pixmap.scaled(
+            self.drawing_backside.width() * 2,
+            self.drawing_backside.height() * 2,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation
+            )
+        self.drawing_backside.setPixmap(scaled_pixmap)
+        self.drawing_backside.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+    def displayFinalHeart(self):
+        pass
 
 
     def updateDisplay(self, write_to_image = False):
@@ -658,7 +669,6 @@ class MainWindow(QMainWindow):
         self.backside_label.setText("Front Side final product:")
 
         arr = self.pixmapToCvImage()
-        #mainAlgorithm(arr,'create')
         heart = self.cvImageToPixmap(mainAlgorithm(arr, 'show'))
 
         if write_to_image:
@@ -675,7 +685,6 @@ class MainWindow(QMainWindow):
             )
         self.drawing_backside.setPixmap(scaled_pixmap)
         self.drawing_backside.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        #self.drawing_backside.setPixmap(pixmap)
         #self.drawing_backside.setScaledContents(True)
 
 
