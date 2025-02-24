@@ -2,10 +2,13 @@ import cv2 as cv
 
 import numpy as np
 
-import svgwrite
-
 import math
 
+import tempfile
+
+import svgwrite
+import svgutils.transform as sg
+from svgpathtools import svg2paths, svg2paths2, wsvg, Path, Line, CubicBezier, QuadraticBezier, Arc
 
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import QApplication, QWidget, QLabel
@@ -70,53 +73,6 @@ def rotateImage(matrix, angle=-60):
     rotated_matrix = cv.warpAffine(matrix, rotation_matrix, (new_width, new_height), borderValue=(255, 255, 255))
 
     return rotated_matrix
-
-# def createFinalHeartDisplay(filepath):
-#     # Load existing SVG
-#     dwg = svgwrite.Drawing(size=("500px", "500px"))
-#     #dwg.add(dwg.image(filepath, insert=(0, 0), size=("600px", "600px")))
-#     # Define center and size for transformations
-#     width, height = 500, 500
-#     center = (width // 2, height // 2)
-#     square_size = height // 2
-#     half_size = square_size // 2
-#     # Create square
-#     square_points = [
-#         (center[0] - half_size, center[1] - half_size),  # Top-left
-#         (center[0] + half_size, center[1] - half_size),  # Top-right
-#         (center[0] + half_size, center[1] + half_size),  # Bottom-right
-#         (center[0] - half_size, center[1] + half_size)   # Bottom-left
-#     ]
-
-#     # Add the square
-#     dwg.add(dwg.polygon(points=square_points, fill='none', stroke='black', stroke_width=3))
-
-#     # Draw heart-like curves (two ellipses)
-#     radius = math.floor(square_size / 2)
-#     halfway_left = (center[0] - half_size // 2, center[1] - half_size // 2)
-#     halfway_right = (center[0] + half_size // 2, center[1] - half_size // 2)
-
-#     # Left semi-circle (half of a circle, clockwise direction)
-#     dwg.add(dwg.path(d="M {},{} A {},{} 0 0,1 {},{}"
-#                      .format(center[0] - half_size - radius, center[1],
-#                              radius, radius,
-#                              center[0] - half_size + radius, center[1]),
-#                      fill='none', stroke='black', stroke_width=3))
-
-#     # Right semi-circle (half of a circle, counter-clockwise direction)
-#     dwg.add(dwg.path(d="M {},{} A {},{} 0 0,1 {},{}"
-#                      .format(center[0] + half_size - radius, center[1],
-#                              radius, radius,
-#                              center[0] + half_size + radius, center[1]),
-#                      fill='none', stroke='black', stroke_width=3))
-
-#     # Scale and center the SVG pattern inside the diamond
-#     dwg.add(dwg.image(filepath, insert=(center[0] - half_size, center[1] - half_size),
-#                       size=(f"{square_size}px", f"{square_size}px"),
-#                       transform=f"rotate(-45,{center[0]},{center[1]})"))
-#     finalDwg = saveSvgToPixmap(dwg)
-
-#     return finalDwg
 
 def createFinalHeartDisplay(image):
     image = rotateImage(image, angle=-45)
@@ -301,45 +257,145 @@ def saveSvgFileAsQLabel(filepath):
 
 def mainAlgorithmSvg(img, function = 'create'):
 
-  match function:
+    match function:
+        case 'create':
+            createHeartCutoutSimplestPattern(1200)
 
-    case 'show':
-        # We start with a filepath to an svg image. But, we want to give createFinalHeartDisplay a CV Image
-        heartPixmap = saveSvgFileAsPixmap(img)
-        heartCvImage = savePixmapToCvImage(heartPixmap)
+        case 'show':
+            # We start with a filepath to an svg image. But, we want to give createFinalHeartDisplay a CV Image
+            heartPixmap = saveSvgFileAsPixmap(img)
+            heartCvImage = savePixmapToCvImage(heartPixmap)
 
-        return createFinalHeartDisplay(heartCvImage)
+            return createFinalHeartDisplay(heartCvImage)
 
-    case _:
-      return 'error'
+        case _:
+            return 'error'
 
-def baseStencilSvg(width, height, margin=31, line_start=0, line_color='black'):
-  dwg = svgwrite.Drawing(size=(width,height))
-  line_y1 = margin*4
-  line_y2 = height-margin*4
-  line_y3 = margin
-  line_y4 = height-margin
+def drawEmptyStencil(width, height, starting_y, margin_x=31, line_color='black', file_name="allan is a miracle.svg"):
+    dwg = svgwrite.Drawing(file_name, size=(width,height+starting_y))
+    # define the square size
+    square_size = (height // 1.5) - margin_x
+    margin_y = margin_x + starting_y
 
-  dwg.add(dwg.line(start=(line_start, line_y1), end=(width, line_y1), stroke=line_color, stroke_width=3))
-  dwg.add(dwg.line(start=(line_start, line_y2), end=(width, line_y2), stroke=line_color, stroke_width=3))
-  dwg.add(dwg.line(start=(line_start, line_y3), end=(width, line_y3), stroke=line_color, stroke_width=3))
-  dwg.add(dwg.line(start=(line_start, line_y4), end=(width, line_y4), stroke=line_color, stroke_width=3))
+    # draw the left square
+    left_top_line_start = (margin_x + square_size // 2, margin_y)
+    left_top_line_end = (left_top_line_start[0] + square_size, left_top_line_start[1])
+    left_bottom_line_start = (left_top_line_start[0], left_top_line_start[1] + square_size)
+    left_bottom_line_end = (left_bottom_line_start[0] + square_size, left_bottom_line_start[1])
 
-  center_x = line_start
-  center_y = (line_y3 + line_y4) // 2
-  radius_x = 330
-  radius_y = (line_y4 - line_y3)  // 2
-  path_d = f"M {center_x}, {line_y3} A {radius_x},{radius_y} 0 1, 0 {center_x}, {line_y4}"
-  dwg.add(dwg.path(d=path_d, stroke=line_color, fill='none', stroke_width=3))
-  return dwg
+    dwg.add(dwg.line(start=(left_top_line_start), end=(left_top_line_end), stroke="red", stroke_width=3))
+    dwg.add(dwg.line(start=(left_bottom_line_start), end=(left_bottom_line_end), stroke="red", stroke_width=3))
 
-def createHeartCutoutSimplestPattern(width, height, line_start=0, sides='oneisided', line_color='black', background_color='white'):
-    dwg = baseStencilSvg(width, height, 31, line_start, line_color)
+    # left_arc
+    # draw the left arc
+    radius_x = square_size / 2
+    radius_y = square_size / 2
+    arc_start = (left_bottom_line_start[0], left_bottom_line_start[1])
+    arc_end = (left_top_line_start[0], left_top_line_start[1])
+    left_arc_path = f"M {arc_start[0]},{arc_start[1]} A {radius_x},{radius_y} 0 0,1 {arc_end[0]},{arc_end[1]}"
 
+    dwg.add(dwg.path(d=left_arc_path, stroke="purple", fill="none", stroke_width=3))
+
+    # draw the right square
+    right_top_line_start = left_top_line_end
+    right_top_line_end = (right_top_line_start[0] + square_size, right_top_line_start[1])
+    right_bottom_line_start = left_bottom_line_end
+    right_bottom_line_end = (right_bottom_line_start[0] + square_size, right_bottom_line_start[1])
+
+    dwg.add(dwg.line(start=(right_top_line_start), end=(right_top_line_end), stroke="blue", stroke_width=3))
+    dwg.add(dwg.line(start=(right_bottom_line_start), end=(right_bottom_line_end), stroke="blue", stroke_width=3))
+
+    # draw the right arc
+    arc_start = (right_top_line_end[0], right_top_line_end[1])
+    arc_end = (right_bottom_line_end[0], right_bottom_line_end[1])
+    right_arc_path = f"M {arc_start[0]},{arc_start[1]} A {radius_x},{radius_y} 0 0,1 {arc_end[0]},{arc_end[1]}"
+
+    dwg.add(dwg.path(d=right_arc_path, stroke="yellow", fill="none", stroke_width=3))
+
+    # draw the inner line cuts
+    dwg.add(dwg.line(start=((left_top_line_start[0], left_top_line_start[1] + margin_x)), end=((right_top_line_end[0], right_top_line_end[1] + margin_x)), stroke="brown", stroke_width=3))
+    dwg.add(dwg.line(start=((left_bottom_line_start[0], left_bottom_line_start[1] - margin_x)), end=((right_bottom_line_end[0], right_bottom_line_end[1] - margin_x)), stroke="brown", stroke_width=3))
+
+    dwg.save()
+
+    return file_name
+
+def combineStencils(first_half, second_half):
+    # combine the 2 stencil halves, where the first half is the left side and the second is the right
+
+    # Load paths and attributes of the first SVG file
+    paths1, attributes1 = svg2paths(first_half)
+
+    # Load paths and attributes of the second SVG file
+    paths2, attributes2 = svg2paths(second_half)
+
+    # Combine the paths and attributes
+    combined_paths = paths1 + paths2
+    combined_attributes = attributes1 + attributes2
+
+    # Save the combined SVG
+    wsvg(combined_paths, attributes=combined_attributes, filename='combined.svg')
+
+def getPattern():
+    # get half of the pattern
+    # this will prob need to be calculated and not just copied
+    pass
+
+def combinePatterns(first_half, second_half):
+    # combine the 2 pattern halves, where the first half is the left side and the second is the right
+    pass
+
+def overlayPatternOnStencil(pattern, stencil):
+    pass
+
+def drawH():
+    dwg = svgwrite.Drawing("drawH.svg", size=("300px", "300px"))
+    dwg.add(dwg.line(start=(0, 150), end=(300, 150), stroke="black", stroke_width=3))
+    dwg.save()
+    return "drawH.svg"
+
+def drawV():
+    dwg = svgwrite.Drawing("drawV.svg", size=("300px", "300px"))
+    dwg.add(dwg.line(start=(150, 0), end=(150, 300), stroke="black", stroke_width=3))
+    dwg.save()
+    return "drawV.svg"
+
+def createHeartCutoutSimplestPattern(size, line_start=0, sides='onesided', line_color='black', background_color='white'):
+    if sides=='onesided':
+        # half_of_empty_stencil = halfOfBaseStencil(width, height, 31, line_start, line_color, "first_half.svg")
+        # other_half_of_empty_stencil = halfOfBaseStencil(width, height, 31, line_start, line_color, "second_half.svg")
+        width = size
+        height = size // 2
+        empty_stencil_1 = drawEmptyStencil(width, height, 0, file_name="stencil1.svg")
+        empty_stencil_2 = drawEmptyStencil(width, height, height, file_name="stencil2.svg")
+
+        combined_stencil = combineStencils(empty_stencil_1, empty_stencil_2)
+
+        # stencil_1_pattern = getPattern(1)
+        # stencil_2_pattern = getPattern(2)
+
+        # overlayed_pattern_1 = overlayPatternOnStencil(empty_stencil_1, stencil_1_pattern)
+        # overlayed_pattern_2 = overlayPatternOnStencil(empty_stencil_2, stencil_2_pattern)
+
+        # -------------------------------
+
+        # half_of_empty_stencil = drawV()
+        # other_half_of_empty_stencil = drawH()
+
+        # combined_stencil_halves = combineStencils(half_of_empty_stencil, other_half_of_empty_stencil)
+
+        # half_of_pattern = getPattern()
+        # other_half_of_pattern = getPattern()
+
+        # combined_pattern_halves = combinePatterns(half_of_pattern, other_half_of_pattern)
+
+        # overlayed_pattern = overlayPatternOnStencil(combined_stencil_halves, combined_pattern_halves)
+        return combined_stencil
+
+    # do the same for the mirrored version
     if sides=='twosided':
-       mirrored_dwg = baseStencilSvg(width,height, 31, line_start, background_color)
-       return None
-    return None
+        return None
+
 def saveSVG(svg_string, filename):
     with open(filename, "w") as f:
         f.write(svg_string)

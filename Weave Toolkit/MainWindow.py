@@ -543,6 +543,7 @@ class MainWindow(QMainWindow):
 
         update_button_svg = QPushButton("Update SVG", self)
         update_button_svg.setStyleSheet("background-color: lightgray; color: black;")
+        update_button_svg.clicked.connect(lambda: self.save_as_svg("svg_file.svg"))
         update_button_svg.clicked.connect(lambda: self.updateDisplaySvg())
         menu_toolbar.addWidget(update_button_svg)
 
@@ -576,8 +577,8 @@ class MainWindow(QMainWindow):
         action_open = QAction("Open", self)
         action_save = QAction("Save", self)
         action_save.triggered.connect(lambda: self.save_canvas_as_png())
-        action_save_svg = QAction("Save as SVG", self)
-        action_save_svg.triggered.connect(lambda: self.save_as_svg("svg_file.svg"))
+        action_save_svg = QAction("Export SVG", self)
+        action_save_svg.triggered.connect(lambda: self.exportSVG())
         action_export = QAction("Export", self)
         action_export.triggered.connect(lambda: self.exportHeart())
         action_guide_export = QAction("Export Guide", self)
@@ -641,6 +642,7 @@ class MainWindow(QMainWindow):
         return weaving_pattern_menu
 
     def updateDisplaySvg(self):
+
         self.backside_label.setText("Front Side final product:")
         svg_file_path = "svg_file.svg"
         heart = self.cvImageToPixmap(mainAlgorithmSvg(svg_file_path, "show"))
@@ -889,10 +891,13 @@ class MainWindow(QMainWindow):
         painter.drawPixmap(0, 0, pixmap)
         painter.end()
 
-
     def exportGuide(self):
         guide_window = GuideWindow()
         guide_window.exec()
+
+    def exportSVG(self):
+        svg_file_path = "svg_file.svg"
+        mainAlgorithmSvg(svg_file_path, 'create')
 
     def pixmapToCvImage(self):
         pixmap = QPixmap(self.drawing_widget.size())  # Create pixmap of the same size
