@@ -10,10 +10,10 @@ import aspose.svg as svg
 
 from svgpathtools import svg2paths, svg2paths2, wsvg, Path, Line, Arc
 
-from PyQt6.QtSvg import QSvgRenderer
+from PyQt6.QtSvg import QSvgRenderer, QSvgGenerator
 from PyQt6.QtWidgets import QApplication, QWidget, QLabel
-from PyQt6.QtGui import QImage, QPainter, QTransform, QPixmap
-from PyQt6.QtCore import QSize, QByteArray
+from PyQt6.QtGui import QImage, QPainter, QTransform, QPixmap, QColor
+from PyQt6.QtCore import QSize, QByteArray, QRectF
 
 # Will be called when the user presses the "Update SVG" button
 
@@ -66,20 +66,36 @@ def downscaleImage(image, scale_factor):
 
     return downscaled
 
-def rotateSvg(input_svg, output_svg, angle_degrees):
-    # Load the SVG document
-    doc = svg.SvgDocument(input_svg)
+def rotateSvgWithQPainter(input_svg, output_svg, angle_degrees, center_x=0, center_y=0):
+    # Create a QSvgRenderer to load the SVG file
+    # QSvgRenderer may not support complex actions like animation or certain CSS styling
+    renderer = QSvgRenderer(input_svg)
 
-    # Rotate the SVG by the specified angle around the origin (0, 0)
-    doc.get_root().transform = svg.Transform.rotate(angle_degrees)
+    # Set up the SVG generator to save the output as SVG
+    generator = QSvgGenerator()
+    generator.setFileName(output_svg)
+    generator.setSize(renderer.defaultSize())
+    generator.setViewBox(QRectF(0, 0, renderer.defaultSize().width(), renderer.defaultSize().height()))
+    generator.setTitle("Rotated SVG")
+    generator.setDescription("SVG with rotation applied using QPainter")
 
-    # Save the rotated SVG to a new file
-    doc.save(output_svg)
+    # Create a QPainter to draw on the SVG
+    painter = QPainter(generator)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
+    # Apply rotation around the specified center
+    painter.translate(center_x, center_y)
+    painter.rotate(angle_degrees)
+    painter.translate(-center_x, -center_y)
 
+    # Render the original SVG onto the new one
+    renderer.render(painter)
+
+    # Finish painting
+    painter.end()
 
 def resizeSvg(input_svg, output_svg, target_size):
-    
+
     paths, attributes = svg2paths(input_svg)
     # Get bounding box (min_x, max_x, min_y, max_y)
     min_x = min(path.bbox()[0] for path in paths)
@@ -95,9 +111,9 @@ def resizeSvg(input_svg, output_svg, target_size):
     scale_factor = min(target_size / current_width, target_size / current_height)
 
     # Apply scaling
-    resized_paths = [path.scaled(scale_factor) for path in paths] 
+    resized_paths = [path.scaled(scale_factor) for path in paths]
 
-    wsvg(resized_paths, attributes=attributes, filename=output_svg)   
+    wsvg(resized_paths, attributes=attributes, filename=output_svg)
 
 def rotateImageQimage(image, angle=-90):
     transform = QTransform().rotate(angle)  # Rotate by the specified angle
@@ -409,10 +425,12 @@ def combinePatterns(first_half, second_half):
 def overlayPatternOnStencil(pattern, stencil, size, stencil_number, pattern_type, margin=MARGIN):
     # overlaying a pattern on a stencil will involve:
     # 1. rotate clockwise 45 degrees
-    rotated_pattern = rotateSvg(pattern, "rotated_pattern.svg", 45)
+    rotated_pattern = rotateSvgWithQPainter(pattern, "rotated_pattern.svg", 45, 200, 200)
+
     # 2. scale it to fit the inner line cuts
     # scaled_pattern = resizeSvg(rotated_pattern)
-    # 3. shift it right and down 
+
+    # 3. shift it right and down
     # shiftSvg(scaled_pattern, stencil, size)
 
 def svgToDrawing(input_svg, output_drawing):
@@ -443,31 +461,13 @@ def createHeartCutoutSimplestPattern(size, line_start=0, sides='onesided', line_
             # stencil_2_pattern = getAsymtricalPattern(2)
         # else:
         stencil_1_pattern = getPattern("front")
-        stencil_2_pattern = getPattern("back")        
-        
+        stencil_2_pattern = getPattern("back")
+
         overlayed_pattern_1 = overlayPatternOnStencil(stencil_1_pattern, empty_stencil_1, size, 1, pattern_type)
         # overlayed_pattern_2 = overlayPatternOnStencil(stencil_2_pattern, empty_stencil_2, size, 2, pattern_type)
-        
+
         # combined_stencil = combineStencils(overlayed_pattern_1, overlayed_pattern_2)
 
-
-
-        # -------------------------------
-
-        # half_of_empty_stencil = halfOfBaseStencil(width, height, 31, line_start, line_color, "first_half.svg")
-        # other_half_of_empty_stencil = halfOfBaseStencil(width, height, 31, line_start, line_color, "second_half.svg")
-        
-        # half_of_empty_stencil = drawV()
-        # other_half_of_empty_stencil = drawH()
-
-        # combined_stencil_halves = combineStencils(half_of_empty_stencil, other_half_of_empty_stencil)
-
-        # half_of_pattern = getPattern()
-        # other_half_of_pattern = getPattern()
-
-        # combined_pattern_halves = combinePatterns(half_of_pattern, other_half_of_pattern)
-
-        # overlayed_pattern = overlayPatternOnStencil(combined_stencil_halves, combined_pattern_halves)
         # return combined_stencil
 
     # do the same for the mirrored version
