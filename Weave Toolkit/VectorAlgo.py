@@ -5,10 +5,10 @@ import numpy as np
 import math
 
 import tempfile
-
 import svgwrite
-import svgutils.transform as sg
-from svgpathtools import svg2paths, svg2paths2, wsvg, Path, Line, CubicBezier, QuadraticBezier, Arc
+import aspose.svg as svg
+
+from svgpathtools import svg2paths, svg2paths2, wsvg, Path, Line, Arc
 
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import QApplication, QWidget, QLabel
@@ -25,6 +25,26 @@ from PyQt6.QtCore import QSize, QByteArray
 # QGraphicScene for scaling the svg
 # QSvgRenderer for turning into QPainter, then PNG image for final output
 # svgwrite for full vector control and modifying svg elements
+
+MARGIN = 31
+
+def shiftSvg(input_svg: str, output_svg: str, shift_x: float, shift_y: float):
+    """
+    Shifts the drawings in an SVG file to the right by a given amount.
+
+    Parameters:
+    - input_svg (str): Path to the input SVG file.
+    - output_svg (str): Path to save the shifted SVG file.
+    - shift_x (float): Amount to shift to the right (in SVG coordinate units).
+    """
+    # Load SVG paths and attributes
+    paths, attributes = svg2paths(input_svg)
+
+    # Apply translation to shift paths
+    shifted_paths = [path.translated(complex(shift_x, shift_y)) for path in paths]
+
+    # Save the modified SVG
+    wsvg(shifted_paths, attributes=attributes, filename=output_svg)
 
 def upscaleImage(image, scale_factor):
     height, width = image.shape[:2]
@@ -45,6 +65,39 @@ def downscaleImage(image, scale_factor):
     downscaled = cv.resize(image, (new_width, new_height), interpolation=cv.INTER_NEAREST)
 
     return downscaled
+
+def rotateSvg(input_svg, output_svg, angle_degrees):
+    # Load the SVG document
+    doc = svg.SvgDocument(input_svg)
+
+    # Rotate the SVG by the specified angle around the origin (0, 0)
+    doc.get_root().transform = svg.Transform.rotate(angle_degrees)
+
+    # Save the rotated SVG to a new file
+    doc.save(output_svg)
+
+
+
+def resizeSvg(input_svg, output_svg, target_size):
+    
+    paths, attributes = svg2paths(input_svg)
+    # Get bounding box (min_x, max_x, min_y, max_y)
+    min_x = min(path.bbox()[0] for path in paths)
+    max_x = max(path.bbox()[1] for path in paths)
+    min_y = min(path.bbox()[2] for path in paths)
+    max_y = max(path.bbox()[3] for path in paths)
+
+    # Calculate current width and height
+    current_width = max_x - min_x
+    current_height = max_y - min_y
+
+    # Compute scaling factor to maintain aspect ratio
+    scale_factor = min(target_size / current_width, target_size / current_height)
+
+    # Apply scaling
+    resized_paths = [path.scaled(scale_factor) for path in paths] 
+
+    wsvg(resized_paths, attributes=attributes, filename=output_svg)   
 
 def rotateImageQimage(image, angle=-90):
     transform = QTransform().rotate(angle)  # Rotate by the specified angle
@@ -271,11 +324,13 @@ def mainAlgorithmSvg(img, function = 'create'):
         case _:
             return 'error'
 
-def drawEmptyStencil(width, height, starting_y, margin_x=31, line_color='black', file_name="allan is a miracle.svg"):
+def drawEmptyStencil(width, height, starting_y, margin_x=MARGIN, line_color='black', file_name="allan is a miracle.svg"):
     dwg = svgwrite.Drawing(file_name, size=(width,height+starting_y))
     # define the square size
     square_size = (height // 1.5) - margin_x
     margin_y = margin_x + starting_y
+
+    # x_offset = size // 2 // 1.5
 
     # draw the left square
     left_top_line_start = (margin_x + square_size // 2, margin_y)
@@ -320,7 +375,7 @@ def drawEmptyStencil(width, height, starting_y, margin_x=31, line_color='black',
 
     return file_name
 
-def combineStencils(first_half, second_half):
+def combineStencils(first_half, second_half, filename='combined.svg'):
     # combine the 2 stencil halves, where the first half is the left side and the second is the right
 
     # Load paths and attributes of the first SVG file
@@ -334,51 +389,74 @@ def combineStencils(first_half, second_half):
     combined_attributes = attributes1 + attributes2
 
     # Save the combined SVG
-    wsvg(combined_paths, attributes=combined_attributes, filename='combined.svg')
+    wsvg(combined_paths, attributes=combined_attributes, filename=filename)
 
-def getPattern():
-    # get half of the pattern
-    # this will prob need to be calculated and not just copied
-    pass
+def getPattern(original_pattern):
+    match original_pattern:
+        case 'front':
+            return 'svg_file.svg'
+
+        case 'back':
+            return 'svg_file_2.svg'
+
+        case _:
+            return 'error'
 
 def combinePatterns(first_half, second_half):
     # combine the 2 pattern halves, where the first half is the left side and the second is the right
     pass
 
-def overlayPatternOnStencil(pattern, stencil):
-    pass
+def overlayPatternOnStencil(pattern, stencil, size, stencil_number, pattern_type, margin=MARGIN):
+    # overlaying a pattern on a stencil will involve:
+    # 1. rotate clockwise 45 degrees
+    rotated_pattern = rotateSvg(pattern, "rotated_pattern.svg", 45)
+    # 2. scale it to fit the inner line cuts
+    # scaled_pattern = resizeSvg(rotated_pattern)
+    # 3. shift it right and down 
+    # shiftSvg(scaled_pattern, stencil, size)
 
-def drawH():
-    dwg = svgwrite.Drawing("drawH.svg", size=("300px", "300px"))
-    dwg.add(dwg.line(start=(0, 150), end=(300, 150), stroke="black", stroke_width=3))
+def svgToDrawing(input_svg, output_drawing):
+    with open(input_svg, 'r') as file:
+        svg_content = file.read()
+    # Create a new svgwrite Drawing
+    dwg = svgwrite.Drawing(output_drawing)
     dwg.save()
-    return "drawH.svg"
+    return dwg
 
-def drawV():
-    dwg = svgwrite.Drawing("drawV.svg", size=("300px", "300px"))
-    dwg.add(dwg.line(start=(150, 0), end=(150, 300), stroke="black", stroke_width=3))
-    dwg.save()
-    return "drawV.svg"
+def determinePatternType():
+    return "simple"
 
 def createHeartCutoutSimplestPattern(size, line_start=0, sides='onesided', line_color='black', background_color='white'):
     if sides=='onesided':
-        # half_of_empty_stencil = halfOfBaseStencil(width, height, 31, line_start, line_color, "first_half.svg")
-        # other_half_of_empty_stencil = halfOfBaseStencil(width, height, 31, line_start, line_color, "second_half.svg")
         width = size
         height = size // 2
         empty_stencil_1 = drawEmptyStencil(width, height, 0, file_name="stencil1.svg")
         empty_stencil_2 = drawEmptyStencil(width, height, height, file_name="stencil2.svg")
 
-        combined_stencil = combineStencils(empty_stencil_1, empty_stencil_2)
+        pattern_type = determinePatternType()
 
-        # stencil_1_pattern = getPattern(1)
-        # stencil_2_pattern = getPattern(2)
+        # if pattern 1 == symetrical:
+            # stencil_1_pattern = getSymetricalPattern(1)
+            # stencil_2_pattern = getSymetricalPattern(2)
+        # elif asymetrical:
+            # stencil_1_pattern = getAsymtricalPattern(1)
+            # stencil_2_pattern = getAsymtricalPattern(2)
+        # else:
+        stencil_1_pattern = getPattern("front")
+        stencil_2_pattern = getPattern("back")        
+        
+        overlayed_pattern_1 = overlayPatternOnStencil(stencil_1_pattern, empty_stencil_1, size, 1, pattern_type)
+        # overlayed_pattern_2 = overlayPatternOnStencil(stencil_2_pattern, empty_stencil_2, size, 2, pattern_type)
+        
+        # combined_stencil = combineStencils(overlayed_pattern_1, overlayed_pattern_2)
 
-        # overlayed_pattern_1 = overlayPatternOnStencil(empty_stencil_1, stencil_1_pattern)
-        # overlayed_pattern_2 = overlayPatternOnStencil(empty_stencil_2, stencil_2_pattern)
+
 
         # -------------------------------
 
+        # half_of_empty_stencil = halfOfBaseStencil(width, height, 31, line_start, line_color, "first_half.svg")
+        # other_half_of_empty_stencil = halfOfBaseStencil(width, height, 31, line_start, line_color, "second_half.svg")
+        
         # half_of_empty_stencil = drawV()
         # other_half_of_empty_stencil = drawH()
 
@@ -390,7 +468,7 @@ def createHeartCutoutSimplestPattern(size, line_start=0, sides='onesided', line_
         # combined_pattern_halves = combinePatterns(half_of_pattern, other_half_of_pattern)
 
         # overlayed_pattern = overlayPatternOnStencil(combined_stencil_halves, combined_pattern_halves)
-        return combined_stencil
+        # return combined_stencil
 
     # do the same for the mirrored version
     if sides=='twosided':
