@@ -28,6 +28,33 @@ from PyQt6.QtCore import QSize, QByteArray, QRectF
 
 MARGIN = 31
 
+def createSvgGenerator(input_svg, output_svg):
+    # Create a QSvgRenderer to load the SVG file
+    # QSvgRenderer may not support complex actions like animation or certain CSS styling
+    renderer = QSvgRenderer(input_svg)
+
+    # Set up the SVG generator to save the output as SVG
+    generator = QSvgGenerator()
+    generator.setFileName(output_svg)
+    generator.setSize(renderer.defaultSize())
+    generator.setViewBox(QRectF(0, 0, renderer.defaultSize().width(), renderer.defaultSize().height()))
+    generator.setTitle("Rotated SVG")
+    generator.setDescription("SVG with rotation applied using QPainter")
+    return generator
+
+def createSvgGeneratorNoRender(output_svg, target_size: QSize):
+    generator = QSvgGenerator()
+    generator.setFileName(output_svg)
+    generator.setSize(target_size)
+    generator.setViewBox(QRectF(0, 0, target_size.width(), target_size.height()))
+    generator.setTitle("Resized SVG")
+    generator.setDescription("SVG resized using QPainter")
+    return generator
+
+def saveSVG(svg_string, filename):
+    with open(filename, "w") as f:
+        f.write(svg_string)
+
 def shiftSvg(input_svg: str, output_svg: str, shift_x: float, shift_y: float):
     """
     Shifts the drawings in an SVG file to the right by a given amount.
@@ -67,19 +94,9 @@ def downscaleImage(image, scale_factor):
     return downscaled
 
 def rotateSvgWithQPainter(input_svg, output_svg, angle_degrees, center_x=0, center_y=0):
-    # Create a QSvgRenderer to load the SVG file
-    # QSvgRenderer may not support complex actions like animation or certain CSS styling
     renderer = QSvgRenderer(input_svg)
+    generator = createSvgGenerator(input_svg, output_svg)
 
-    # Set up the SVG generator to save the output as SVG
-    generator = QSvgGenerator()
-    generator.setFileName(output_svg)
-    generator.setSize(renderer.defaultSize())
-    generator.setViewBox(QRectF(0, 0, renderer.defaultSize().width(), renderer.defaultSize().height()))
-    generator.setTitle("Rotated SVG")
-    generator.setDescription("SVG with rotation applied using QPainter")
-
-    # Create a QPainter to draw on the SVG
     painter = QPainter(generator)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
@@ -94,26 +111,55 @@ def rotateSvgWithQPainter(input_svg, output_svg, angle_degrees, center_x=0, cent
     # Finish painting
     painter.end()
 
-def resizeSvg(input_svg, output_svg, target_size):
+def resizeSvg(input_svg, output_svg, target_size: int):
+    renderer = QSvgRenderer(input_svg)
 
-    paths, attributes = svg2paths(input_svg)
-    # Get bounding box (min_x, max_x, min_y, max_y)
-    min_x = min(path.bbox()[0] for path in paths)
-    max_x = max(path.bbox()[1] for path in paths)
-    min_y = min(path.bbox()[2] for path in paths)
-    max_y = max(path.bbox()[3] for path in paths)
+    # Get original size
+    original_size = renderer.defaultSize()
 
-    # Calculate current width and height
-    current_width = max_x - min_x
-    current_height = max_y - min_y
+    # Compute scale factors separately
+    scale_x = target_size / original_size.width()
+    scale_y = target_size / original_size.height()
+    scale_factor = float(min(scale_x, scale_y))  # Ensure it's a float
 
-    # Compute scaling factor to maintain aspect ratio
-    scale_factor = min(target_size / current_width, target_size / current_height)
+    # Compute the new size
+    new_size = QSize(int(original_size.width() * scale_factor), int(original_size.height() * scale_factor))
 
-    # Apply scaling
-    resized_paths = [path.scaled(scale_factor) for path in paths]
+    # Create the SVG generator
+    generator = createSvgGeneratorNoRender(output_svg, new_size)
 
-    wsvg(resized_paths, attributes=attributes, filename=output_svg)
+    # Use QPainter to render the resized SVG
+    painter = QPainter()
+    painter.begin(generator)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+    # Apply scaling (must use two floats, not QSize)
+    painter.scale(scale_factor, scale_factor)
+
+    # Render the SVG onto the new scaled canvas
+    renderer.render(painter)
+
+    # Finish painting
+    painter.end()
+
+    #paths, attributes = svg2paths(input_svg)
+    ## Get bounding box (min_x, max_x, min_y, max_y)
+    #min_x = min(path.bbox()[0] for path in paths)
+    #max_x = max(path.bbox()[1] for path in paths)
+    #min_y = min(path.bbox()[2] for path in paths)
+    #max_y = max(path.bbox()[3] for path in paths)
+#
+    ## Calculate current width and height
+    #current_width = max_x - min_x
+    #current_height = max_y - min_y
+#
+    ## Compute scaling factor to maintain aspect ratio
+    #scale_factor = min(target_size / current_width, target_size / current_height)
+#
+    ## Apply scaling
+    #resized_paths = [path.scaled(scale_factor) for path in paths]
+#
+    ##wsvg(resized_paths, attributes=attributes, filename=output_svg)
 
 def rotateImageQimage(image, angle=-90):
     transform = QTransform().rotate(angle)  # Rotate by the specified angle
@@ -425,10 +471,10 @@ def combinePatterns(first_half, second_half):
 def overlayPatternOnStencil(pattern, stencil, size, stencil_number, pattern_type, margin=MARGIN):
     # overlaying a pattern on a stencil will involve:
     # 1. rotate clockwise 45 degrees
-    rotated_pattern = rotateSvgWithQPainter(pattern, "rotated_pattern.svg", 45, 200, 200)
+    rotateSvgWithQPainter(pattern, "rotated_pattern.svg", 45, 200, 200)
 
     # 2. scale it to fit the inner line cuts
-    # scaled_pattern = resizeSvg(rotated_pattern)
+    scaled_pattern = resizeSvg("rotated_pattern.svg", "scaled_pattern.svg", 100)
 
     # 3. shift it right and down
     # shiftSvg(scaled_pattern, stencil, size)
@@ -471,9 +517,5 @@ def createHeartCutoutSimplestPattern(size, line_start=0, sides='onesided', line_
         # return combined_stencil
 
     # do the same for the mirrored version
-    if sides=='twosided':
+    if sides =='twosided':
         return None
-
-def saveSVG(svg_string, filename):
-    with open(filename, "w") as f:
-        f.write(svg_string)
