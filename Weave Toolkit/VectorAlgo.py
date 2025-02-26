@@ -6,7 +6,6 @@ import math
 
 import tempfile
 import svgwrite
-import aspose.svg as svg
 
 from svgpathtools import svg2paths, svg2paths2, wsvg, Path, Line, Arc
 
@@ -27,6 +26,12 @@ from PyQt6.QtCore import QSize, QByteArray, QRectF
 # svgwrite for full vector control and modifying svg elements
 
 MARGIN = 31
+def removeOutOfBoundsDrawing(img):
+    new_image= rotateImage(img, angle=45)
+
+    # Removes the canvas lines and non-draw zones from the image
+    matrix = new_image[180:-180,180:-180]
+    return matrix
 
 def createSvgGenerator(input_svg, output_svg):
     # Create a QSvgRenderer to load the SVG file
@@ -122,8 +127,10 @@ def resizeSvg(input_svg, output_svg, target_size: int):
     scale_y = target_size / original_size.height()
     scale_factor = float(min(scale_x, scale_y))  # Ensure it's a float
 
+    # Makes the old size a QSize object
+    old_size = QSize(int(original_size.width()), int(original_size.height()))
     # Compute the new size
-    new_size = QSize(int(original_size.width() * scale_factor), int(original_size.height() * scale_factor))
+    new_size = QSize(int(original_size.width() * scale_x), int(original_size.height() * scale_x))
 
     # Create the SVG generator
     generator = createSvgGeneratorNoRender(output_svg, new_size)
@@ -374,7 +381,7 @@ def mainAlgorithmSvg(img, function = 'create'):
 
     match function:
         case 'create':
-            createHeartCutoutSimplestPattern(1200)
+            createFinalHeartCutoutPatternExport(1200)
 
         case 'show':
             # We start with a filepath to an svg image. But, we want to give createFinalHeartDisplay a CV Image
@@ -393,6 +400,7 @@ def drawEmptyStencil(width, height, starting_y, margin_x=MARGIN, line_color='bla
     margin_y = margin_x + starting_y
 
     # x_offset = size // 2 // 1.5
+    # scale_factor = distance betwwen innercut lines
 
     # draw the left square
     left_top_line_start = (margin_x + square_size // 2, margin_y)
@@ -437,14 +445,14 @@ def drawEmptyStencil(width, height, starting_y, margin_x=MARGIN, line_color='bla
 
     return file_name
 
-def combineStencils(first_half, second_half, filename='combined.svg'):
+def combineStencils(first_stencil, second_stencil, filename='combined.svg'):
     # combine the 2 stencil halves, where the first half is the left side and the second is the right
 
     # Load paths and attributes of the first SVG file
-    paths1, attributes1 = svg2paths(first_half)
+    paths1, attributes1 = svg2paths(first_stencil)
 
     # Load paths and attributes of the second SVG file
-    paths2, attributes2 = svg2paths(second_half)
+    paths2, attributes2 = svg2paths(second_stencil)
 
     # Combine the paths and attributes
     combined_paths = paths1 + paths2
@@ -474,10 +482,14 @@ def overlayPatternOnStencil(pattern, stencil, size, stencil_number, pattern_type
     rotateSvgWithQPainter(pattern, "rotated_pattern.svg", 45, 200, 200)
 
     # 2. scale it to fit the inner line cuts
-    scaled_pattern = resizeSvg("rotated_pattern.svg", "scaled_pattern.svg", 100)
+    resizeSvg("rotated_pattern.svg", "scaled_pattern.svg", size//3-margin*3) # scale size should be based on spacing between inner cut lines
 
     # 3. shift it right and down
     # shiftSvg(scaled_pattern, stencil, size)
+
+    combined_output = combineStencils("scaled_pattern.svg", stencil, "overlayed_test.svg")
+
+    return combined_output
 
 def svgToDrawing(input_svg, output_drawing):
     with open(input_svg, 'r') as file:
@@ -490,7 +502,7 @@ def svgToDrawing(input_svg, output_drawing):
 def determinePatternType():
     return "simple"
 
-def createHeartCutoutSimplestPattern(size, line_start=0, sides='onesided', line_color='black', background_color='white'):
+def createFinalHeartCutoutPatternExport(size, line_start=0, sides='onesided', line_color='black', background_color='white'):
     if sides=='onesided':
         width = size
         height = size // 2
@@ -513,6 +525,8 @@ def createHeartCutoutSimplestPattern(size, line_start=0, sides='onesided', line_
         # overlayed_pattern_2 = overlayPatternOnStencil(stencil_2_pattern, empty_stencil_2, size, 2, pattern_type)
 
         # combined_stencil = combineStencils(overlayed_pattern_1, overlayed_pattern_2)
+
+        # resizeSvg(combined_stencil, user_decided_export_size)
 
         # return combined_stencil
 

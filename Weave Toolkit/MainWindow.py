@@ -66,8 +66,10 @@ from Algorithm import (
 )
 
 from VectorAlgo import (
-    mainAlgorithmSvg
+    mainAlgorithmSvg, rotateSvgWithQPainter
 )
+
+from svgpathtools import svg2paths, svg2paths2, wsvg
 
 
 # Global variables for the shape mode and shape color
@@ -76,6 +78,9 @@ SHAPE_COLOR = QColor(0, 0, 0, 255)
 BACKGROUND_COLOR = QColor(255, 255, 255, 255)
 PEN_WIDTH = 3
 FILLED = False
+
+def calculate_distance(point1, point2):
+        return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
 
 class DrawingWidget(QWidget):
     # Defining the initial state of the canvas
@@ -543,7 +548,7 @@ class MainWindow(QMainWindow):
 
         update_button_svg = QPushButton("Update SVG", self)
         update_button_svg.setStyleSheet("background-color: lightgray; color: black;")
-        update_button_svg.clicked.connect(lambda: self.save_as_svg("svg_file.svg"))
+        update_button_svg.clicked.connect(lambda: self.save_as_svg("svg_file.svg", self.drawing_widget.size()))
         update_button_svg.clicked.connect(lambda: self.updateDisplaySvg())
         menu_toolbar.addWidget(update_button_svg)
 
@@ -865,18 +870,86 @@ class MainWindow(QMainWindow):
     def exportHeart(self):
         arr = self.pixmapToCvImage()
         mainAlgorithm(arr,'create')
+    
+    def save_as_svg(self, file_path, canvas_size):
+        # calculate the min/max x/y of the inner square
+        width = canvas_size.width()
+        height = canvas_size.height()
+        print("width: ", width)
+        print("height: ", height)
+        x1, y1 = 0, 0
+        x2, y2 = width, height
+        center_x, center_y = (x1 + x2) / 2, (y1 + y2) / 2
 
-    def save_as_svg(self, file_path):
+        # Coordinates of the corners of the inner rotated square
+        inner_coords = [
+            (center_x, y1),
+            (x2, center_y)
+        ]
+        square_size = calculate_distance(inner_coords[0], inner_coords[1])
+        print("square size: ", square_size)
+        min_x, min_y = square_size//2, square_size//2
+        max_x, max_y = min_x + square_size, min_y + square_size
+
+        # save the drawing canvas as an svg
         svg_generator = QSvgGenerator()
         svg_generator.setFileName(file_path)  # Path to save the SVG file
         svg_generator.setSize(self.size())    # Set the size of the SVG to match the widget size
         svg_generator.setViewBox(self.rect())  # Set the view box to the widget's dimensions
         svg_generator.setTitle("Drawing")      # Optional title for the SVG
-
+        svg_generator.setSize(canvas_size)
+        svg_view_box = QRect(0, 0, width, height)
+        svg_generator.setViewBox(svg_view_box)
         painter = QPainter(svg_generator)
-        self.drawing_widget.redrawAllShapes(painter)
+
+        background_color = QColor(0, 0, 255)
+        painter.fillRect(self.rect(), background_color)
+
+        self.drawing_widget.redrawAllShapes(painter) # when saving the svg, only the shapes (and not the drawing border) are saved
+        # however, the size of the canvas is equal to the window size
         painter.end()
 
+        widget_min_x = 0
+        widget_min_y = 0
+        widget_max_x = widget_min_x + width
+        widget_max_y = widget_min_y + height
+
+        cropped_path_name = "initial_crop.svg"
+        # self.crop_svg(file_path, cropped_path_name, widget_min_x, widget_min_y, widget_max_x, widget_max_y)
+
+
+        # rotate the svg 45 degrees
+        rotated_path_name = "rotated_pattern_step.svg"
+        rotateSvgWithQPainter(file_path, rotated_path_name, 45, width//2, height//2)
+        
+        
+        # crop to the points of the inner square (intended drawing space)
+        # self.crop_svg(rotated_path_name, "rotated_and_cropped_user_pattern.svg", min_x, min_y, max_x, max_y)
+        
+    def crop_svg(self, input_file, output_file, min_x, min_y, max_x, max_y):
+        # Load the SVG file
+        paths, attributes = svg2paths(input_file)
+
+        # Create a new SVG drawing
+        dwg = svgwrite.Drawing(output_file)
+
+        # Define the cropping area
+        crop_area = svgwrite.shapes.Rect(insert=(min_x, min_y), size=(max_x - min_x, max_y - min_y))
+
+        # List of valid attributes for the <path> element
+        valid_path_attributes = [
+            'd', 'pathLength', 'style', 'transform', 'id', 'class', 'stroke', 'stroke-width', 'fill'
+        ]
+
+        # Add paths to the new SVG within the cropping area
+        for path, attr in zip(paths, attributes):
+            if path.bbox()[0] >= min_x and path.bbox()[1] >= min_y and path.bbox()[2] <= max_x and path.bbox()[3] <= max_y:
+                valid_attr = {k: v for k, v in attr.items() if k in valid_path_attributes}
+                dwg.add(dwg.path(d=path.d(), **valid_attr))
+
+        # Save the cropped SVG
+        dwg.save()
+    
     def pixmap_to_svg(pixmap, svg_file_path):
         # Create an SVG generator
         svg_gen = QSvgGenerator()
