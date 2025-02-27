@@ -26,6 +26,7 @@ from PyQt6.QtCore import QSize, QByteArray, QRectF
 # svgwrite for full vector control and modifying svg elements
 
 MARGIN = 31
+
 def removeOutOfBoundsDrawing(img):
     new_image= rotateImage(img, angle=45)
 
@@ -33,18 +34,23 @@ def removeOutOfBoundsDrawing(img):
     matrix = new_image[180:-180,180:-180]
     return matrix
 
-def createSvgGenerator(input_svg, output_svg):
+def createSvgGenerator(input_svg, output_svg, width = None, height = None):
     # Create a QSvgRenderer to load the SVG file
     # QSvgRenderer may not support complex actions like animation or certain CSS styling
     renderer = QSvgRenderer(input_svg)
 
-    # Set up the SVG generator to save the output as SVG
+    # if width or height are not specified, then the input_svg's size is used
+    if width == None or height == None:
+        bounds = renderer.viewBoxF()
+        width = int(bounds.width())
+        height = int(bounds.height())
+
+    bounds = QRectF(0, 0, width, height)
     generator = QSvgGenerator()
     generator.setFileName(output_svg)
-    generator.setSize(renderer.defaultSize())
-    generator.setViewBox(QRectF(0, 0, renderer.defaultSize().width(), renderer.defaultSize().height()))
-    generator.setTitle("Rotated SVG")
-    generator.setDescription("SVG with rotation applied using QPainter")
+    generator.setSize(QSize(width, height))  # Ensure the size matches the viewBox
+    generator.setViewBox(bounds)  # Match the original viewBox exactly
+
     return generator
 
 def createSvgGeneratorNoRender(output_svg, target_size: QSize):
@@ -104,6 +110,8 @@ def rotateSvgWithQPainter(input_svg, output_svg, angle_degrees, center_x=0, cent
 
     painter = QPainter(generator)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+    print(generator.size())
 
     # Apply rotation around the specified center
     painter.translate(center_x, center_y)
