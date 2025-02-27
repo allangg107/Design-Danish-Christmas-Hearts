@@ -896,8 +896,8 @@ class MainWindow(QMainWindow):
         svg_generator.setViewBox(svg_view_box)
         painter = QPainter(svg_generator)
 
-        background_color = QColor(0, 0, 255)
-        painter.fillRect(self.rect(), background_color)
+        # background_color = QColor(0, 0, 255)
+        # painter.fillRect(self.rect(), background_color)
 
         # when saving the svg, only the shapes (and not the drawing border) are saved
         self.drawing_widget.redrawAllShapes(painter) 
@@ -908,7 +908,7 @@ class MainWindow(QMainWindow):
         rotateSvgWithQPainter(file_path, rotated_path_name, 45, width//2, height//2)
         
         # crop to the points of the inner square (intended drawing space)
-        cropped_size = int((500 - square_size) // 2)
+        cropped_size = int((width - square_size) // 2)
         view_box = QRectF(cropped_size, cropped_size, int(square_size), int(square_size))
         cropped_generator = createSvgGenerator(rotated_path_name, "final_output_svg.svg")
         cropped_generator.setViewBox(view_box)

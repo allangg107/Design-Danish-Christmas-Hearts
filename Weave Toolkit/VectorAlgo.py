@@ -205,7 +205,7 @@ def rotateImage(matrix, angle=-60):
     return rotated_matrix
 
 def createFinalHeartDisplay(image):
-    image = rotateImage(image, angle=-45)
+    # image = rotateImage(image, angle=-45)
     line_color = (0, 0, 0)  # Black color
     height, width, _ = image.shape # isolated_pattern's shape is a square
     square_size =   height // 2  # Ensuring a balanced square
@@ -407,9 +407,6 @@ def drawEmptyStencil(width, height, starting_y, margin_x=MARGIN, line_color='bla
     square_size = (height // 1.5) - margin_x
     margin_y = margin_x + starting_y
 
-    # x_offset = size // 2 // 1.5
-    # scale_factor = distance betwwen innercut lines
-
     # draw the left square
     left_top_line_start = (margin_x + square_size // 2, margin_y)
     left_top_line_end = (left_top_line_start[0] + square_size, left_top_line_start[1])
@@ -419,7 +416,6 @@ def drawEmptyStencil(width, height, starting_y, margin_x=MARGIN, line_color='bla
     dwg.add(dwg.line(start=(left_top_line_start), end=(left_top_line_end), stroke="red", stroke_width=3))
     dwg.add(dwg.line(start=(left_bottom_line_start), end=(left_bottom_line_end), stroke="red", stroke_width=3))
 
-    # left_arc
     # draw the left arc
     radius_x = square_size / 2
     radius_y = square_size / 2
@@ -454,8 +450,6 @@ def drawEmptyStencil(width, height, starting_y, margin_x=MARGIN, line_color='bla
     return file_name
 
 def combineStencils(first_stencil, second_stencil, filename='combined.svg'):
-    # combine the 2 stencil halves, where the first half is the left side and the second is the right
-
     # Load paths and attributes of the first SVG file
     paths1, attributes1 = svg2paths(first_stencil)
 
@@ -480,22 +474,55 @@ def getPattern(original_pattern):
         case _:
             return 'error'
 
-def combinePatterns(first_half, second_half):
-    # combine the 2 pattern halves, where the first half is the left side and the second is the right
-    pass
+def overlayDrawingOnStencil(stencil_file, user_drawing_file, size, filename='combined_output.svg'):
+        # Load paths from the stencil
+        paths1, attributes1 = svg2paths(stencil_file)
+    
+        # Load paths from the user’s drawing
+        paths2, attributes2 = svg2paths(user_drawing_file)
+    
+        # Combine paths from both the stencil and the user’s drawing
+        combined_paths = paths1 + paths2
+        combined_attributes = attributes1 + attributes2
+    
+        # Create a new SVG drawing to store the combined result
+        dwg = svgwrite.Drawing(filename, size=(size, size))
+    
+        # Add each path from the combined paths to the new SVG
+        for path, attr in zip(combined_paths, combined_attributes):
+            # Extract stroke, fill, and stroke-width attributes (if they exist)
+            stroke = attr.get('stroke', 'black')  # Default to black if no stroke is defined
+            fill = attr.get('fill', 'none')      # Default to 'none' if no fill is defined
+            stroke_width = attr.get('stroke-width', 1)  # Default to 1 if no stroke width is defined
+
+
+            # Add the path with its attributes to the new SVG
+            dwg.add(dwg.path(d=path.d(), stroke=stroke, fill=fill, stroke_width=stroke_width))
+
+        ##for path in combined_paths:
+          #  dwg.add(dwg.path(d=path.d(), stroke="black", fill="none"))
+    
+        # Save the combined SVG to the file
+        dwg.save()
+        return filename
 
 def overlayPatternOnStencil(pattern, stencil, size, stencil_number, pattern_type, margin=MARGIN):
     # overlaying a pattern on a stencil will involve:
     # 1. rotate clockwise 45 degrees
-    rotateSvgWithQPainter(pattern, "rotated_pattern.svg", 45, 200, 200)
+    # rotateSvgWithQPainter(pattern, "rotated_pattern.svg", 45, 200, 200)
 
     # 2. scale it to fit the inner line cuts
-    resizeSvg("rotated_pattern.svg", "scaled_pattern.svg", size//3-margin*3) # scale size should be based on spacing between inner cut lines
+    scaled_pattern = "scaled_pattern.svg"
+    re_rotated_scaled_pattern = rotateSvgWithQPainter(scaled_pattern, "testttt.svg", 45, 200, 200)
+    resizeSvg("final_output_svg.svg", re_rotated_scaled_pattern, size//3-margin*3) # scale size should be based on spacing between inner cut lines
 
     # 3. shift it right and down
     # shiftSvg(scaled_pattern, stencil, size)
 
-    combined_output = combineStencils("scaled_pattern.svg", stencil, "overlayed_test.svg")
+    combined_output = overlayDrawingOnStencil(stencil, re_rotated_scaled_pattern, size,
+                                               "overlayed_test.svg")
+    # Overlay scaled_pattern onto the square portion of the heart
+    # stencil[margin:margin + size, margin:margin + size] = scaled_pattern
 
     return combined_output
 
