@@ -3,6 +3,7 @@ import math
 import svgwrite
 import cv2 as cv
 import numpy as np
+import copy
 
 from functools import partial
 
@@ -871,7 +872,68 @@ class MainWindow(QMainWindow):
         arr = self.pixmapToCvImage()
         mainAlgorithm(arr,'create')
     
-    def save_as_svg(self, file_path, canvas_size):
+    # def translateShapesArray(self, shapes, translate_x, translate_y):
+    #     shapes_copy = copy.deepcopy(shapes)
+    #     # Iterate through each shape and adjust the coordinates
+    #     for shape in shapes_copy:
+    #         begin, end = shape[0], shape[1]
+    #         shape[0] = begin + QPoint(-translate_x, -translate_y)
+    #         shape[1] = end + QPoint(-translate_x, -translate_y)
+
+    #         if shape[2] == ShapeMode.FreeForm:
+    #             # Adjust free form points if present
+    #             shape[4] = [point + QPoint(-translate_x, -translate_y) for point in shape[4]]
+
+    #     return shapes_copy
+    
+    # def drawShapes(self, shapes, output_file_name):
+    #     svg_generator = QSvgGenerator()
+    #     svg_generator.setFileName(output_file_name)  # Path to save the SVG file
+    #     svg_generator.setSize(canvas_size) # Set the size of the SVG to match the widget size
+    #     svg_generator.setViewBox(self.rect())  # Set the view box to the widget's dimensions
+    #     svg_view_box = QRect(0, 0, width, height)
+    #     svg_generator.setViewBox(svg_view_box)
+    #     qp = QPainter(svg_generator)
+
+    #     for shape in shapes[:]:  # Use a copy of the list to avoid modification issues
+    #         shape_type = shape[2]
+    #         qp.setBrush(SHAPE_COLOR) # set to shape[3] if we want to change color to stored shape color instead of global color
+    #         qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)) # pen width should needs to be saved in the shape list
+            
+    #         if shape_type == ShapeMode.Square:
+    #             self.drawSquare(qp, shape[0], shape[1], SHAPE_COLOR, shape[5], shape[6])
+    #         elif shape_type == ShapeMode.Circle:
+    #             self.drawCircle(qp, shape[0], shape[1], SHAPE_COLOR, shape[5], shape[6])
+    #         elif shape_type == ShapeMode.Heart:
+    #             self.drawHeart(qp, shape[0], shape[1], SHAPE_COLOR, shape[5], shape[6])
+    #         elif shape_type == ShapeMode.Line:
+    #             qp.setPen(QPen(SHAPE_COLOR, shape[5], Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+    #             qp.drawLine(shape[0], shape[1])
+    #         elif shape_type == ShapeMode.FreeForm:
+    #             qp.setPen(QPen(SHAPE_COLOR, shape[5], Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+    #             for free_form_point in range(len(shape[4]) - 1):
+    #                 qp.drawLine(shape[4][free_form_point], shape[4][free_form_point + 1])
+    #         qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+
+    #         qp.end()
+    
+    def save_as_svg(self, file_name, canvas_size):
+        # original_shapes = np.array(original_shapes)
+        # top left corner of the window
+        origin = (0, 0) # potentially need to look at the Window's pos
+        origin_coords = self.pos()
+        drawing_widget_coords = self.drawing_widget.pos()
+        print("o: ", origin_coords)
+        print("d: ", drawing_widget_coords)
+
+
+        # translate the shapes array as if they had the drawing_widget as their 0,0
+        # translated_1_shapes = self.translateShapesArray(original_shapes, drawing_widget_coords.x(), drawing_widget_coords.y())
+        # rotate it by 45 degrees
+        # translate it to 0,0
+        # now we have the pre-processed shapes array
+        # we can save the processed array to a text/json file in order to have a history (optional)
+
         # calculate the min/max x/y of the inner square
         width = canvas_size.width()
         height = canvas_size.height()
@@ -888,24 +950,53 @@ class MainWindow(QMainWindow):
 
         # save the drawing canvas as an svg
         svg_generator = QSvgGenerator()
-        svg_generator.setFileName(file_path)  # Path to save the SVG file
+        svg_generator.setFileName(file_name)  # Path to save the SVG file
         svg_generator.setSize(canvas_size) # Set the size of the SVG to match the widget size
         svg_generator.setViewBox(self.rect())  # Set the view box to the widget's dimensions
-        svg_generator.setTitle("Drawing")      # Optional title for the SVG
         svg_view_box = QRect(0, 0, width, height)
         svg_generator.setViewBox(svg_view_box)
         painter = QPainter(svg_generator)
 
-        # background_color = QColor(0, 0, 255)
-        # painter.fillRect(self.rect(), background_color)
-
         # when saving the svg, only the shapes (and not the drawing border) are saved
+
         self.drawing_widget.redrawAllShapes(painter) 
         painter.end()
+        
+        paths, attributes = svg2paths(file_name)
+        print("paths: ", paths)
+        print("attributes: ", attributes)
+        
+        shape_attr_list = []
+
+        # format: self.drawing_widget.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, [], PEN_WIDTH, FILLED])
+        shapes_copy = copy.deepcopy(self.drawing_widget.shapes)
+        attributes_copy = copy.deepcopy(attributes)
+        for attr, shape in zip(attributes_copy, shapes_copy):
+            shape_color = shape[3]
+            pen_width = shape[5]
+            filled = shape[6]
+
+            updated_attr = attr.copy()  # Copy the original attributes to avoid modifying the original
+
+            updated_attr['stroke'] = shape_color.name()  # Assuming 'stroke' is used for the color in SVG
+            updated_attr['stroke-width'] = pen_width
+
+            if filled == True:
+                updated_attr['fill'] = shape_color.name()
+            elif filled == False:
+                updated_attr['fill'] = 'none'
+            
+            shape_attr_list.append(updated_attr)
+        
+        new_file = "svg_file_2.svg"
+        wsvg(paths, attributes=shape_attr_list, filename=new_file, dimensions=(width, height))
+
+        print("updated attributes: ", shape_attr_list)
+        # print("attributes: ", attributes)
 
         # rotate the svg 45 degrees
         rotated_path_name = "rotated_pattern_step.svg"
-        rotateSvgWithQPainter(file_path, rotated_path_name, 45, width//2, height//2)
+        rotateSvgWithQPainter(file_name, rotated_path_name, 45, width//2, height//2)
         
         # crop to the points of the inner square (intended drawing space)
         cropped_size = int((width - square_size) // 2)

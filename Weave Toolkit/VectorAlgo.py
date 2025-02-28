@@ -111,7 +111,7 @@ def rotateSvgWithQPainter(input_svg, output_svg, angle_degrees, center_x=0, cent
     painter = QPainter(generator)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-    print(generator.size())
+    # print(generator.size())
 
     # Apply rotation around the specified center
     painter.translate(center_x, center_y)
@@ -499,7 +499,7 @@ def overlayDrawingOnStencil(stencil_file, user_drawing_file, size, filename='com
             # Add the path with its attributes to the new SVG
             dwg.add(dwg.path(d=path.d(), stroke=stroke, fill=fill, stroke_width=stroke_width))
 
-        ##for path in combined_paths:
+        # for path in combined_paths:
           #  dwg.add(dwg.path(d=path.d(), stroke="black", fill="none"))
     
         # Save the combined SVG to the file
