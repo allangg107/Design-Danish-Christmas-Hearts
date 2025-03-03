@@ -70,7 +70,7 @@ from VectorAlgo import (
     mainAlgorithmSvg, rotateSvgWithQPainter, rotate_paths, createSvgGenerator, rotateSvgFileByAngle
 )
 
-from svgpathtools import svg2paths, svg2paths2, wsvg
+from svgpathtools import svg2paths, svg2paths2, wsvg, Line
 
 
 # Global variables for the shape mode and shape color
@@ -919,12 +919,6 @@ class MainWindow(QMainWindow):
     #         qp.end()
 
     def save_as_svg(self, file_name, canvas_size):
-        # original_shapes = np.array(original_shapes)
-        # top left corner of the window
-        origin = (0, 0) # potentially need to look at the Window's pos
-        origin_coords = self.pos()
-        drawing_widget_coords = self.drawing_widget.pos()
-
         # calculate the min/max x/y of the inner square
         width = canvas_size.width()
         height = canvas_size.height()
@@ -942,51 +936,64 @@ class MainWindow(QMainWindow):
         # save the drawing canvas as an svg
         svg_generator = QSvgGenerator()
         svg_generator.setFileName(file_name)  # Path to save the SVG file
-        svg_generator.setSize(canvas_size) # Set the size of the SVG to match the widget size
-        svg_generator.setViewBox(self.rect())  # Set the view box to the widget's dimensions
+        svg_generator.setSize(canvas_size)      # Set the size of the SVG to match the widget size
+        svg_generator.setViewBox(self.rect())     # Set the view box to the widget's dimensions
         svg_view_box = QRect(0, 0, width, height)
         svg_generator.setViewBox(svg_view_box)
         painter = QPainter(svg_generator)
 
         # when saving the svg, only the shapes (and not the drawing border) are saved
-        self.drawing_widget.redrawAllShapes(painter)
+        self.drawing_widget.redrawAllShapes(painter) 
         painter.end()
-
+        
         paths, attributes = svg2paths(file_name)
+        print("paths: ", paths)
         print("attributes: ", attributes)
-
-        shape_attr_list = []
-
-        # format: self.drawing_widget.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, [], PEN_WIDTH, FILLED])
+        
+        # Copy shapes and attributes
         shapes_copy = copy.deepcopy(self.drawing_widget.shapes)
         attributes_copy = copy.deepcopy(attributes)
+        
+        shape_attr_list = []
+                
+        for attr, shape, path in zip(attributes_copy, shapes_copy, paths):
+            shape_color = shape[3]
+            pen_width = shape[5]
+            filled = shape[6]
 
-        for attr, shape in zip(attributes_copy, shapes_copy):
-            shape_color = shape[3]  # Color for stroke and fill
-            pen_width = shape[5]  # Pen width (stroke width)
-            filled = shape[6]  # Whether the shape is filled or not
+            updated_attr = attr.copy()
 
-            updated_attr = attr.copy()  # Copy the original attributes to avoid modifying the original
-
-            updated_attr['stroke'] = shape_color.name()  # Assigning the stroke color
-            updated_attr['stroke-width'] = pen_width  # Assigning stroke width
+            updated_attr['stroke'] = shape_color.name()
+            updated_attr['stroke-width'] = pen_width
 
             if filled:
-                updated_attr['fill'] = shape_color.name()  # If filled, use the shape color
+                updated_attr['fill'] = shape_color.name()
             else:
-                updated_attr['fill'] = 'none'  # If not filled, set 'none'
+                updated_attr['fill'] = 'none'
 
+            # in order to compensate for the (I believe) stroke width it is necessary to offset the final end point in every rectangle
+            if shape[2] == ShapeMode.Square:
+                last_line = path[-1]  # Get the last line
+                offset = complex(0, - (pen_width/2))
+                new_end = last_line.end + offset
+                path[-1] = Line(last_line.start, new_end)
+            
             shape_attr_list.append(updated_attr)
 
         new_file = "svg_file_2.svg"
-        wsvg(paths, attributes=shape_attr_list, filename=new_file, dimensions=(width, height))
+        wsvg(paths,
+            attributes=shape_attr_list,
+            filename=new_file,
+            dimensions=(width, height))
+
         self.shape_attributes = shape_attr_list
         print("updated attributes: ", shape_attr_list)
+        print("shapes array: ", shapes_copy)
 
         # rotate the svg 45 degrees
         rotated_path_name = "rotated_pattern_step.svg"
-        rotateSvgWithQPainter(new_file, rotated_path_name, 45, width // 2, height // 2)
-
+        rotateSvgWithQPainter(new_file, rotated_path_name, 45, width//2, height//2)
+        
         # crop to the points of the inner square (intended drawing space)
         cropped_size = int((width - square_size) // 2)
         view_box = QRectF(cropped_size, cropped_size, int(square_size), int(square_size))
@@ -999,9 +1006,6 @@ class MainWindow(QMainWindow):
         renderer = QSvgRenderer(rotated_path_name)
         renderer.render(painter)
         painter.end()
-
-
-
 
     def pixmap_to_svg(pixmap, svg_file_path):
         # Create an SVG generator
