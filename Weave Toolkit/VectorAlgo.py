@@ -7,13 +7,17 @@ import math
 import tempfile
 import svgwrite
 
+from svgwrite.container import Group
+import xml.etree.ElementTree as ET
+
+
 from svgpathtools import svg2paths, svg2paths2, wsvg, Path, Line, Arc
 
 from PyQt6.QtSvg import QSvgRenderer, QSvgGenerator
 from PyQt6.QtWidgets import QApplication, QWidget, QLabel
 from PyQt6.QtGui import QImage, QPainter, QTransform, QPixmap, QColor
 from PyQt6.QtCore import QSize, QByteArray, QRectF
-
+from collections import namedtuple
 # Will be called when the user presses the "Update SVG" button
 
 # The algorithm will be given a image, of SVG type, of the desired pattern as input and return 2 things:
@@ -104,7 +108,70 @@ def downscaleImage(image, scale_factor):
 
     return downscaled
 
-def rotateSvgWithQPainter(input_svg, output_svg, angle_degrees, center_x=0, center_y=0):
+def rotateSvgFileByAngle(paths, angle, size):
+    cx, cy = size.width() / 2, size.height() / 2  # Center of canvas
+    angle_rad = math.radians(angle)
+
+    def rotate_point(x, y):
+        """ Rotates a point (x, y) around (cx, cy) by angle_rad """
+        dx, dy = x - cx, y - cy
+        new_x = cx + dx * math.cos(angle_rad) - dy * math.sin(angle_rad)
+        new_y = cy + dx * math.sin(angle_rad) + dy * math.cos(angle_rad)
+        return new_x, new_y
+
+    rotated_paths = []
+    for path in paths:
+        new_segments = []
+        for segment in path:
+            if isinstance(segment, Line):
+                start_x, start_y = rotate_point(segment.start.real, segment.start.imag)
+                end_x, end_y = rotate_point(segment.end.real, segment.end.imag)
+                new_segments.append(Line(start=complex(start_x, start_y), end=complex(end_x, end_y)))
+            else:
+                # Handle other types of segments if necessary (CubicBezier, QuadraticBezier, Arc)
+                new_segments.append(segment)
+
+        rotated_paths.append(Path(*new_segments))
+
+    return rotated_paths
+
+# Define a simple Line structure
+Line = namedtuple("Line", ["start", "end"])
+Path = list  # A path is a list of Line objects
+def has_start_attribute(segment):
+    """Checks if a segment has the 'start' attribute."""
+    return hasattr(segment, 'start')
+
+def rotate_point_complex(point, angle, center):
+    """Rotates a complex point around a center by a given angle in degrees."""
+    angle_rad = math.radians(angle)
+    rotated = (point - center) * complex(math.cos(angle_rad), math.sin(angle_rad)) + center
+    return rotated
+
+def rotate_paths(paths, angle, size):
+    """Rotates a list of SVG paths around the center of a canvas with given size."""
+    center = (size.width() / 2, size.height() / 2)
+    rotated_paths = []
+
+    for path in paths:
+        rotated_segments = []
+        # Iterate over each segment in the path
+        for segment in path:
+            if has_start_attribute(segment):  # Only process Line segments
+                # Rotate the start and end points
+                new_start = rotate_point_complex(segment.start, angle, center)
+                new_end = rotate_point_complex(segment.end, angle, center)
+                rotated_segments.append(Line(new_start, new_end))
+            else:
+                # Handle non-Line segments (optional, depending on your needs)
+                rotated_segments.append(segment)
+
+        # Wrap the list of rotated segments in a Path object
+        rotated_paths.append(Path(*rotated_segments))
+
+    return rotated_paths
+
+def rotateSvgWithQPainter(input_svg, output_svg, angle_degrees, center_x=0, center_y=0, attributes=[]):
     renderer = QSvgRenderer(input_svg)
     generator = createSvgGenerator(input_svg, output_svg)
 
@@ -123,6 +190,7 @@ def rotateSvgWithQPainter(input_svg, output_svg, angle_degrees, center_x=0, cent
 
     # Finish painting
     painter.end()
+    return output_svg
 
 def resizeSvg(input_svg, output_svg, target_size: int):
     renderer = QSvgRenderer(input_svg)
@@ -175,6 +243,10 @@ def resizeSvg(input_svg, output_svg, target_size: int):
     #resized_paths = [path.scaled(scale_factor) for path in paths]
 #
     ##wsvg(resized_paths, attributes=attributes, filename=output_svg)
+
+def resizeSVGNoGen(input_svg, output_svg, target_size: int):
+    paths, atrributes = svg2paths(input_svg)
+    return None
 
 def rotateImageQimage(image, angle=-90):
     transform = QTransform().rotate(angle)  # Rotate by the specified angle
@@ -385,11 +457,11 @@ def saveSvgFileAsQLabel(filepath):
 
     return painter
 
-def mainAlgorithmSvg(img, function = 'create'):
+def mainAlgorithmSvg(img, function = 'create', shape_attributes=[]):
 
     match function:
         case 'create':
-            createFinalHeartCutoutPatternExport(1200)
+            createFinalHeartCutoutPatternExport(1200, attributes=shape_attributes)
 
         case 'show':
             # We start with a filepath to an svg image. But, we want to give createFinalHeartDisplay a CV Image
@@ -466,7 +538,7 @@ def combineStencils(first_stencil, second_stencil, filename='combined.svg'):
 def getPattern(original_pattern):
     match original_pattern:
         case 'front':
-            return 'svg_file.svg'
+            return 'final_output_svg.svg'
 
         case 'back':
             return 'svg_file_2.svg'
@@ -477,17 +549,17 @@ def getPattern(original_pattern):
 def overlayDrawingOnStencil(stencil_file, user_drawing_file, size, filename='combined_output.svg'):
         # Load paths from the stencil
         paths1, attributes1 = svg2paths(stencil_file)
-    
+
         # Load paths from the user’s drawing
         paths2, attributes2 = svg2paths(user_drawing_file)
-    
+
         # Combine paths from both the stencil and the user’s drawing
         combined_paths = paths1 + paths2
         combined_attributes = attributes1 + attributes2
-    
+
         # Create a new SVG drawing to store the combined result
         dwg = svgwrite.Drawing(filename, size=(size, size))
-    
+
         # Add each path from the combined paths to the new SVG
         for path, attr in zip(combined_paths, combined_attributes):
             # Extract stroke, fill, and stroke-width attributes (if they exist)
@@ -501,30 +573,44 @@ def overlayDrawingOnStencil(stencil_file, user_drawing_file, size, filename='com
 
         # for path in combined_paths:
           #  dwg.add(dwg.path(d=path.d(), stroke="black", fill="none"))
-    
+
         # Save the combined SVG to the file
         dwg.save()
         return filename
 
-def overlayPatternOnStencil(pattern, stencil, size, stencil_number, pattern_type, margin=MARGIN):
-    # overlaying a pattern on a stencil will involve:
-    # 1. rotate clockwise 45 degrees
-    # rotateSvgWithQPainter(pattern, "rotated_pattern.svg", 45, 200, 200)
+def overlayPatternOnStencil(pattern, stencil, size, stencil_number, pattern_type, margin=MARGIN, shape_attributes=[{}]):
+    # 1. Rotate and scale the pattern
+    paths, attributes = svg2paths(pattern)
+    print("paths now: ", len(paths))
+    print("allans nuts: ", attributes)
+    #resizeSvg(pattern, "resized.svg", size // 3 - margin * 3)
+    #rotate that bitch
+    paths, _ = svg2paths(pattern)
+    print("paths nlater: ", len(paths))
 
-    # 2. scale it to fit the inner line cuts
-    scaled_pattern = "scaled_pattern.svg"
-    re_rotated_scaled_pattern = rotateSvgWithQPainter(scaled_pattern, "testttt.svg", 45, 200, 200)
-    resizeSvg("final_output_svg.svg", re_rotated_scaled_pattern, size//3-margin*3) # scale size should be based on spacing between inner cut lines
+    # Debug: Print the number of paths
+    print("Number of paths:", len(paths))
 
-    # 3. shift it right and down
-    # shiftSvg(scaled_pattern, stencil, size)
 
-    combined_output = overlayDrawingOnStencil(stencil, re_rotated_scaled_pattern, size,
-                                               "overlayed_test.svg")
-    # Overlay scaled_pattern onto the square portion of the heart
-    # stencil[margin:margin + size, margin:margin + size] = scaled_pattern
+    # Ensure shape_attributes list has the same length as paths
+    # if len(shape_attributes) < len(paths):
+    #     # Instead of replicating the first element, extend with default attribute dictionaries.
+    #     missing = len(paths) - len(shape_attributes)
+    #     shape_attributes.extend([{} for _ in range(missing)])
+    # elif len(shape_attributes) > len(paths):
+    #     shape_attributes = shape_attributes[:len(paths)]
 
+    # Debug: Print the final attributes that will be passed
+    print("Final shape attributes:", shape_attributes)
+
+    # Save the SVG using wsvg with the overwritten attributes
+    wsvg(paths, attributes=shape_attributes, filename="newfile.svg", dimensions=(size, size))
+
+
+    # 3. Shift it right and down (overlay on stencil)
+    combined_output = overlayDrawingOnStencil(stencil, "newfile.svg", size, "overlayed_test.svg")
     return combined_output
+
 
 def svgToDrawing(input_svg, output_drawing):
     with open(input_svg, 'r') as file:
@@ -537,7 +623,7 @@ def svgToDrawing(input_svg, output_drawing):
 def determinePatternType():
     return "simple"
 
-def createFinalHeartCutoutPatternExport(size, line_start=0, sides='onesided', line_color='black', background_color='white'):
+def createFinalHeartCutoutPatternExport(size, line_start=0, sides='onesided', line_color='black', background_color='white', attributes=[]):
     if sides=='onesided':
         width = size
         height = size // 2
@@ -556,7 +642,7 @@ def createFinalHeartCutoutPatternExport(size, line_start=0, sides='onesided', li
         stencil_1_pattern = getPattern("front")
         stencil_2_pattern = getPattern("back")
 
-        overlayed_pattern_1 = overlayPatternOnStencil(stencil_1_pattern, empty_stencil_1, size, 1, pattern_type)
+        overlayed_pattern_1 = overlayPatternOnStencil(stencil_1_pattern, empty_stencil_1, size, 1, pattern_type, shape_attributes=attributes)
         # overlayed_pattern_2 = overlayPatternOnStencil(stencil_2_pattern, empty_stencil_2, size, 2, pattern_type)
 
         # combined_stencil = combineStencils(overlayed_pattern_1, overlayed_pattern_2)

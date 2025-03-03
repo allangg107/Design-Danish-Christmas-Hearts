@@ -67,7 +67,7 @@ from Algorithm import (
 )
 
 from VectorAlgo import (
-    mainAlgorithmSvg, rotateSvgWithQPainter, createSvgGenerator
+    mainAlgorithmSvg, rotateSvgWithQPainter, rotate_paths, createSvgGenerator, rotateSvgFileByAngle
 )
 
 from svgpathtools import svg2paths, svg2paths2, wsvg
@@ -432,6 +432,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
+        self.shape_attributes = []
 
         self.setWindowTitle("Weave Toolkit")
         self.setStyleSheet("background-color: white;")
@@ -871,7 +872,7 @@ class MainWindow(QMainWindow):
     def exportHeart(self):
         arr = self.pixmapToCvImage()
         mainAlgorithm(arr,'create')
-    
+
     # def translateShapesArray(self, shapes, translate_x, translate_y):
     #     shapes_copy = copy.deepcopy(shapes)
     #     # Iterate through each shape and adjust the coordinates
@@ -885,7 +886,7 @@ class MainWindow(QMainWindow):
     #             shape[4] = [point + QPoint(-translate_x, -translate_y) for point in shape[4]]
 
     #     return shapes_copy
-    
+
     # def drawShapes(self, shapes, output_file_name):
     #     svg_generator = QSvgGenerator()
     #     svg_generator.setFileName(output_file_name)  # Path to save the SVG file
@@ -899,7 +900,7 @@ class MainWindow(QMainWindow):
     #         shape_type = shape[2]
     #         qp.setBrush(SHAPE_COLOR) # set to shape[3] if we want to change color to stored shape color instead of global color
     #         qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)) # pen width should needs to be saved in the shape list
-            
+
     #         if shape_type == ShapeMode.Square:
     #             self.drawSquare(qp, shape[0], shape[1], SHAPE_COLOR, shape[5], shape[6])
     #         elif shape_type == ShapeMode.Circle:
@@ -916,23 +917,13 @@ class MainWindow(QMainWindow):
     #         qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
 
     #         qp.end()
-    
+
     def save_as_svg(self, file_name, canvas_size):
         # original_shapes = np.array(original_shapes)
         # top left corner of the window
         origin = (0, 0) # potentially need to look at the Window's pos
         origin_coords = self.pos()
         drawing_widget_coords = self.drawing_widget.pos()
-        print("o: ", origin_coords)
-        print("d: ", drawing_widget_coords)
-
-
-        # translate the shapes array as if they had the drawing_widget as their 0,0
-        # translated_1_shapes = self.translateShapesArray(original_shapes, drawing_widget_coords.x(), drawing_widget_coords.y())
-        # rotate it by 45 degrees
-        # translate it to 0,0
-        # now we have the pre-processed shapes array
-        # we can save the processed array to a text/json file in order to have a history (optional)
 
         # calculate the min/max x/y of the inner square
         width = canvas_size.width()
@@ -958,46 +949,44 @@ class MainWindow(QMainWindow):
         painter = QPainter(svg_generator)
 
         # when saving the svg, only the shapes (and not the drawing border) are saved
-
-        self.drawing_widget.redrawAllShapes(painter) 
+        self.drawing_widget.redrawAllShapes(painter)
         painter.end()
-        
+
         paths, attributes = svg2paths(file_name)
-        print("paths: ", paths)
         print("attributes: ", attributes)
-        
+
         shape_attr_list = []
 
         # format: self.drawing_widget.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, [], PEN_WIDTH, FILLED])
         shapes_copy = copy.deepcopy(self.drawing_widget.shapes)
         attributes_copy = copy.deepcopy(attributes)
+
         for attr, shape in zip(attributes_copy, shapes_copy):
-            shape_color = shape[3]
-            pen_width = shape[5]
-            filled = shape[6]
+            shape_color = shape[3]  # Color for stroke and fill
+            pen_width = shape[5]  # Pen width (stroke width)
+            filled = shape[6]  # Whether the shape is filled or not
 
             updated_attr = attr.copy()  # Copy the original attributes to avoid modifying the original
 
-            updated_attr['stroke'] = shape_color.name()  # Assuming 'stroke' is used for the color in SVG
-            updated_attr['stroke-width'] = pen_width
+            updated_attr['stroke'] = shape_color.name()  # Assigning the stroke color
+            updated_attr['stroke-width'] = pen_width  # Assigning stroke width
 
-            if filled == True:
-                updated_attr['fill'] = shape_color.name()
-            elif filled == False:
-                updated_attr['fill'] = 'none'
-            
+            if filled:
+                updated_attr['fill'] = shape_color.name()  # If filled, use the shape color
+            else:
+                updated_attr['fill'] = 'none'  # If not filled, set 'none'
+
             shape_attr_list.append(updated_attr)
-        
+
         new_file = "svg_file_2.svg"
         wsvg(paths, attributes=shape_attr_list, filename=new_file, dimensions=(width, height))
-
+        self.shape_attributes = shape_attr_list
         print("updated attributes: ", shape_attr_list)
-        # print("attributes: ", attributes)
 
         # rotate the svg 45 degrees
         rotated_path_name = "rotated_pattern_step.svg"
-        rotateSvgWithQPainter(file_name, rotated_path_name, 45, width//2, height//2)
-        
+        rotateSvgWithQPainter(new_file, rotated_path_name, 45, width // 2, height // 2)
+
         # crop to the points of the inner square (intended drawing space)
         cropped_size = int((width - square_size) // 2)
         view_box = QRectF(cropped_size, cropped_size, int(square_size), int(square_size))
@@ -1010,7 +999,10 @@ class MainWindow(QMainWindow):
         renderer = QSvgRenderer(rotated_path_name)
         renderer.render(painter)
         painter.end()
-    
+
+
+
+
     def pixmap_to_svg(pixmap, svg_file_path):
         # Create an SVG generator
         svg_gen = QSvgGenerator()
@@ -1031,7 +1023,7 @@ class MainWindow(QMainWindow):
 
     def exportSVG(self):
         svg_file_path = "svg_file.svg"
-        mainAlgorithmSvg(svg_file_path, 'create')
+        mainAlgorithmSvg(svg_file_path, 'create', shape_attributes=self.shape_attributes)
 
     def pixmapToCvImage(self):
         pixmap = QPixmap(self.drawing_widget.size())  # Create pixmap of the same size
