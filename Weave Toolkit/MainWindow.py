@@ -5,6 +5,8 @@ import cv2 as cv
 import numpy as np
 import copy
 
+from svgpathtools import svg2paths, svg2paths2, wsvg, Line
+
 from functools import partial
 
 from ShapeMode import (
@@ -67,11 +69,8 @@ from Algorithm import (
 )
 
 from VectorAlgo import (
-    mainAlgorithmSvg, rotateSvgWithQPainter, rotate_paths, createSvgGenerator, rotateSvgFileByAngle
+    mainAlgorithmSvg, pre_process_user_input
 )
-
-from svgpathtools import svg2paths, svg2paths2, wsvg, Line
-
 
 # Global variables for the shape mode and shape color
 SHAPE_MODE = ShapeMode.Cursor
@@ -79,6 +78,8 @@ SHAPE_COLOR = QColor(0, 0, 0, 255)
 BACKGROUND_COLOR = QColor(255, 255, 255, 255)
 PEN_WIDTH = 3
 FILLED = False
+USER_OUTPUT_SVG_FILENAME = "svg_file.svg"
+USER_PREPROCESSED_PATTERN = "preprocessed_pattern.svg"
 
 def calculate_distance(point1, point2):
         return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
@@ -109,7 +110,7 @@ class DrawingWidget(QWidget):
         self.redrawAllShapes(qp)
 
         qp.setBrush(SHAPE_COLOR)
-        qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+        qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
 
         # Draws the current shape as it is being created
         if self.begin != self.end:
@@ -180,7 +181,7 @@ class DrawingWidget(QWidget):
         for shape in self.shapes[:]:  # Use a copy of the list to avoid modification issues
             shape_type = shape[2]
             qp.setBrush(SHAPE_COLOR) # set to shape[3] if we want to change color to stored shape color instead of global color
-            qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)) # pen width should needs to be saved in the shape list
+            qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin)) # pen width should needs to be saved in the shape list
             # if in eraser mode, removes shapes that contain the point clicked
             if SHAPE_MODE == ShapeMode.Eraser:
                 point = self.begin
@@ -217,13 +218,13 @@ class DrawingWidget(QWidget):
             elif shape_type == ShapeMode.Heart:
                 self.drawHeart(qp, shape[0], shape[1], SHAPE_COLOR, shape[5], shape[6])
             elif shape_type == ShapeMode.Line:
-                qp.setPen(QPen(SHAPE_COLOR, shape[5], Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+                qp.setPen(QPen(SHAPE_COLOR, shape[5], Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
                 qp.drawLine(shape[0], shape[1])
             elif shape_type == ShapeMode.FreeForm:
-                qp.setPen(QPen(SHAPE_COLOR, shape[5], Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+                qp.setPen(QPen(SHAPE_COLOR, shape[5], Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
                 for free_form_point in range(len(shape[4]) - 1):
                     qp.drawLine(shape[4][free_form_point], shape[4][free_form_point + 1])
-            qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+            qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
 
     def redrawBorder(self, qp):
         pen = QPen(Qt.GlobalColor.black, 3)
@@ -290,7 +291,7 @@ class DrawingWidget(QWidget):
 
         qp.drawRect(QRect(start, end))
 
-        qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+        qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
 
     def drawCircle(self, qp, start, end, color, pen_width, filled):
         self.penAndBrushSetup(qp, color, pen_width, filled)
@@ -299,7 +300,7 @@ class DrawingWidget(QWidget):
         radius = int((start-end).manhattanLength() / 2)
         qp.drawEllipse(center, radius, radius)
 
-        qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+        qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
 
     def drawHeart(self, qp, start, end, color, pen_width, filled):
         self.penAndBrushSetup(qp, color, pen_width, filled)
@@ -318,7 +319,7 @@ class DrawingWidget(QWidget):
 
         qp.drawPath(drawpath)
 
-        qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+        qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
 
     def penAndBrushSetup(self, qp, color, pen_width, filled):
         if filled:
@@ -326,7 +327,7 @@ class DrawingWidget(QWidget):
         else:
             qp.setBrush(Qt.BrushStyle.NoBrush)
 
-        qp.setPen(QPen(color, pen_width, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+        qp.setPen(QPen(color, pen_width, Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
 
     # Checks if the point is within a certain threshold of the line
     def lineContainsPoint(self, point, begin, end, threshold=4.0):
@@ -484,29 +485,13 @@ class MainWindow(QMainWindow):
         self.drawing_container.setStyleSheet("background-color: lightgrey;")  # Set light grey background
         self.drawing_container.setLayout(self.drawing_layout)
 
-
         self.drawing_widget.installEventFilter(self)
-        # main_layout.addWidget(self.drawing_widget)
-
-        # Create the output display widget
-        #self.display_widget = QLabel(self)
-        #pixmap = QPixmap("Weave Toolkit/icons/20201208_203402.jpg")
-        #self.display_widget.setPixmap(pixmap)
-        #self.display_widget.hide()  # Hide initially
-        #main_layout.addWidget(self.display_widget)
-
-        # Graphic Screen
+        
         self.scene = QGraphicsScene()
-
-        # Create the WeaveView and add to the layout
-        #self.weave_widget = WeaveView(self.scene)  # This is where the grid rendering happens
-        #self.weave_widget.hide()  # Hide initially, show it on button click
-        #main_layout.addWidget(self.weave_widget)
 
         # Create a stacked widget to switch between views
         self.stacked_widget = QStackedWidget(self)
         self.stacked_widget.addWidget(self.drawing_container)
-        #self.stacked_widget.addWidget(self.weave_widget)
         main_layout.addWidget(self.stacked_widget)
 
         self.drawing_widget.setFixedSize(500, 500)
@@ -550,7 +535,7 @@ class MainWindow(QMainWindow):
 
         update_button_svg = QPushButton("Update SVG", self)
         update_button_svg.setStyleSheet("background-color: lightgray; color: black;")
-        update_button_svg.clicked.connect(lambda: self.save_as_svg("svg_file.svg", self.drawing_widget.size()))
+        update_button_svg.clicked.connect(lambda: self.save_as_svg(USER_OUTPUT_SVG_FILENAME, self.drawing_widget.size()))
         update_button_svg.clicked.connect(lambda: self.updateDisplaySvg())
         menu_toolbar.addWidget(update_button_svg)
 
@@ -649,10 +634,8 @@ class MainWindow(QMainWindow):
         return weaving_pattern_menu
 
     def updateDisplaySvg(self):
-
         self.backside_label.setText("Front Side final product:")
-        svg_file_path = "final_output_svg.svg"
-        heart = self.cvImageToPixmap(mainAlgorithmSvg(svg_file_path, "show"))
+        heart = self.cvImageToPixmap(mainAlgorithmSvg(USER_PREPROCESSED_PATTERN, "show"))
 
         # Shows the design created by the users on the heart
         pixmap = QPixmap(heart)
@@ -666,14 +649,7 @@ class MainWindow(QMainWindow):
         self.drawing_backside.setPixmap(scaled_pixmap)
         self.drawing_backside.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-    def displayFinalHeart(self):
-        pass
-
-
     def updateDisplay(self, write_to_image = False):
-        #self.stacked_widget.setCurrentWidget(self.weave_widget)
-        #self.weave_widget.setShapes(self.drawing_widget.shapes)
-        #self.save_canvas_as_png()
 
         self.backside_label.setText("Front Side final product:")
 
@@ -695,7 +671,6 @@ class MainWindow(QMainWindow):
         self.drawing_backside.setPixmap(scaled_pixmap)
         self.drawing_backside.setAlignment(Qt.AlignmentFlag.AlignCenter)
         #self.drawing_backside.setScaledContents(True)
-
 
     def editDisplay(self):
         self.backside_label.setText("Back Side (not modifiable):")
@@ -778,7 +753,6 @@ class MainWindow(QMainWindow):
 
         global SHAPE_MODE
         SHAPE_MODE = shape_mode
-
 
     def createColorsToolbar(self):
         colors_toolbar = QToolBar("Colors toolbar")
@@ -873,51 +847,6 @@ class MainWindow(QMainWindow):
         arr = self.pixmapToCvImage()
         mainAlgorithm(arr,'create')
 
-    # def translateShapesArray(self, shapes, translate_x, translate_y):
-    #     shapes_copy = copy.deepcopy(shapes)
-    #     # Iterate through each shape and adjust the coordinates
-    #     for shape in shapes_copy:
-    #         begin, end = shape[0], shape[1]
-    #         shape[0] = begin + QPoint(-translate_x, -translate_y)
-    #         shape[1] = end + QPoint(-translate_x, -translate_y)
-
-    #         if shape[2] == ShapeMode.FreeForm:
-    #             # Adjust free form points if present
-    #             shape[4] = [point + QPoint(-translate_x, -translate_y) for point in shape[4]]
-
-    #     return shapes_copy
-
-    # def drawShapes(self, shapes, output_file_name):
-    #     svg_generator = QSvgGenerator()
-    #     svg_generator.setFileName(output_file_name)  # Path to save the SVG file
-    #     svg_generator.setSize(canvas_size) # Set the size of the SVG to match the widget size
-    #     svg_generator.setViewBox(self.rect())  # Set the view box to the widget's dimensions
-    #     svg_view_box = QRect(0, 0, width, height)
-    #     svg_generator.setViewBox(svg_view_box)
-    #     qp = QPainter(svg_generator)
-
-    #     for shape in shapes[:]:  # Use a copy of the list to avoid modification issues
-    #         shape_type = shape[2]
-    #         qp.setBrush(SHAPE_COLOR) # set to shape[3] if we want to change color to stored shape color instead of global color
-    #         qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)) # pen width should needs to be saved in the shape list
-
-    #         if shape_type == ShapeMode.Square:
-    #             self.drawSquare(qp, shape[0], shape[1], SHAPE_COLOR, shape[5], shape[6])
-    #         elif shape_type == ShapeMode.Circle:
-    #             self.drawCircle(qp, shape[0], shape[1], SHAPE_COLOR, shape[5], shape[6])
-    #         elif shape_type == ShapeMode.Heart:
-    #             self.drawHeart(qp, shape[0], shape[1], SHAPE_COLOR, shape[5], shape[6])
-    #         elif shape_type == ShapeMode.Line:
-    #             qp.setPen(QPen(SHAPE_COLOR, shape[5], Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
-    #             qp.drawLine(shape[0], shape[1])
-    #         elif shape_type == ShapeMode.FreeForm:
-    #             qp.setPen(QPen(SHAPE_COLOR, shape[5], Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
-    #             for free_form_point in range(len(shape[4]) - 1):
-    #                 qp.drawLine(shape[4][free_form_point], shape[4][free_form_point + 1])
-    #         qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
-
-    #         qp.end()
-
     def save_as_svg(self, file_name, canvas_size):
         # calculate the min/max x/y of the inner square
         width = canvas_size.width()
@@ -947,8 +876,7 @@ class MainWindow(QMainWindow):
         painter.end()
         
         paths, attributes = svg2paths(file_name)
-        print("paths: ", paths)
-        print("attributes: ", attributes)
+        # print("attributes: ", attributes)
         
         # Copy shapes and attributes
         shapes_copy = copy.deepcopy(self.drawing_widget.shapes)
@@ -980,54 +908,25 @@ class MainWindow(QMainWindow):
             
             shape_attr_list.append(updated_attr)
 
-        new_file = "svg_file_2.svg"
+        file_with_attributes = "svg_file_2.svg"
+        
         wsvg(paths,
             attributes=shape_attr_list,
-            filename=new_file,
+            filename=file_with_attributes,
             dimensions=(width, height))
-
-        self.shape_attributes = shape_attr_list
-        print("updated attributes: ", shape_attr_list)
-        print("shapes array: ", shapes_copy)
-
-        # rotate the svg 45 degrees
-        rotated_path_name = "rotated_pattern_step.svg"
-        rotateSvgWithQPainter(new_file, rotated_path_name, 45, width//2, height//2)
         
-        # crop to the points of the inner square (intended drawing space)
-        cropped_size = int((width - square_size) // 2)
-        view_box = QRectF(cropped_size, cropped_size, int(square_size), int(square_size))
-        cropped_generator = createSvgGenerator(rotated_path_name, "final_output_svg.svg")
-        cropped_generator.setViewBox(view_box)
+        pre_process_user_input(file_with_attributes, width, height, square_size)
 
-        painter = QPainter(cropped_generator)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-        renderer = QSvgRenderer(rotated_path_name)
-        renderer.render(painter)
-        painter.end()
-
-    def pixmap_to_svg(pixmap, svg_file_path):
-        # Create an SVG generator
-        svg_gen = QSvgGenerator()
-        svg_gen.setFileName(svg_file_path)
-        svg_gen.setSize(pixmap.size())
-        svg_gen.setViewBox(pixmap.rect())
-        svg_gen.setTitle("Pixmap to SVG")
-        svg_gen.setDescription("Converted from QPixmap to SVG using PyQt6")
-
-        # Create a QPainter to draw the pixmap onto the SVG generator
-        painter = QPainter(svg_gen)
-        painter.drawPixmap(0, 0, pixmap)
-        painter.end()
+        # self.shape_attributes = shape_attr_list
+        # print("updated attributes: ", shape_attr_list)
 
     def exportGuide(self):
         guide_window = GuideWindow()
         guide_window.exec()
 
     def exportSVG(self):
-        svg_file_path = "svg_file.svg"
-        mainAlgorithmSvg(svg_file_path, 'create', shape_attributes=self.shape_attributes)
+        svg_file_path = USER_OUTPUT_SVG_FILENAME
+        mainAlgorithmSvg(svg_file_path, 'create')
 
     def pixmapToCvImage(self):
         pixmap = QPixmap(self.drawing_widget.size())  # Create pixmap of the same size
@@ -1060,7 +959,6 @@ class MainWindow(QMainWindow):
     def setWeavingPattern(self, pattern = "simple"):
         # set the weaving pattern as approriate
         print("Weaving Pattern set to: " + pattern)
-
 
 app = QApplication(sys.argv)
 
