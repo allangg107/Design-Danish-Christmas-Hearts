@@ -308,10 +308,6 @@ def drawEmptyStencil(width, height, starting_y, margin_x=MARGIN, line_color='bla
 
     dwg.add(dwg.path(d=right_arc_path, stroke="yellow", fill="none", stroke_width=3))
 
-    # draw the inner line cuts
-    dwg.add(dwg.line(start=((left_top_line_start[0], left_top_line_start[1] + margin_x)), end=((right_top_line_end[0], right_top_line_end[1] + margin_x)), stroke="brown", stroke_width=3))
-    dwg.add(dwg.line(start=((left_bottom_line_start[0], left_bottom_line_start[1] - margin_x)), end=((right_bottom_line_end[0], right_bottom_line_end[1] - margin_x)), stroke="brown", stroke_width=3))
-
     dwg.save()
 
     return file_name
@@ -324,6 +320,7 @@ def combineStencils(first_stencil, second_stencil, filename='combined.svg'):
     combined_attributes = attributes1 + attributes2
 
     wsvg(combined_paths, attributes=combined_attributes, filename=filename)
+
 
 def getPattern(original_pattern):
     match original_pattern:
@@ -359,7 +356,6 @@ def overlayDrawingOnStencil(stencil_file, user_drawing_file, size, square_size, 
             fill = attr.get('fill', 'none')             # Default to 'none' if no fill is defined
             stroke_width = attr.get('stroke-width', 1)  # Default to 1 if no stroke width is defined
 
-
             dwg.add(dwg.path(d=path.d(), stroke=stroke, fill=fill, stroke_width=stroke_width))
 
         dwg.save()
@@ -379,6 +375,32 @@ def overlayPatternOnStencil(pattern, stencil, size, stencil_number, pattern_type
     
     return combined_output_name
 
+def drawSimpleStencil(width, height, starting_y, margin_x=MARGIN, line_color='black', file_name="allans test.svg"):
+    dwg = svgwrite.Drawing(file_name, size=(width,height+starting_y))
+
+    # define the square size
+    square_size = (height // 1.5) - margin_x
+    margin_y = margin_x + starting_y
+
+    left_top_line_start = (margin_x + square_size // 2, margin_y)
+    left_top_line_end = (left_top_line_start[0] + square_size, left_top_line_start[1])
+    left_bottom_line_start = (left_top_line_start[0], left_top_line_start[1] + square_size)
+    left_bottom_line_end = (left_bottom_line_start[0] + square_size, left_bottom_line_start[1])
+
+    # draw the right square
+    right_top_line_start = left_top_line_end
+    right_top_line_end = (right_top_line_start[0] + square_size, right_top_line_start[1])
+    right_bottom_line_start = left_bottom_line_end
+    right_bottom_line_end = (right_bottom_line_start[0] + square_size, right_bottom_line_start[1])
+
+    # draw the inner line cuts
+    dwg.add(dwg.line(start=((left_top_line_start[0], left_top_line_start[1] + margin_x)), end=((right_top_line_end[0], right_top_line_end[1] + margin_x)), stroke="brown", stroke_width=3))
+    dwg.add(dwg.line(start=((left_bottom_line_start[0], left_bottom_line_start[1] - margin_x)), end=((right_bottom_line_end[0], right_bottom_line_end[1] - margin_x)), stroke="brown", stroke_width=3))
+
+    dwg.save()
+
+    return file_name
+    
 def determinePatternType():
     return "simple"
 
@@ -391,6 +413,21 @@ def createFinalHeartCutoutPatternExport(size, line_start=0, sides='onesided', li
 
         pattern_type = determinePatternType()
 
+        stencil_1_pattern = getPattern("front")
+        stencil_2_pattern = getPattern("back")
+
+        if pattern_type == "simple":
+            simpleStencil = drawSimpleStencil(width, height, 0, file_name="simpleStencil1.svg")
+            combined_simple_stencil1 = "combined_simple_stencil1.svg"
+            combineStencils(empty_stencil_1, simpleStencil, combined_simple_stencil1)
+            overlayed_pattern_1 = overlayPatternOnStencil(stencil_1_pattern, combined_simple_stencil1, size, 1, pattern_type)
+            simpleStencil = drawSimpleStencil(width, height, height, file_name="simpleStencil2.svg")
+            combined_simple_stencil2 = "combined_simple_stencil2.svg"
+            final_stencil = "thisguy.svg"
+            combineStencils(empty_stencil_2, simpleStencil, final_stencil)
+            combineStencils(final_stencil, overlayed_pattern_1, combined_simple_stencil2)
+            
+
         # if pattern 1 == symetrical:
             # stencil_1_pattern = getSymetricalPattern(1)
             # stencil_2_pattern = getSymetricalPattern(2)
@@ -398,10 +435,9 @@ def createFinalHeartCutoutPatternExport(size, line_start=0, sides='onesided', li
             # stencil_1_pattern = getAsymtricalPattern(1)
             # stencil_2_pattern = getAsymtricalPattern(2)
         # else:
-        stencil_1_pattern = getPattern("front")
-        stencil_2_pattern = getPattern("back")
+    
 
-        overlayed_pattern_1 = overlayPatternOnStencil(stencil_1_pattern, empty_stencil_1, size, 1, pattern_type)
+        #overlayed_pattern_1 = overlayPatternOnStencil(stencil_1_pattern, empty_stencil_1, size, 1, pattern_type)
         # overlayed_pattern_2 = overlayPatternOnStencil(stencil_2_pattern, empty_stencil_2, size, 2, pattern_type)
 
         # combined_stencil = combineStencils(overlayed_pattern_1, overlayed_pattern_2)

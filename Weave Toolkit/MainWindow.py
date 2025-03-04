@@ -341,7 +341,7 @@ class DrawingWidget(QWidget):
 
 
         stroker = QPainterPathStroker()
-        stroker.setWidth(pen_width)  # Use your current pen width
+        stroker.setWidth(0)  # Use your current pen width
         stroked_path = stroker.createStroke(drawpath)
         stroker.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
         
@@ -605,7 +605,7 @@ class MainWindow(QMainWindow):
         action_save = QAction("Save", self)
         action_save.triggered.connect(lambda: self.save_canvas_as_png())
         action_save_svg = QAction("Export SVG", self)
-        action_save_svg.triggered.connect(lambda: self.exportSVG())
+        action_save_svg.triggered.connect(lambda: self.exportSVG(function='create'))
         action_export = QAction("Export", self)
         action_export.triggered.connect(lambda: self.exportHeart())
         action_guide_export = QAction("Export Guide", self)
@@ -952,7 +952,7 @@ class MainWindow(QMainWindow):
             filename=file_with_attributes,
             dimensions=(width, height))
         
-        print("original attributes: ", shape_attr_list)
+        #print("original attributes: ", shape_attr_list)
         
         pre_process_user_input(file_with_attributes, width, height, square_size)
 
@@ -963,9 +963,9 @@ class MainWindow(QMainWindow):
         guide_window = GuideWindow()
         guide_window.exec()
 
-    def exportSVG(self):
+    def exportSVG(self, function='create'):
         svg_file_path = USER_OUTPUT_SVG_FILENAME
-        mainAlgorithmSvg(svg_file_path, 'create')
+        mainAlgorithmSvg(svg_file_path, function)
 
     def pixmapToCvImage(self):
         pixmap = QPixmap(self.drawing_widget.size())  # Create pixmap of the same size
@@ -996,8 +996,16 @@ class MainWindow(QMainWindow):
         return QPixmap.fromImage(q_image)
 
     def setWeavingPattern(self, pattern = "simple"):
-        # set the weaving pattern as approriate
-        print("Weaving Pattern set to: " + pattern)
+        match pattern:
+            case "simple":
+                self.action_save_svg.triggered.disconnect()
+                self.action_save_svg.triggered.connect(lambda: self.exportSVG(function='create'))
+            case "symmetrical":
+                self.action_save_svg.triggered.disconnect()
+                self.action_save_svg.triggered.connect(lambda: self.exportSVG(function='create_symmetry'))
+            case "asymmetrical":
+                self.action_save_svg.triggered.disconnect()
+                self.action_save_svg.triggered.connect(lambda: self.exportSVG(function='create_asymmetry'))
 
 app = QApplication(sys.argv)
 
