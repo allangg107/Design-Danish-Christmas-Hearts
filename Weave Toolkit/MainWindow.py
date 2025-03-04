@@ -295,11 +295,17 @@ class DrawingWidget(QWidget):
 
     def drawCircle(self, qp, start, end, color, pen_width, filled):
         self.penAndBrushSetup(qp, color, pen_width, filled)
-
-        center = start
-        radius = int((start-end).manhattanLength() / 2)
-        qp.drawEllipse(center, radius, radius)
-
+        
+        # Calculate the radius using the manhattan length between start and end.
+        radius = int((start - end).manhattanLength() / 2)
+        
+        # Define a bounding rectangle for the circle centered at 'start'
+        rect = QRectF(start.x() - radius, start.y() - radius, 2 * radius, 2 * radius)
+        
+        path = QPainterPath()
+        path.addEllipse(rect)
+        
+        qp.drawPath(path)
         qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
 
     def drawHeart(self, qp, start, end, color, pen_width, filled):
@@ -885,7 +891,7 @@ class MainWindow(QMainWindow):
         shape_attr_list = []
                 
         for attr, shape, path in zip(attributes_copy, shapes_copy, paths):
-            shape_color = shape[3]
+            shape_color = SHAPE_COLOR
             pen_width = shape[5]
             filled = shape[6]
 
@@ -900,11 +906,12 @@ class MainWindow(QMainWindow):
                 updated_attr['fill'] = 'none'
 
             # in order to compensate for the (I believe) stroke width it is necessary to offset the final end point in every rectangle
-            if shape[2] == ShapeMode.Square:
-                last_line = path[-1]  # Get the last line
-                offset = complex(0, - (pen_width/2))
-                new_end = last_line.end + offset
-                path[-1] = Line(last_line.start, new_end)
+            # AS IT TURNS out this causes issues for drawing hearts and filling
+            # if shape[2] == ShapeMode.Square:
+            #     last_line = path[-1]  # Get the last line
+            #     offset = complex(0, - (pen_width/2))
+            #     new_end = last_line.end + offset
+            #     path[-1] = Line(last_line.start, new_end)
             
             shape_attr_list.append(updated_attr)
 
@@ -914,6 +921,8 @@ class MainWindow(QMainWindow):
             attributes=shape_attr_list,
             filename=file_with_attributes,
             dimensions=(width, height))
+        
+        print("original attributes: ", shape_attr_list)
         
         pre_process_user_input(file_with_attributes, width, height, square_size)
 

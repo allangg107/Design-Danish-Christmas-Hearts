@@ -38,6 +38,8 @@ def pre_process_user_input(original_pattern, width, height, square_size):
     final_output_path_name = "preprocessed_pattern.svg"
     wsvg(paths, attributes=attributes, filename=final_output_path_name, dimensions=(square_size, square_size))
 
+    print("pre-processed attributes: ", attributes)
+
 def translateSVG(input_svg, output_svg, x_shift, y_shift):
     paths, attributes = svg2paths(input_svg)
 
@@ -341,8 +343,12 @@ def overlayDrawingOnStencil(stencil_file, user_drawing_file, size, square_size, 
         paths1, attributes1 = svg2paths(stencil_file)
         paths2, attributes2 = svg2paths(translated_user_path)
 
+        print("overlay user attributes: ", attributes2)
+
         combined_paths = paths1 + paths2
         combined_attributes = attributes1 + attributes2
+
+        print("overlay user attributes 2: ", combined_attributes)
 
         dwg = svgwrite.Drawing(filename, size=(size, size))
 
