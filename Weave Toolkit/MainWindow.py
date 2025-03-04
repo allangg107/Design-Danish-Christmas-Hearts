@@ -297,14 +297,15 @@ class DrawingWidget(QWidget):
         path.addRect(rect)  # Define rectangle with the given points
 
         stroker = QPainterPathStroker()
-        stroker.setWidth(pen_width)  # Apply stroke width
+        stroker.setWidth(0)  # Apply stroke width
         stroker.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
 
         stroked_path = stroker.createStroke(path)  # Get the outline including stroke
 
-        qp.drawPath(stroked_path)
-
-        # qp.drawRect(QRect(start, end))
+        if filled:
+            qp.drawRect(QRect(start, end))
+        else:
+            qp.drawPath(stroked_path)
 
         qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
 
@@ -338,12 +339,16 @@ class DrawingWidget(QWidget):
         drawpath.cubicTo(x_offset + width * 0.75, y_offset - height / 4, x_offset + width * 1.5, y_offset + height / 2, x_offset + width / 2, y_offset + height)
         drawpath.cubicTo(x_offset - width * 0.5, y_offset + height / 2, x_offset + width * 0.25, y_offset - height / 4, x_offset + width / 2, y_offset + height / 4)
 
+
         stroker = QPainterPathStroker()
         stroker.setWidth(pen_width)  # Use your current pen width
         stroked_path = stroker.createStroke(drawpath)
         stroker.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
         
-        qp.drawPath(stroked_path)
+        if filled:
+            qp.drawPath(drawpath)
+        else:
+            qp.drawPath(stroked_path)
 
         qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
 
@@ -413,7 +418,11 @@ class DrawingWidget(QWidget):
             if SHAPE_MODE == ShapeMode.FreeForm:
                 self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, list(self.free_form_points), PEN_WIDTH])
             else:
-                self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, [], PEN_WIDTH, FILLED])
+                if FILLED:
+                    self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, [], PEN_WIDTH, False])
+                    self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, [], PEN_WIDTH, True])
+                else:
+                    self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, [], PEN_WIDTH, FILLED])
 
             self.begin = event.pos()
             self.end = event.pos()
@@ -908,8 +917,10 @@ class MainWindow(QMainWindow):
         attributes_copy = copy.deepcopy(attributes)
         
         shape_attr_list = []
+
+        print("attributes: ", attributes_copy)
                 
-        for attr, shape, path in zip(attributes_copy, shapes_copy, paths):
+        for attr, shape in zip(attributes_copy, shapes_copy):
             shape_color = SHAPE_COLOR
             pen_width = shape[5]
             filled = shape[6]
