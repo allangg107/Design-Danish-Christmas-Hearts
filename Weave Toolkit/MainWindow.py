@@ -59,9 +59,11 @@ from PyQt6.QtGui import (
     QBrush,
     QPixmap,
     QPainterPath,
+    QPainterPathStroker,
     QImage,
     QTransform,
-    QPolygon
+    QPolygon,
+    QPolygonF
 )
 
 from Algorithm import (
@@ -289,7 +291,20 @@ class DrawingWidget(QWidget):
     def drawSquare(self, qp, start, end, color, pen_width, filled):
         self.penAndBrushSetup(qp, color, pen_width, filled)
 
-        qp.drawRect(QRect(start, end))
+        rect = QRectF(QPointF(start), QPointF(end))
+
+        path = QPainterPath()
+        path.addRect(rect)  # Define rectangle with the given points
+
+        stroker = QPainterPathStroker()
+        stroker.setWidth(pen_width)  # Apply stroke width
+        stroker.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
+
+        stroked_path = stroker.createStroke(path)  # Get the outline including stroke
+
+        qp.drawPath(stroked_path)
+
+        # qp.drawRect(QRect(start, end))
 
         qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
 
@@ -323,7 +338,12 @@ class DrawingWidget(QWidget):
         drawpath.cubicTo(x_offset + width * 0.75, y_offset - height / 4, x_offset + width * 1.5, y_offset + height / 2, x_offset + width / 2, y_offset + height)
         drawpath.cubicTo(x_offset - width * 0.5, y_offset + height / 2, x_offset + width * 0.25, y_offset - height / 4, x_offset + width / 2, y_offset + height / 4)
 
-        qp.drawPath(drawpath)
+        stroker = QPainterPathStroker()
+        stroker.setWidth(pen_width)  # Use your current pen width
+        stroked_path = stroker.createStroke(drawpath)
+        stroker.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        
+        qp.drawPath(stroked_path)
 
         qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
 
@@ -872,8 +892,7 @@ class MainWindow(QMainWindow):
         svg_generator = QSvgGenerator()
         svg_generator.setFileName(file_name)  # Path to save the SVG file
         svg_generator.setSize(canvas_size)      # Set the size of the SVG to match the widget size
-        svg_generator.setViewBox(self.rect())     # Set the view box to the widget's dimensions
-        svg_view_box = QRect(0, 0, width, height)
+        svg_view_box = QRect(0, 0, width + 40, height + 40)
         svg_generator.setViewBox(svg_view_box)
         painter = QPainter(svg_generator)
 
