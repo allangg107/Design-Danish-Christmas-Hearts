@@ -426,6 +426,8 @@ def createFinalHeartCutoutPatternExport(size, line_start=0, sides='onesided', li
             final_stencil = "thisguy.svg"
             combineStencils(empty_stencil_2, simpleStencil, final_stencil)
             combineStencils(final_stencil, overlayed_pattern_1, combined_simple_stencil2)
+
+            convertSvgToPng(combined_simple_stencil2, size, size, "final_output.png")
             
 
         # if pattern 1 == symetrical:
@@ -449,6 +451,33 @@ def createFinalHeartCutoutPatternExport(size, line_start=0, sides='onesided', li
     # do the same for the mirrored version
     if sides =='twosided':
         return None
+
+def convertSvgToPng(svg_file, width, height, output_file):
+    cvImage = savePixmapToCvImage(saveSvgFileAsPixmap(svg_file, QSize(height, width)))
+    
+    transparentImage = makeTrans(cvImage, [255, 255, 255])
+    cv.imwrite(output_file, transparentImage)
+
+    # # Create a mask where the background is white
+    # background_color = [255, 255, 255, 255]  # White background with full opacity
+    # mask = np.all(cvImage[:, :, :3] == background_color[:3], axis=2)
+
+    # # Set alpha (transparency) to 0 where the mask is true
+    # cvImage[mask] = [0, 0, 0, 0]  # Set BGRA values to transparent
+
+    # # Save the result
+    # cv.imwrite('output_image.png', cvImage)
+
+def makeTrans(final_output_array, color):
+    # Create an empty alpha channel (fully opaque)
+    alpha_channel = np.ones((final_output_array.shape[0], final_output_array.shape[1]), dtype=np.uint8) * 255  # Fully opaque
+    # Find where the matrix is white (background)
+    colored_pixels = np.all(final_output_array == color, axis=-1)
+    # Set alpha channel to 0 (fully transparent) where the pixels are white
+    alpha_channel[colored_pixels] = 0
+    # Create an RGBA image by adding the alpha channel to the original matrix
+    rgba_image = np.dstack((final_output_array, alpha_channel))
+    return rgba_image
     
 def saveSvgFileAsPixmap(filepath, size=QSize(600, 600)):
     renderer = QSvgRenderer(filepath)
