@@ -883,6 +883,7 @@ class MainWindow(QMainWindow):
         mainAlgorithm(arr,'create')
 
     def save_as_svg(self, file_name, canvas_size):
+        
         # calculate the min/max x/y of the inner square
         width = canvas_size.width()
         height = canvas_size.height()
@@ -908,7 +909,7 @@ class MainWindow(QMainWindow):
         # when saving the svg, only the shapes (and not the drawing border) are saved
         self.drawing_widget.redrawAllShapes(painter) 
         painter.end()
-        
+
         paths, attributes = svg2paths(file_name)
         # print("attributes: ", attributes)
         
@@ -946,18 +947,20 @@ class MainWindow(QMainWindow):
             shape_attr_list.append(updated_attr)
 
         file_with_attributes = "svg_file_2.svg"
-        
-        wsvg(paths,
-            attributes=shape_attr_list,
-            filename=file_with_attributes,
-            dimensions=(width, height))
-        
-        #print("original attributes: ", shape_attr_list)
-        
-        pre_process_user_input(file_with_attributes, width, height, square_size)
+        try:
+            wsvg(paths,
+                attributes=shape_attr_list,
+                filename=file_with_attributes,
+                dimensions=(width, height))
+            
+            #print("original attributes: ", shape_attr_list)
+            
+            pre_process_user_input(file_with_attributes, width, height, square_size)
 
-        # self.shape_attributes = shape_attr_list
-        # print("updated attributes: ", shape_attr_list)
+            # self.shape_attributes = shape_attr_list
+            # print("updated attributes: ", shape_attr_list)
+        except:
+            mainAlgorithmSvg(file_name, ' ')
 
     def exportGuide(self):
         guide_window = GuideWindow()

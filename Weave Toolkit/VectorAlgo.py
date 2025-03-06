@@ -400,17 +400,47 @@ def drawSimpleStencil(width, height, starting_y, margin_x=MARGIN, line_color='bl
     dwg.save()
 
     return file_name
+
+def drawClassicStencil(width, height, starting_y, margin_x=31, line_color='black', file_name="test_1.svg"):
+    dwg = svgwrite.Drawing(file_name, size=(width,height+starting_y))
+
+    # define the square size
+    square_size = (height // 1.5) - margin_x
+    margin_y = margin_x + starting_y
+
+    left_top_line_start = (margin_x + square_size // 2, margin_y)
+    left_top_line_end = (left_top_line_start[0] + square_size, left_top_line_start[1])
+    left_bottom_line_start = (left_top_line_start[0], left_top_line_start[1] + square_size)
+    left_bottom_line_end = (left_bottom_line_start[0] + square_size, left_bottom_line_start[1])
+
+    # draw the right square
+    right_top_line_start = left_top_line_end
+    right_top_line_end = (right_top_line_start[0] + square_size, right_top_line_start[1])
+    right_bottom_line_start = left_bottom_line_end
+    right_bottom_line_end = (right_bottom_line_start[0] + square_size, right_bottom_line_start[1])
+    
+    offset = 90
+    y1 = left_top_line_start[1] + offset     # Top inner line
+    y3 = left_top_line_start[1] + square_size - offset
+    y2 = (y1 + y3) / 2   # Middle inner line
+    dwg.add(dwg.line(start=(left_top_line_start[0], y1), end=(right_top_line_end[0], y1), stroke="brown", stroke_width=3))
+    dwg.add(dwg.line(start=(left_top_line_start[0], y2), end=(right_top_line_end[0], y2), stroke="brown", stroke_width=3))
+    dwg.add(dwg.line(start=(left_top_line_start[0], y3), end=(right_top_line_end[0], y3), stroke="brown", stroke_width=3))
+
+
+    dwg.save()
+
+    return file_name
     
 def determinePatternType():
     return "simple"
 
 def createFinalHeartCutoutPatternExport(size, line_start=0, sides='onesided', line_color='black', background_color='white'):
+    width = size
+    height = size // 2
+    empty_stencil_1 = drawEmptyStencil(width, height, 0, file_name="stencil1.svg")
+    empty_stencil_2 = drawEmptyStencil(width, height, height, file_name="stencil2.svg")
     if sides=='onesided':
-        width = size
-        height = size // 2
-        empty_stencil_1 = drawEmptyStencil(width, height, 0, file_name="stencil1.svg")
-        empty_stencil_2 = drawEmptyStencil(width, height, height, file_name="stencil2.svg")
-
         pattern_type = determinePatternType()
 
         stencil_1_pattern = getPattern("front")
@@ -429,6 +459,15 @@ def createFinalHeartCutoutPatternExport(size, line_start=0, sides='onesided', li
 
             convertSvgToPng(combined_simple_stencil2, size, size, "final_output.png")
             
+    else: 
+        combined_classic_stencil = "combined_classic_stencil.svg"
+        classic_stencil1 = drawClassicStencil(width, height, 0, file_name="classic_stencil1.svg")
+        classic_stencil2 = drawClassicStencil(width, height, height, file_name="classic_stencil2.svg")
+        final_stencil = "classic_final_stencil.svg"
+        combined_classic_stencil_final = "combined_classic_stencil_final.svg"
+        combineStencils(empty_stencil_1, classic_stencil1, combined_classic_stencil)
+        combineStencils(empty_stencil_2, classic_stencil2, final_stencil)
+        combineStencils(final_stencil, combined_classic_stencil, combined_classic_stencil_final)
 
         # if pattern 1 == symetrical:
             # stencil_1_pattern = getSymetricalPattern(1)
@@ -522,4 +561,4 @@ def mainAlgorithmSvg(img, function = 'create', shape_attributes=[]):
             return createFinalHeartDisplay(heartCvImage)
 
         case _:
-            return 'error'
+            return createFinalHeartCutoutPatternExport(1200, sides= '')
