@@ -311,16 +311,16 @@ class DrawingWidget(QWidget):
 
     def drawCircle(self, qp, start, end, color, pen_width, filled):
         self.penAndBrushSetup(qp, color, pen_width, filled)
-        
+
         # Calculate the radius using the manhattan length between start and end.
         radius = int((start - end).manhattanLength() / 2)
-        
+
         # Define a bounding rectangle for the circle centered at 'start'
         rect = QRectF(start.x() - radius, start.y() - radius, 2 * radius, 2 * radius)
-        
+
         path = QPainterPath()
         path.addEllipse(rect)
-        
+
         qp.drawPath(path)
         qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
 
@@ -344,7 +344,7 @@ class DrawingWidget(QWidget):
         stroker.setWidth(0)  # Use your current pen width
         stroked_path = stroker.createStroke(drawpath)
         stroker.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-        
+
         if filled:
             qp.drawPath(drawpath)
         else:
@@ -521,7 +521,7 @@ class MainWindow(QMainWindow):
         self.drawing_container.setLayout(self.drawing_layout)
 
         self.drawing_widget.installEventFilter(self)
-        
+
         self.scene = QGraphicsScene()
 
         # Create a stacked widget to switch between views
@@ -655,16 +655,16 @@ class MainWindow(QMainWindow):
         """)
         # Create actions
         action_simple = QAction("Simple", self)
-        action_symetrical = QAction("Symetrical", self)
-        action_asymetrical = QAction("Asymetrical", self)
-        action_simple.triggered.connect(lambda: self.setWeavingPattern("simple"))
-        action_symetrical.triggered.connect(lambda: self.setWeavingPattern("symetrical"))
-        action_asymetrical.triggered.connect(lambda: self.setWeavingPattern("asymetrical"))
+        action_symmetrical = QAction("Symmetrical", self)
+        action_asymmetrical = QAction("Asymmetrical", self)
+        action_simple.triggered.connect(lambda: self.exportSVG(function='pattern_simple'))
+        action_symmetrical.triggered.connect(lambda: self.exportSVG(function='pattern_symmetrical'))
+        action_asymmetrical.triggered.connect(lambda: self.exportSVG(functoin='pattern_asymmetrical'))
 
         # Add actions to the menu
         weaving_pattern_menu.addAction(action_simple)
-        weaving_pattern_menu.addAction(action_symetrical)
-        weaving_pattern_menu.addAction(action_asymetrical)
+        weaving_pattern_menu.addAction(action_symmetrical)
+        weaving_pattern_menu.addAction(action_asymmetrical)
 
         return weaving_pattern_menu
 
@@ -883,7 +883,7 @@ class MainWindow(QMainWindow):
         mainAlgorithm(arr,'create')
 
     def save_as_svg(self, file_name, canvas_size):
-        
+
         # calculate the min/max x/y of the inner square
         width = canvas_size.width()
         height = canvas_size.height()
@@ -907,20 +907,20 @@ class MainWindow(QMainWindow):
         painter = QPainter(svg_generator)
 
         # when saving the svg, only the shapes (and not the drawing border) are saved
-        self.drawing_widget.redrawAllShapes(painter) 
+        self.drawing_widget.redrawAllShapes(painter)
         painter.end()
 
         paths, attributes = svg2paths(file_name)
         # print("attributes: ", attributes)
-        
+
         # Copy shapes and attributes
         shapes_copy = copy.deepcopy(self.drawing_widget.shapes)
         attributes_copy = copy.deepcopy(attributes)
-        
+
         shape_attr_list = []
 
-        print("attributes: ", attributes_copy)
-                
+        #print("attributes: ", attributes_copy)
+
         for attr, shape in zip(attributes_copy, shapes_copy):
             shape_color = SHAPE_COLOR
             pen_width = shape[5]
@@ -930,11 +930,7 @@ class MainWindow(QMainWindow):
 
             updated_attr['stroke'] = shape_color.name()
             updated_attr['stroke-width'] = pen_width
-
-            if filled:
-                updated_attr['fill'] = shape_color.name()
-            else:
-                updated_attr['fill'] = 'none'
+            updated_attr['fill'] = shape_color.name()
 
             # in order to compensate for the (I believe) stroke width it is necessary to offset the final end point in every rectangle
             # AS IT TURNS out this causes issues for drawing hearts and filling
@@ -943,7 +939,7 @@ class MainWindow(QMainWindow):
             #     offset = complex(0, - (pen_width/2))
             #     new_end = last_line.end + offset
             #     path[-1] = Line(last_line.start, new_end)
-            
+
             shape_attr_list.append(updated_attr)
 
         file_with_attributes = "svg_file_2.svg"
@@ -952,9 +948,9 @@ class MainWindow(QMainWindow):
                 attributes=shape_attr_list,
                 filename=file_with_attributes,
                 dimensions=(width, height))
-            
+
             #print("original attributes: ", shape_attr_list)
-            
+
             pre_process_user_input(file_with_attributes, width, height, square_size)
 
             # self.shape_attributes = shape_attr_list
@@ -997,18 +993,6 @@ class MainWindow(QMainWindow):
         cv_img_rgb = cv.cvtColor(cv_img, cv.COLOR_BGR2RGB)  # Convert BGR to RGB
         q_image = QImage(cv_img_rgb.data, width, height, bytes_per_line, QImage.Format.Format_RGB888)
         return QPixmap.fromImage(q_image)
-
-    def setWeavingPattern(self, pattern = "simple"):
-        match pattern:
-            case "simple":
-                self.action_save_svg.triggered.disconnect()
-                self.action_save_svg.triggered.connect(lambda: self.exportSVG(function='create'))
-            case "symmetrical":
-                self.action_save_svg.triggered.disconnect()
-                self.action_save_svg.triggered.connect(lambda: self.exportSVG(function='create_symmetry'))
-            case "asymmetrical":
-                self.action_save_svg.triggered.disconnect()
-                self.action_save_svg.triggered.connect(lambda: self.exportSVG(function='create_asymmetry'))
 
 app = QApplication(sys.argv)
 

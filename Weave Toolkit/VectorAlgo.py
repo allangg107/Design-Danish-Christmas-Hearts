@@ -3,9 +3,10 @@ from PyQt6.QtSvg import QSvgRenderer, QSvgGenerator
 from PyQt6.QtWidgets import QApplication, QWidget, QLabel
 from PyQt6.QtGui import QImage, QPainter, QTransform, QPixmap, QColor
 from PyQt6.QtCore import QSize, QByteArray, QRectF
+from shapely.geometry import LineString, Polygon, MultiLineString, MultiPolygon
 
 import xml.etree.ElementTree as ET
-from svgpathtools import svg2paths, wsvg, Path, Line, CubicBezier, QuadraticBezier
+from svgpathtools import svg2paths, wsvg, Path, Line, CubicBezier, QuadraticBezier, parse_path
 
 import cv2 as cv
 import numpy as np
@@ -27,18 +28,188 @@ MARGIN = 31
 def pre_process_user_input(original_pattern, width, height, square_size):
     rotated_path_name = "rotated_pattern_step.svg"
     rotateSVG(original_pattern, rotated_path_name, 45)
-    
+
     # crop to the designated drawing space
     cropped_size = int((width - square_size) // 2)
     translated_path_name = "translated_pattern_step.svg"
     translateSVG(rotated_path_name, translated_path_name, -cropped_size, -cropped_size)
 
     paths, attributes = svg2paths(translated_path_name)
-    
+
     final_output_path_name = "preprocessed_pattern.svg"
     wsvg(paths, attributes=attributes, filename=final_output_path_name, dimensions=(square_size, square_size))
 
-    print("pre-processed attributes: ", attributes)
+    #print("pre-processed attributes: ", attributes)
+
+    clipped_paths = crop_svg(paths, square_size)
+
+    #print("length of clipped paths: ", len(clipped_paths))
+    #print("length of attributes: ", len(attributes))
+
+    if len(clipped_paths) > len(attributes):
+        attributes = attributes * len(clipped_paths)
+
+    wsvg(clipped_paths, attributes=attributes, filename=final_output_path_name, dimensions=(square_size, square_size))
+import numpy as np
+from shapely.geometry import LineString, Polygon, MultiLineString
+
+def get_edge(pt, square_size, tol=1e-6):
+    """Determine which edge of the square boundary a point lies on."""
+    x, y = pt
+    if abs(y) < tol:
+        return 0  # bottom
+    elif abs(x - square_size) < tol:
+        return 1  # right
+    elif abs(y - square_size) < tol:
+        return 2  # top
+    elif abs(x) < tol:
+        return 3  # left
+    elif x < tol or y < tol or x > square_size - tol or y > square_size - tol:
+        return None  # Points very close but not exactly on an edge
+    else:
+        return None
+
+
+def close_line_with_corners(coords, square_size, tol=1e-6):
+    """
+    Closes a polygon defined by `coords` by appending missing boundary corner points.
+    This ensures that if the clipped path's endpoints lie on different edges,
+    the boundary's corners are inserted between them.
+    """
+    if len(coords) < 2:
+        return coords
+
+    first = coords[0]
+    last = coords[-1]
+
+    edge_first = get_edge(first, square_size, tol)
+    edge_last = get_edge(last, square_size, tol)
+
+    # If either point isn't exactly on the boundary, simply close the loop.
+    if edge_first is None or edge_last is None:
+        if abs(first[0]-last[0]) > tol or abs(first[1]-last[1]) > tol:
+            coords.append(first)
+        return coords
+
+    # If on the same edge, just close the loop if needed.
+    if edge_first == edge_last:
+        if abs(first[0]-last[0]) > tol or abs(first[1]-last[1]) > tol:
+            coords.append(first)
+        return coords
+
+    # Define square corners in clockwise order.
+    corners = [(0, 0), (square_size, 0), (square_size, square_size), (0, square_size)]
+
+    # Insert corners from the last point's edge to the first point's edge,
+    # following the boundary in clockwise order.
+    inserted = []
+    current_edge = edge_last
+    # Loop until we reach the edge of the first point.
+    while current_edge != edge_first:
+        current_edge = (current_edge + 1) % 4
+        inserted.append(corners[current_edge])
+        if current_edge == edge_first:
+            break
+
+    # Build the new coordinate list: original coords, then the inserted corners, then close.
+    new_coords = coords[:]  # make a copy
+    new_coords.extend(inserted)
+    new_coords.append(first)
+    return new_coords
+
+def clip_path_to_boundary(path, boundary, square_size, num_samples=20):
+    """
+    Clips a given path to the boundary using Shapely geometric operations.
+    Samples each segment to better approximate curves, then closes the resulting
+    path by connecting the entry and exit points along the boundary, including any
+    missing corner points.
+    """
+    try:
+        # Sample points along each segment.
+        sampled_coords = []
+        for seg in path:
+            for t in np.linspace(0, 1, num_samples, endpoint=False):
+                pt = seg.point(t)
+                sampled_coords.append((pt.real, pt.imag))
+        # Ensure the final point is included.
+        last_pt = path[-1].point(1.0)
+        sampled_coords.append((last_pt.real, last_pt.imag))
+
+        if len(sampled_coords) < 2:
+            print("Skipping path: Not enough coordinates.")
+            return None
+
+        path_shape = LineString(sampled_coords)
+        clipped_shape = path_shape.intersection(boundary)
+
+        if clipped_shape.is_empty:
+            print("Warning: Clipped shape is empty!")
+            return None
+
+        # Process a single LineString result.
+        if isinstance(clipped_shape, LineString):
+            coords = list(clipped_shape.coords)
+            coords = close_line_with_corners(coords, square_size)
+            new_path = Path(
+                *[Line(complex(x, y), complex(x2, y2))
+                  for (x, y), (x2, y2) in zip(coords[:-1], coords[1:])]
+            )
+            return new_path
+
+        # Process MultiLineString by merging segments.
+        elif isinstance(clipped_shape, MultiLineString):
+            all_coords = []
+            for line in clipped_shape.geoms:
+                line_coords = list(line.coords)
+                if not all_coords:
+                    all_coords.extend(line_coords)
+                else:
+                    # If the end of the last segment isn't the start of the next,
+                    # insert a connecting segment.
+                    if (abs(all_coords[-1][0] - line_coords[0][0]) > 1e-6 or
+                        abs(all_coords[-1][1] - line_coords[0][1]) > 1e-6):
+                        all_coords.append(line_coords[0])
+                    all_coords.extend(line_coords)
+            all_coords = close_line_with_corners(all_coords, square_size)
+            new_path = Path(
+                *[Line(complex(x, y), complex(x2, y2))
+                  for (x, y), (x2, y2) in zip(all_coords[:-1], all_coords[1:])]
+            )
+            return new_path
+
+        print("Warning: Unexpected geometry type from intersection:", type(clipped_shape))
+        return None
+
+    except Exception as e:
+        print("Error while clipping path:", e)
+        return None
+
+
+
+def crop_svg(paths, square_size):
+    """
+    Crops all paths to fit within the given square_size.
+    """
+    boundary = Polygon([(0, 0), (square_size, 0), (square_size, square_size), (0, square_size)])
+
+    #print("\nBoundary Polygon:", boundary)
+    #print("Total Paths Received for Clipping:", len(paths))
+
+    clipped_paths = []
+    for path in paths:
+        clipped = clip_path_to_boundary(path, boundary, square_size)
+        if clipped:
+            if isinstance(clipped, list):  # Handle MultiLineString cases
+                clipped_paths.extend(clipped)
+            else:
+                clipped_paths.append(clipped)
+
+    #print("Final Clipped Paths:", clipped_paths)
+
+    return clipped_paths
+
+
+
 
 def translateSVG(input_svg, output_svg, x_shift, y_shift):
     paths, attributes = svg2paths(input_svg)
@@ -77,7 +248,7 @@ def translateSVG(input_svg, output_svg, x_shift, y_shift):
          attributes=attributes,
          filename=output_svg,
          dimensions=(height, width))
-    
+
 def rotateSVG(input_svg, output_svg, angle):
     paths, attributes = svg2paths(input_svg)
 
@@ -138,7 +309,7 @@ def rotateSVG(input_svg, output_svg, angle):
          attributes=attributes,
          filename=output_svg,
          dimensions=(width, height))
-    
+
 def resizeSVG(input_svg, output_svg, target_width):
     paths, attributes = svg2paths(input_svg)
 
@@ -189,7 +360,7 @@ def resizeSVG(input_svg, output_svg, target_width):
          filename=output_svg,
          dimensions=(int(target_width), int(target_height)),
          svg_attributes={'viewBox': f'0 0 {int(target_width)} {int(target_height)}'})
-    
+
 def createFinalHeartDisplay(image):
     line_color = (0, 0, 0)  # Black color
     height, width, _ = image.shape # isolated_pattern's shape is a square
@@ -269,7 +440,7 @@ def rotateImage(matrix, angle=-45):
 
 def drawEmptyStencil(width, height, starting_y, margin_x=MARGIN, line_color='black', file_name="allan is a miracle.svg"):
     dwg = svgwrite.Drawing(file_name, size=(width,height+starting_y))
-    
+
     # define the square size
     square_size = (height // 1.5) - margin_x
     margin_y = margin_x + starting_y
@@ -333,19 +504,19 @@ def getPattern(original_pattern):
         case _:
             return 'error'
 
-def overlayDrawingOnStencil(stencil_file, user_drawing_file, size, square_size, margin_x=MARGIN, margin_y=0, filename='combined_output.svg'):        
+def overlayDrawingOnStencil(stencil_file, user_drawing_file, size, square_size, margin_x=MARGIN, margin_y=0, filename='combined_output.svg'):
         translated_user_path = "translated_for_overlay.svg"
         translateSVG(user_drawing_file, translated_user_path, margin_x + square_size // 2, margin_y + (margin_x * 2))
-        
+
         paths1, attributes1 = svg2paths(stencil_file)
         paths2, attributes2 = svg2paths(translated_user_path)
 
-        print("overlay user attributes: ", attributes2)
+        #print("overlay user attributes: ", attributes2)
 
         combined_paths = paths1 + paths2
         combined_attributes = attributes1 + attributes2
 
-        print("overlay user attributes 2: ", combined_attributes)
+        #print("overlay user attributes 2: ", combined_attributes)
 
         dwg = svgwrite.Drawing(filename, size=(size, size))
 
@@ -372,30 +543,37 @@ def overlayPatternOnStencil(pattern, stencil, size, stencil_number, pattern_type
     combined_output_name = f"stencil_{stencil_number}_overlayed.svg"
     margin_y = 0 if stencil_number == 1 else size // 2
     overlayDrawingOnStencil(stencil, resized_pattern_name, size, square_size, margin, margin_y, combined_output_name)
-    
+
     return combined_output_name
 
-def drawSimpleStencil(width, height, starting_y, margin_x=MARGIN, line_color='black', file_name="allans test.svg"):
-    dwg = svgwrite.Drawing(file_name, size=(width,height+starting_y))
+def drawSimpleStencil(width, height, starting_y, margin_x=MARGIN, line_color='black', file_name="allans_test.svg"):
+    dwg = svgwrite.Drawing(file_name, size=(width, height + starting_y))
 
-    # define the square size
+    # Define the square size
     square_size = (height // 1.5) - margin_x
     margin_y = margin_x + starting_y
+    extension = 20  # Amount to extend the lines
 
+    # Define the left square margins
     left_top_line_start = (margin_x + square_size // 2, margin_y)
     left_top_line_end = (left_top_line_start[0] + square_size, left_top_line_start[1])
     left_bottom_line_start = (left_top_line_start[0], left_top_line_start[1] + square_size)
     left_bottom_line_end = (left_bottom_line_start[0] + square_size, left_bottom_line_start[1])
 
-    # draw the right square
+    # Define the right square margins
     right_top_line_start = left_top_line_end
     right_top_line_end = (right_top_line_start[0] + square_size, right_top_line_start[1])
     right_bottom_line_start = left_bottom_line_end
     right_bottom_line_end = (right_bottom_line_start[0] + square_size, right_bottom_line_start[1])
 
-    # draw the inner line cuts
-    dwg.add(dwg.line(start=((left_top_line_start[0], left_top_line_start[1] + margin_x)), end=((right_top_line_end[0], right_top_line_end[1] + margin_x)), stroke="brown", stroke_width=3))
-    dwg.add(dwg.line(start=((left_bottom_line_start[0], left_bottom_line_start[1] - margin_x)), end=((right_bottom_line_end[0], right_bottom_line_end[1] - margin_x)), stroke="brown", stroke_width=3))
+    # Draw the inner line cuts with extended length
+    dwg.add(dwg.line(start=(left_top_line_start[0] - extension, left_top_line_start[1] + margin_x),
+                      end=(right_top_line_end[0] + extension, right_top_line_end[1] + margin_x),
+                      stroke="brown", stroke_width=3))
+
+    dwg.add(dwg.line(start=(left_bottom_line_start[0] - extension, left_bottom_line_start[1] - margin_x),
+                      end=(right_bottom_line_end[0] + extension, right_bottom_line_end[1] - margin_x),
+                      stroke="brown", stroke_width=3))
 
     dwg.save()
 
@@ -418,7 +596,7 @@ def drawClassicStencil(width, height, starting_y, margin_x=31, line_color='black
     right_top_line_end = (right_top_line_start[0] + square_size, right_top_line_start[1])
     right_bottom_line_start = left_bottom_line_end
     right_bottom_line_end = (right_bottom_line_start[0] + square_size, right_bottom_line_start[1])
-    
+
     offset = 90
     y1 = left_top_line_start[1] + offset     # Top inner line
     y3 = left_top_line_start[1] + square_size - offset
@@ -431,9 +609,15 @@ def drawClassicStencil(width, height, starting_y, margin_x=31, line_color='black
     dwg.save()
 
     return file_name
-    
-def determinePatternType():
-    return "simple"
+
+def determinePatternType(pattern_type):
+    if pattern_type == 'pattern_simple':
+        return 'simple'
+    elif pattern_type == 'pattern_symmetrical':
+        return 'symmetrical'
+    elif pattern_type == 'pattern_asymmetrical':
+        return 'asymmetrical'
+
 
 def createFinalHeartCutoutPatternExport(size, line_start=0, sides='onesided', line_color='black', background_color='white'):
     width = size
@@ -458,8 +642,8 @@ def createFinalHeartCutoutPatternExport(size, line_start=0, sides='onesided', li
             combineStencils(final_stencil, overlayed_pattern_1, combined_simple_stencil2)
 
             convertSvgToPng(combined_simple_stencil2, size, size, "final_output.png")
-            
-    else: 
+
+    else:
         combined_classic_stencil = "combined_classic_stencil.svg"
         classic_stencil1 = drawClassicStencil(width, height, 0, file_name="classic_stencil1.svg")
         classic_stencil2 = drawClassicStencil(width, height, height, file_name="classic_stencil2.svg")
@@ -476,7 +660,7 @@ def createFinalHeartCutoutPatternExport(size, line_start=0, sides='onesided', li
             # stencil_1_pattern = getAsymtricalPattern(1)
             # stencil_2_pattern = getAsymtricalPattern(2)
         # else:
-    
+
 
         #overlayed_pattern_1 = overlayPatternOnStencil(stencil_1_pattern, empty_stencil_1, size, 1, pattern_type)
         # overlayed_pattern_2 = overlayPatternOnStencil(stencil_2_pattern, empty_stencil_2, size, 2, pattern_type)
@@ -493,7 +677,7 @@ def createFinalHeartCutoutPatternExport(size, line_start=0, sides='onesided', li
 
 def convertSvgToPng(svg_file, width, height, output_file):
     cvImage = savePixmapToCvImage(saveSvgFileAsPixmap(svg_file, QSize(height, width)))
-    
+
     transparentImage = makeTrans(cvImage, [255, 255, 255])
     cv.imwrite(output_file, transparentImage)
 
@@ -517,7 +701,7 @@ def makeTrans(final_output_array, color):
     # Create an RGBA image by adding the alpha channel to the original matrix
     rgba_image = np.dstack((final_output_array, alpha_channel))
     return rgba_image
-    
+
 def saveSvgFileAsPixmap(filepath, size=QSize(600, 600)):
     renderer = QSvgRenderer(filepath)
 
@@ -550,9 +734,15 @@ def savePixmapToCvImage(pixmap):
 def mainAlgorithmSvg(img, function = 'create', shape_attributes=[]):
 
     match function:
-        case 'create':
-            createFinalHeartCutoutPatternExport(1200)
-
+        case 'create_simple':
+            pattern_type = getPattern('pattern_simple')
+            createFinalHeartCutoutPatternExport(1200, pattern_type)
+        case 'create_symmetrical':
+            pattern_type = getPattern('pattern_asymmetrical')
+            createFinalHeartCutoutPatternExport(1200, pattern_type)
+        case 'create_asymmetrical':
+            pattern_type = getPattern('pattern_symmetrical')
+            createFinalHeartCutoutPatternExport(1200, pattern_type)
         case 'show':
             # We start with a filepath to an svg image. But, we want to give createFinalHeartDisplay a CV Image
             heartPixmap = saveSvgFileAsPixmap(img)
