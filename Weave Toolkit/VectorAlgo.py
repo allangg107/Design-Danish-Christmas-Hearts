@@ -193,11 +193,15 @@ def clip_path_to_boundary(path, boundary, square_size, num_samples=20):
 
 
 
-def crop_svg(paths, square_size):
+def crop_svg(paths, square_size, width=0):
     """
     Crops all paths to fit within the given square_size.
     """
-    boundary = Polygon([(0, 0), (square_size, 0), (square_size, square_size), (0, square_size)])
+    # call with width=square_size/2 to get the left half of the canvas
+    if width > 0:
+        boundary = Polygon([(0, 0), (square_size, 0), (width,width), (0, square_size)])
+    else:
+        boundary = Polygon([(0, 0), (square_size, 0), (square_size, square_size), (0, square_size)])
 
     #print("\nBoundary Polygon:", boundary)
     #print("Total Paths Received for Clipping:", len(paths))
@@ -624,18 +628,17 @@ def determinePatternType(pattern_type):
         return 'asymmetrical'
 
 
-def createFinalHeartCutoutPatternExport(size, line_start=0, sides='onesided', line_color='black', background_color='white'):
+def createFinalHeartCutoutPatternExport(size, pattern_type, line_start=0, sides='onesided', line_color='black', background_color='white'):
     width = size
     height = size // 2
     empty_stencil_1 = drawEmptyStencil(width, height, 0, file_name="stencil1.svg")
     empty_stencil_2 = drawEmptyStencil(width, height, height, file_name="stencil2.svg")
-    if sides=='onesided':
-        pattern_type = determinePatternType()
+    print(sides)
 
+    if sides=='onesided':
         stencil_1_pattern = getPattern("front")
         stencil_2_pattern = getPattern("back")
-
-        if pattern_type == "simple":
+        if pattern_type == "pattern_simple":
             simpleStencil = drawSimpleStencil(width, height, 0, file_name="simpleStencil1.svg")
             combined_simple_stencil1 = "combined_simple_stencil1.svg"
             combineStencils(empty_stencil_1, simpleStencil, combined_simple_stencil1)
@@ -645,7 +648,6 @@ def createFinalHeartCutoutPatternExport(size, line_start=0, sides='onesided', li
             final_stencil = "thisguy.svg"
             combineStencils(empty_stencil_2, simpleStencil, final_stencil)
             combineStencils(final_stencil, overlayed_pattern_1, combined_simple_stencil2)
-
             convertSvgToPng(combined_simple_stencil2, size, size, "final_output.png")
 
     else:
@@ -736,18 +738,18 @@ def savePixmapToCvImage(pixmap):
 
     return cv_image
 
-def mainAlgorithmSvg(img, function = 'create', shape_attributes=[]):
+def mainAlgorithmSvg(img, pattern_type, function):
 
     match function:
         case 'create_simple':
-            pattern_type = getPattern('pattern_simple')
             createFinalHeartCutoutPatternExport(1200, pattern_type)
+
         case 'create_symmetrical':
-            pattern_type = getPattern('pattern_asymmetrical')
             createFinalHeartCutoutPatternExport(1200, pattern_type)
+
         case 'create_asymmetrical':
-            pattern_type = getPattern('pattern_symmetrical')
             createFinalHeartCutoutPatternExport(1200, pattern_type)
+
         case 'show':
             # We start with a filepath to an svg image. But, we want to give createFinalHeartDisplay a CV Image
             heartPixmap = saveSvgFileAsPixmap(img)
@@ -756,4 +758,4 @@ def mainAlgorithmSvg(img, function = 'create', shape_attributes=[]):
             return createFinalHeartDisplay(heartCvImage)
 
         case _:
-            return createFinalHeartCutoutPatternExport(1200, sides= '')
+            return createFinalHeartCutoutPatternExport(1200, pattern_type, sides= '')

@@ -82,6 +82,7 @@ PEN_WIDTH = 3
 FILLED = True
 USER_OUTPUT_SVG_FILENAME = "svg_file.svg"
 USER_PREPROCESSED_PATTERN = "preprocessed_pattern.svg"
+CURRENT_PATTERN_TYPE = "simple"
 
 def calculate_distance(point1, point2):
         return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
@@ -276,6 +277,12 @@ class DrawingWidget(QWidget):
                              int(inner_coords[(i+1) % len(inner_coords)][0]),
                              int(inner_coords[(i+1) % len(inner_coords)][1]))
 
+        if CURRENT_PATTERN_TYPE == "pattern_symmetrical":
+            # draw a dashed line in the middle of the canvas
+            pen.setStyle(Qt.PenStyle.DashLine)
+            qp.setPen(pen)
+            qp.drawLine(int(center_x), int(y1), int(center_x), int(y2))
+
         brush = QBrush(SHAPE_COLOR)
         qp.setBrush(brush)
         pen = QPen(SHAPE_COLOR, PEN_WIDTH)
@@ -422,6 +429,8 @@ class DrawingWidget(QWidget):
                     self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, [], PEN_WIDTH, False])
                 else:
                     self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, [], 1, FILLED])
+            if CURRENT_PATTERN_TYPE == "pattern_symmetrical":
+                self.shapes.append([QPoint(self.width() - self.begin.x(), self.begin.y()), QPoint(self.width() - self.end.x(), self.end.y()), SHAPE_MODE, SHAPE_COLOR, [], 1, FILLED])
 
             self.begin = event.pos()
             self.end = event.pos()
@@ -468,7 +477,6 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.shape_attributes = []
-        self.current_pattern = ""
 
         self.setWindowTitle("Weave Toolkit")
         self.setStyleSheet("background-color: white;")
@@ -542,7 +550,7 @@ class MainWindow(QMainWindow):
         return super().eventFilter(source, event)
 
     def update_backside_image(self):
-        self.backside_label.setText(f"Back Side (not modifiable) and the Pattern Type is: {self.current_pattern}")
+        self.backside_label.setText(f"Back Side (not modifiable) and the Pattern Type is: {CURRENT_PATTERN_TYPE}")
         drawing_image = self.drawing_widget.get_drawing_image()
         mirrored_image = drawing_image.mirrored(True, False)  # Mirror horizontally
         pixmap = QPixmap.fromImage(mirrored_image)
@@ -641,9 +649,14 @@ class MainWindow(QMainWindow):
 
         return view_menu
 
-    def patternType(self, pattern):
-        self.current_pattern = pattern
+    def setPatternType(self, pattern):
+        global CURRENT_PATTERN_TYPE
+        CURRENT_PATTERN_TYPE = pattern
+        self.update()
         self.update_backside_image()
+
+    def getPatternType(self):
+        return CURRENT_PATTERN_TYPE
 
     def createWeavingPatternDropdownMenu(self):
         weaving_pattern_menu = QMenu("Weaving Pattern", self)
@@ -661,9 +674,9 @@ class MainWindow(QMainWindow):
         action_simple = QAction("Simple", self)
         action_symmetrical = QAction("Symmetrical", self)
         action_asymmetrical = QAction("Asymmetrical", self)
-        action_simple.triggered.connect(lambda: (self.patternType('pattern_simple'), self.exportSVG(function='pattern_simple')))
-        action_symmetrical.triggered.connect(lambda: (self.patternType('pattern_symmetrical'), self.exportSVG(function='pattern_symmetrical')))
-        action_asymmetrical.triggered.connect(lambda: (self.patternType('pattern_asymmetrical'), self.exportSVG(function='pattern_asymmetrical')))
+        action_simple.triggered.connect(lambda: (self.setPatternType('pattern_simple'), self.exportSVG(function='create_simple')))
+        action_symmetrical.triggered.connect(lambda: (self.setPatternType('pattern_symmetrical'), self.exportSVG(function='create_symmetrical')))
+        action_asymmetrical.triggered.connect(lambda: (self.setPatternType('pattern_asymmetrical'), self.exportSVG(function='create_asymmetrical')))
 
         # Add actions to the menu
         weaving_pattern_menu.addAction(action_simple)
@@ -674,7 +687,7 @@ class MainWindow(QMainWindow):
 
     def updateDisplaySvg(self):
         self.backside_label.setText("Front Side final product:")
-        heart = self.cvImageToPixmap(mainAlgorithmSvg(USER_PREPROCESSED_PATTERN, "show"))
+        heart = self.cvImageToPixmap(mainAlgorithmSvg(USER_PREPROCESSED_PATTERN, CURRENT_PATTERN_TYPE, "show"))
 
         # Shows the design created by the users on the heart
         pixmap = QPixmap(heart)
@@ -712,7 +725,7 @@ class MainWindow(QMainWindow):
         #self.drawing_backside.setScaledContents(True)
 
     def editDisplay(self):
-        self.backside_label.setText(f"Back Side (not modifiable) - {self.current_pattern}:")
+        self.backside_label.setText(f"Back Side (not modifiable) - {CURRENT_PATTERN_TYPE}:")
         self.stacked_widget.setCurrentWidget(self.drawing_widget)
         self.update_backside_image()
 
@@ -966,15 +979,15 @@ class MainWindow(QMainWindow):
             # self.shape_attributes = shape_attr_list
             # print("updated attributes: ", shape_attr_list)
         except:
-            mainAlgorithmSvg(file_name, ' ')
+            mainAlgorithmSvg(file_name, CURRENT_PATTERN_TYPE, ' ')
 
     def exportGuide(self):
         guide_window = GuideWindow()
         guide_window.exec()
 
-    def exportSVG(self, function='create'):
+    def exportSVG(self, function='create_symmetrical'):
         svg_file_path = USER_OUTPUT_SVG_FILENAME
-        mainAlgorithmSvg(svg_file_path, function)
+        mainAlgorithmSvg(svg_file_path, CURRENT_PATTERN_TYPE, function)
 
     def pixmapToCvImage(self):
         pixmap = QPixmap(self.drawing_widget.size())  # Create pixmap of the same size
