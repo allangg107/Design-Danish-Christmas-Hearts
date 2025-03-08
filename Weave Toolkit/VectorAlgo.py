@@ -5,7 +5,8 @@ from PyQt6.QtGui import QImage, QPainter, QTransform, QPixmap, QColor
 from PyQt6.QtCore import QSize, QByteArray, QRectF
 
 import xml.etree.ElementTree as ET
-from svgpathtools import svg2paths, wsvg, Path, Line, CubicBezier, QuadraticBezier
+from svgpathtools import svg2paths, wsvg, Path, Line, CubicBezier, QuadraticBezier, parse_path
+from shapely.geometry import LineString, Polygon, MultiLineString, MultiPolygon, Point
 
 import cv2 as cv
 import numpy as np
@@ -14,6 +15,10 @@ import tempfile
 import svgwrite
 from svgwrite.container import Group
 from collections import namedtuple
+
+from ShapeMode import (
+    ShapeMode
+)
 
 # VectorAlgo will be used when the user presses the "Update SVG" button
 
@@ -24,7 +29,7 @@ from collections import namedtuple
 
 MARGIN = 31
 
-def pre_process_user_input(original_pattern, width, height, square_size):
+def pre_process_user_input(original_pattern, shape_types, width, height, square_size):
     rotated_path_name = "rotated_pattern_step.svg"
     rotateSVG(original_pattern, rotated_path_name, 45)
     
@@ -38,7 +43,192 @@ def pre_process_user_input(original_pattern, width, height, square_size):
     final_output_path_name = "preprocessed_pattern.svg"
     wsvg(paths, attributes=attributes, filename=final_output_path_name, dimensions=(square_size, square_size))
 
-    print("pre-processed attributes: ", attributes)
+    # print("pre-processed attributes: ", attributes)
+
+    # print(f"Original path ({len(paths)} segments):", paths)
+    clipped_paths = crop_svg(paths, shape_types, square_size)
+    # print(f"Original path ({len(paths)} segments):", paths)
+
+    print("length of clipped paths: ", len(clipped_paths))
+    print("length of attributes: ", len(attributes))
+
+    if len(clipped_paths) > len(attributes):
+        attributes = attributes * len(clipped_paths)
+
+    wsvg(clipped_paths, attributes=attributes, filename=final_output_path_name, dimensions=(square_size, square_size))
+
+def ensure_closed(path, minx, miny, maxx, maxy, tol=1e-9):
+    """
+    Ensures that a clipped shape remains closed, especially when it touches a corner.
+    If the shape is clipped at two boundaries and also touches the corner, it is closed 
+    by adding two extra segments via the corner instead of a direct closing line.
+    """
+    if not path:
+        return path
+    
+    print("HERE path", path)
+
+    start_pt = path[0].start
+    end_pt = path[-1].end
+
+    # If already closed, return as is.
+    if abs(start_pt - end_pt) < tol:
+        return Path(*path)
+
+    def boundary_flags(pt):
+        return {
+            "left": abs(pt.real - minx) < tol,
+            "right": abs(pt.real - maxx) < tol,
+            "bottom": abs(pt.imag - miny) < tol,
+            "top": abs(pt.imag - maxy) < tol
+        }
+
+    start_flags = boundary_flags(start_pt)
+    end_flags = boundary_flags(end_pt)
+
+    # Determine if the endpoints lie on adjacent boundaries
+    corner = None
+    if (start_flags["left"] and end_flags["bottom"]) or (start_flags["bottom"] and end_flags["left"]):
+        corner = complex(minx, miny)
+    elif (start_flags["left"] and end_flags["top"]) or (start_flags["top"] and end_flags["left"]):
+        corner = complex(minx, maxy)
+    elif (start_flags["right"] and end_flags["bottom"]) or (start_flags["bottom"] and end_flags["right"]):
+        corner = complex(maxx, miny)
+    elif (start_flags["right"] and end_flags["top"]) or (start_flags["top"] and end_flags["right"]):
+        corner = complex(maxx, maxy)
+
+    if corner is not None:
+        # Check if the path already touches the corner
+        touches_corner = any(abs(seg.start - corner) < tol or abs(seg.end - corner) < tol for seg in path)
+
+        new_path = list(path)
+        if not touches_corner:
+            # Add two segments to close properly via the corner
+            new_path.append(Line(end_pt, corner))
+            new_path.append(Line(corner, start_pt))
+        else:
+            # If the corner is already part of the path, just close normally
+            new_path.append(Line(end_pt, start_pt))
+
+        return Path(*new_path)
+
+    # Default: close directly if not a corner case
+    new_path = list(path)
+    new_path.append(Line(end_pt, start_pt))
+    return Path(*new_path)
+
+
+
+def clip_path_to_boundary(path, shape_type, boundary, num_samples=20):
+    """
+    Clips a given path to the boundary using Shapely geometric operations.
+    For hearts and circles, segments are sampled to approximate curves.
+    """
+    try:
+        # Obtain coordinates either by sampling (for curves) or directly.
+        if shape_type in [ShapeMode.Heart, ShapeMode.Circle]:
+            sampled_coords = []
+            for seg in path:
+                for t in np.linspace(0, 1, num_samples, endpoint=False):
+                    point = seg.point(t)
+                    sampled_coords.append((point.real, point.imag))
+            last_point = path[-1].point(1.0)
+            sampled_coords.append((last_point.real, last_point.imag))
+        else:
+            sampled_coords = [(seg.start.real, seg.start.imag) for seg in path]
+            sampled_coords.append((path[-1].end.real, path[-1].end.imag))
+
+        if len(sampled_coords) < 2:
+            print("Skipping path: Not enough coordinates.")
+            return None
+
+        path_shape = LineString(sampled_coords)
+        print("path_shape", path_shape, "with", len(path_shape.coords), "coords")
+
+        clipped_shape = path_shape.intersection(boundary)
+        print("clipped_shape", clipped_shape)
+
+        if clipped_shape.is_empty:
+            print("Warning: Clipped shape is empty!")
+            return None
+
+        # Get the boundary limits to use in ensure_closed.
+        minx, miny, maxx, maxy = boundary.bounds
+        tol = 1e-9
+
+        if isinstance(clipped_shape, LineString):
+            coords = list(clipped_shape.coords)
+            if shape_type != ShapeMode.Line:
+                # For fillable shapes, ensure the coordinate list is closed.
+                if coords[0] != coords[-1]:
+                    coords.append(coords[0])
+            segments = [
+                Line(complex(x, y), complex(x2, y2))
+                for (x, y), (x2, y2) in zip(coords[:-1], coords[1:])
+            ]
+            if shape_type != ShapeMode.Line:
+                print("TEST2")
+                print(f"TESTING Path before closing ({len(path)} segments):", path)
+                segments = ensure_closed(segments, minx, miny, maxx, maxy, tol)
+                print(f"TESTING Path after closing ({len(segments)} segments):", segments)
+            return Path(*segments)
+
+        elif isinstance(clipped_shape, MultiLineString):
+            all_coords = []
+            for line in clipped_shape.geoms:
+                if len(line.coords) < 2:
+                    continue
+                all_coords.extend(list(line.coords))
+            # Simple deduplication.
+            all_coords = list(dict.fromkeys(all_coords))
+            if shape_type != ShapeMode.Line:
+                if all_coords[0] != all_coords[-1]:
+                    all_coords.append(all_coords[0])
+            segments = [
+                Line(complex(x, y), complex(x2, y2))
+                for (x, y), (x2, y2) in zip(all_coords[:-1], all_coords[1:])
+            ]
+            if shape_type != ShapeMode.Line:
+                print(f"Path before closing ({len(path)} segments):", path)
+                print("TEST")
+                segments = ensure_closed(segments, minx, miny, maxx, maxy, tol)
+                print(f"Path after closing ({len(segments)} segments):", segments)
+            return Path(*segments)
+
+        print("Warning: Unexpected geometry type from intersection:", type(clipped_shape))
+        return None
+
+    except Exception as e:
+        print("Error while clipping path:", e)
+        return None
+
+    
+
+
+def crop_svg(paths, shape_types, square_size):
+    """
+    Crops all paths to fit within the given square_size.
+    """
+    boundary = Polygon([(0, 0), (square_size, 0), (square_size, square_size), (0, square_size)])
+
+    # print("\nBoundary Polygon:", boundary)
+    # print("Total Paths Received for Clipping:", len(paths))
+
+    print("given paths", paths) 
+
+    clipped_paths = []
+    for path, shape_type in zip(paths, shape_types):
+        clipped = clip_path_to_boundary(path, shape_type, boundary)
+        if clipped:
+            if isinstance(clipped, list):  # Handle MultiLineString cases
+                clipped_paths.extend(clipped)
+            else:
+                clipped_paths.append(clipped)
+
+    # print("Final Clipped Paths:", clipped_paths)
+    
+    return clipped_paths
+
 
 def translateSVG(input_svg, output_svg, x_shift, y_shift):
     paths, attributes = svg2paths(input_svg)
@@ -340,12 +530,12 @@ def overlayDrawingOnStencil(stencil_file, user_drawing_file, size, square_size, 
         paths1, attributes1 = svg2paths(stencil_file)
         paths2, attributes2 = svg2paths(translated_user_path)
 
-        print("overlay user attributes: ", attributes2)
+        # print("overlay user attributes: ", attributes2)
 
         combined_paths = paths1 + paths2
         combined_attributes = attributes1 + attributes2
 
-        print("overlay user attributes 2: ", combined_attributes)
+        # print("overlay user attributes 2: ", combined_attributes)
 
         dwg = svgwrite.Drawing(filename, size=(size, size))
 

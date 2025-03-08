@@ -79,7 +79,7 @@ SHAPE_MODE = ShapeMode.Cursor
 SHAPE_COLOR = QColor(0, 0, 0, 255)
 BACKGROUND_COLOR = QColor(255, 255, 255, 255)
 PEN_WIDTH = 3
-FILLED = False
+FILLED = True
 USER_OUTPUT_SVG_FILENAME = "svg_file.svg"
 USER_PREPROCESSED_PATTERN = "preprocessed_pattern.svg"
 
@@ -117,11 +117,11 @@ class DrawingWidget(QWidget):
         # Draws the current shape as it is being created
         if self.begin != self.end:
             if (SHAPE_MODE == ShapeMode.Square):
-                self.drawSquare(qp, self.begin, self.end, SHAPE_COLOR, PEN_WIDTH, FILLED)
+                self.drawSquare(qp, self.begin, self.end, SHAPE_COLOR, 1, FILLED)
             elif (SHAPE_MODE == ShapeMode.Circle):
-                self.drawCircle(qp, self.begin, self.end, SHAPE_COLOR, PEN_WIDTH, FILLED)
+                self.drawCircle(qp, self.begin, self.end, SHAPE_COLOR, 1, FILLED)
             elif (SHAPE_MODE == ShapeMode.Heart):
-                self.drawHeart(qp, self.begin, self.end, SHAPE_COLOR, PEN_WIDTH, FILLED)
+                self.drawHeart(qp, self.begin, self.end, SHAPE_COLOR, 1, FILLED)
             elif (SHAPE_MODE == ShapeMode.Line):
                 qp.drawLine(self.begin, self.end)
             elif SHAPE_MODE == ShapeMode.FreeForm:
@@ -296,16 +296,16 @@ class DrawingWidget(QWidget):
         path = QPainterPath()
         path.addRect(rect)  # Define rectangle with the given points
 
-        stroker = QPainterPathStroker()
-        stroker.setWidth(0)  # Apply stroke width
-        stroker.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
+        # stroker = QPainterPathStroker()
+        # stroker.setWidth(0)  # Apply stroke width
+        # stroker.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
 
-        stroked_path = stroker.createStroke(path)  # Get the outline including stroke
+        # stroked_path = stroker.createStroke(path)  # Get the outline including stroke
 
-        if filled:
-            qp.drawRect(QRect(start, end))
-        else:
-            qp.drawPath(stroked_path)
+        # if filled:
+        qp.drawRect(QRect(start, end))
+        # else:
+        #     qp.drawPath(stroked_path)
 
         qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
 
@@ -340,15 +340,15 @@ class DrawingWidget(QWidget):
         drawpath.cubicTo(x_offset - width * 0.5, y_offset + height / 2, x_offset + width * 0.25, y_offset - height / 4, x_offset + width / 2, y_offset + height / 4)
 
 
-        stroker = QPainterPathStroker()
-        stroker.setWidth(0)  # Use your current pen width
-        stroked_path = stroker.createStroke(drawpath)
-        stroker.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        # stroker = QPainterPathStroker()
+        # stroker.setWidth(0)  # Use your current pen width
+        # stroked_path = stroker.createStroke(drawpath)
+        # stroker.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
         
-        if filled:
-            qp.drawPath(drawpath)
-        else:
-            qp.drawPath(stroked_path)
+        # if filled:
+        qp.drawPath(drawpath)
+        # else:
+        #     qp.drawPath(stroked_path)
 
         qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
 
@@ -416,13 +416,12 @@ class DrawingWidget(QWidget):
     def mouseReleaseEvent(self, event):
         if self.drawing_mode:
             if SHAPE_MODE == ShapeMode.FreeForm:
-                self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, list(self.free_form_points), PEN_WIDTH])
+                self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, list(self.free_form_points), PEN_WIDTH, False])
             else:
-                if FILLED:
+                if SHAPE_MODE == ShapeMode.Line:
                     self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, [], PEN_WIDTH, False])
-                    self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, [], PEN_WIDTH, True])
                 else:
-                    self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, [], PEN_WIDTH, FILLED])
+                    self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, [], 1, FILLED])
 
             self.begin = event.pos()
             self.end = event.pos()
@@ -754,20 +753,21 @@ class MainWindow(QMainWindow):
         MainWindow.heart_button = self.createShapeButton("icons/heart.png", "Heart", ShapeMode.Heart)
         shapes_toolbar.addAction(MainWindow.heart_button)
 
-        self.fill_checkbox_label = QLabel("Fill Shape:")
-        self.fill_checkbox_label.setStyleSheet("color: black;")
-        shapes_toolbar.addWidget(self.fill_checkbox_label)
-        self.fill_checkbox = QCheckBox('', self)
-        self.fill_checkbox.setStyleSheet("background: light grey;")
-        self.fill_checkbox.stateChanged.connect(self.updateFilledState)
-        shapes_toolbar.addWidget(self.fill_checkbox)
+        # self.fill_checkbox_label = QLabel("Fill Shape:")
+        # self.fill_checkbox_label.setStyleSheet("color: black;")
+        # shapes_toolbar.addWidget(self.fill_checkbox_label)
+        # self.fill_checkbox = QCheckBox('', self)
+        # self.fill_checkbox.setStyleSheet("background: light grey;")
+        # self.fill_checkbox.stateChanged.connect(self.updateFilledState)
+        # shapes_toolbar.addWidget(self.fill_checkbox)
 
         return shapes_toolbar
 
     def updateFilledState(self, state):
         global FILLED
-        FILLED = state == Qt.CheckState.Checked.value
-        # Update the fill state in your drawing logic
+        FILLED = True # filled is always set to True. Unfilled shapes not supported yet
+        # FILLED = state == Qt.CheckState.Checked.value
+        
 
     def createShapeButton(self, icon_path, button_text, shape_mode):
         shape_button = QAction(QIcon(icon_path), button_text, self)
@@ -917,8 +917,12 @@ class MainWindow(QMainWindow):
         attributes_copy = copy.deepcopy(attributes)
         
         shape_attr_list = []
+        shape_types = [shape[2] for shape in shapes_copy]
 
         print("attributes: ", attributes_copy)
+        print("number of shapes: ", len(shapes_copy))
+        print("number of attributes: ", len(attributes_copy))
+        print("number of paths: ", len(paths))
                 
         for attr, shape in zip(attributes_copy, shapes_copy):
             shape_color = SHAPE_COLOR
@@ -930,10 +934,10 @@ class MainWindow(QMainWindow):
             updated_attr['stroke'] = shape_color.name()
             updated_attr['stroke-width'] = pen_width
 
-            if filled:
-                updated_attr['fill'] = shape_color.name()
-            else:
-                updated_attr['fill'] = 'none'
+            # if filled:
+            updated_attr['fill'] = shape_color.name()
+            # else:
+            # updated_attr['fill'] = 'none'
 
             # in order to compensate for the (I believe) stroke width it is necessary to offset the final end point in every rectangle
             # AS IT TURNS out this causes issues for drawing hearts and filling
@@ -953,8 +957,10 @@ class MainWindow(QMainWindow):
             dimensions=(width, height))
         
         #print("original attributes: ", shape_attr_list)
+
+        print("shape types: ", shape_types)
         
-        pre_process_user_input(file_with_attributes, width, height, square_size)
+        pre_process_user_input(file_with_attributes, shape_types, width, height, square_size)
 
         # self.shape_attributes = shape_attr_list
         # print("updated attributes: ", shape_attr_list)
