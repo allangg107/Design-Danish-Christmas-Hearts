@@ -344,7 +344,7 @@ class DrawingWidget(QWidget):
         # stroker.setWidth(0)  # Use your current pen width
         # stroked_path = stroker.createStroke(drawpath)
         # stroker.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-        
+
         # if filled:
         qp.drawPath(drawpath)
         # else:
@@ -468,6 +468,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.shape_attributes = []
+        self.current_pattern = ""
 
         self.setWindowTitle("Weave Toolkit")
         self.setStyleSheet("background-color: white;")
@@ -499,7 +500,7 @@ class MainWindow(QMainWindow):
 
         self.drawing_label = QLabel("Front Side:")
         self.drawing_label.setStyleSheet("color: black;")
-        self.backside_label = QLabel("Back Side (not modifiable):")
+        self.backside_label = QLabel("Back Side (not modifiable), Pattern Type is set to: ")
         self.backside_label.setStyleSheet("color: black;")
 
         self.drawing_widget_layout.addWidget(self.drawing_label)
@@ -541,7 +542,7 @@ class MainWindow(QMainWindow):
         return super().eventFilter(source, event)
 
     def update_backside_image(self):
-        self.backside_label.setText("Back Side (not modifiable):")
+        self.backside_label.setText(f"Back Side (not modifiable) and the Pattern Type is: {self.current_pattern}")
         drawing_image = self.drawing_widget.get_drawing_image()
         mirrored_image = drawing_image.mirrored(True, False)  # Mirror horizontally
         pixmap = QPixmap.fromImage(mirrored_image)
@@ -640,6 +641,10 @@ class MainWindow(QMainWindow):
 
         return view_menu
 
+    def patternType(self, pattern):
+        self.current_pattern = pattern
+        self.update_backside_image()
+
     def createWeavingPatternDropdownMenu(self):
         weaving_pattern_menu = QMenu("Weaving Pattern", self)
         weaving_pattern_menu.setStyleSheet("""
@@ -656,9 +661,9 @@ class MainWindow(QMainWindow):
         action_simple = QAction("Simple", self)
         action_symmetrical = QAction("Symmetrical", self)
         action_asymmetrical = QAction("Asymmetrical", self)
-        action_simple.triggered.connect(lambda: self.exportSVG(function='pattern_simple'))
-        action_symmetrical.triggered.connect(lambda: self.exportSVG(function='pattern_symmetrical'))
-        action_asymmetrical.triggered.connect(lambda: self.exportSVG(functoin='pattern_asymmetrical'))
+        action_simple.triggered.connect(lambda: (self.patternType('pattern_simple'), self.exportSVG(function='pattern_simple')))
+        action_symmetrical.triggered.connect(lambda: (self.patternType('pattern_symmetrical'), self.exportSVG(function='pattern_symmetrical')))
+        action_asymmetrical.triggered.connect(lambda: (self.patternType('pattern_asymmetrical'), self.exportSVG(function='pattern_asymmetrical')))
 
         # Add actions to the menu
         weaving_pattern_menu.addAction(action_simple)
@@ -707,9 +712,8 @@ class MainWindow(QMainWindow):
         #self.drawing_backside.setScaledContents(True)
 
     def editDisplay(self):
-        self.backside_label.setText("Back Side (not modifiable):")
+        self.backside_label.setText(f"Back Side (not modifiable) - {self.current_pattern}:")
         self.stacked_widget.setCurrentWidget(self.drawing_widget)
-        #self.display_widget.hide()
         self.update_backside_image()
 
     def createShapesToolbar(self):
@@ -767,7 +771,7 @@ class MainWindow(QMainWindow):
         global FILLED
         FILLED = True # filled is always set to True. Unfilled shapes not supported yet
         # FILLED = state == Qt.CheckState.Checked.value
-        
+
 
     def createShapeButton(self, icon_path, button_text, shape_mode):
         shape_button = QAction(QIcon(icon_path), button_text, self)
@@ -924,7 +928,7 @@ class MainWindow(QMainWindow):
         print("number of shapes: ", len(shapes_copy))
         print("number of attributes: ", len(attributes_copy))
         print("number of paths: ", len(paths))
-                
+
         for attr, shape in zip(attributes_copy, shapes_copy):
             shape_color = SHAPE_COLOR
             pen_width = shape[5]
@@ -952,11 +956,11 @@ class MainWindow(QMainWindow):
                 attributes=shape_attr_list,
                 filename=file_with_attributes,
                 dimensions=(width, height))
-        
+
         #print("original attributes: ", shape_attr_list)
 
             print("shape types: ", shape_types)
-        
+
             pre_process_user_input(file_with_attributes, shape_types, width, height, square_size)
 
             # self.shape_attributes = shape_attr_list

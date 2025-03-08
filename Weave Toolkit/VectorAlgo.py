@@ -57,144 +57,132 @@ def pre_process_user_input(original_pattern, shape_types, width, height, square_
         attributes = attributes * len(clipped_paths)
 
     wsvg(clipped_paths, attributes=attributes, filename=final_output_path_name, dimensions=(square_size, square_size))
+import numpy as np
+from shapely.geometry import LineString, Polygon, MultiLineString
 
-def ensure_closed(path, minx, miny, maxx, maxy, tol=1e-9):
+def get_edge(pt, square_size, tol=1e-6):
+    """Determine which edge of the square boundary a point lies on."""
+    x, y = pt
+    if abs(y) < tol:
+        return 0  # bottom
+    elif abs(x - square_size) < tol:
+        return 1  # right
+    elif abs(y - square_size) < tol:
+        return 2  # top
+    elif abs(x) < tol:
+        return 3  # left
+    elif x < tol or y < tol or x > square_size - tol or y > square_size - tol:
+        return None  # Points very close but not exactly on an edge
+    else:
+        return None
+
+
+def close_line_with_corners(coords, square_size, tol=1e-6):
     """
-    Ensures that a clipped shape remains closed, especially when it touches a corner.
-    If the shape is clipped at two boundaries and also touches the corner, it is closed 
-    by adding two extra segments via the corner instead of a direct closing line.
+    Closes a polygon defined by `coords` by appending missing boundary corner points.
+    This ensures that if the clipped path's endpoints lie on different edges,
+    the boundary's corners are inserted between them.
     """
-    if not path:
-        return path
-    
-    print("HERE path", path)
+    if len(coords) < 2:
+        return coords
 
-    start_pt = path[0].start
-    end_pt = path[-1].end
+    first = coords[0]
+    last = coords[-1]
 
-    # If already closed, return as is.
-    if abs(start_pt - end_pt) < tol:
-        return Path(*path)
+    edge_first = get_edge(first, square_size, tol)
+    edge_last = get_edge(last, square_size, tol)
 
-    def boundary_flags(pt):
-        return {
-            "left": abs(pt.real - minx) < tol,
-            "right": abs(pt.real - maxx) < tol,
-            "bottom": abs(pt.imag - miny) < tol,
-            "top": abs(pt.imag - maxy) < tol
-        }
+    # If either point isn't exactly on the boundary, simply close the loop.
+    if edge_first is None or edge_last is None:
+        if abs(first[0]-last[0]) > tol or abs(first[1]-last[1]) > tol:
+            coords.append(first)
+        return coords
 
-    start_flags = boundary_flags(start_pt)
-    end_flags = boundary_flags(end_pt)
+    # If on the same edge, just close the loop if needed.
+    if edge_first == edge_last:
+        if abs(first[0]-last[0]) > tol or abs(first[1]-last[1]) > tol:
+            coords.append(first)
+        return coords
 
-    # Determine if the endpoints lie on adjacent boundaries
-    corner = None
-    if (start_flags["left"] and end_flags["bottom"]) or (start_flags["bottom"] and end_flags["left"]):
-        corner = complex(minx, miny)
-    elif (start_flags["left"] and end_flags["top"]) or (start_flags["top"] and end_flags["left"]):
-        corner = complex(minx, maxy)
-    elif (start_flags["right"] and end_flags["bottom"]) or (start_flags["bottom"] and end_flags["right"]):
-        corner = complex(maxx, miny)
-    elif (start_flags["right"] and end_flags["top"]) or (start_flags["top"] and end_flags["right"]):
-        corner = complex(maxx, maxy)
+    # Define square corners in clockwise order.
+    corners = [(0, 0), (square_size, 0), (square_size, square_size), (0, square_size)]
 
-    if corner is not None:
-        # Check if the path already touches the corner
-        touches_corner = any(abs(seg.start - corner) < tol or abs(seg.end - corner) < tol for seg in path)
+    # Insert corners from the last point's edge to the first point's edge,
+    # following the boundary in clockwise order.
+    inserted = []
+    current_edge = edge_last
+    # Loop until we reach the edge of the first point.
+    while current_edge != edge_first:
+        current_edge = (current_edge + 1) % 4
+        inserted.append(corners[current_edge])
+        if current_edge == edge_first:
+            break
 
-        new_path = list(path)
-        if not touches_corner:
-            # Add two segments to close properly via the corner
-            new_path.append(Line(end_pt, corner))
-            new_path.append(Line(corner, start_pt))
-        else:
-            # If the corner is already part of the path, just close normally
-            new_path.append(Line(end_pt, start_pt))
+    # Build the new coordinate list: original coords, then the inserted corners, then close.
+    new_coords = coords[:]  # make a copy
+    new_coords.extend(inserted)
+    new_coords.append(first)
+    return new_coords
 
-        return Path(*new_path)
-
-    # Default: close directly if not a corner case
-    new_path = list(path)
-    new_path.append(Line(end_pt, start_pt))
-    return Path(*new_path)
-
-
-
-def clip_path_to_boundary(path, shape_type, boundary, num_samples=20):
+def clip_path_to_boundary(path, boundary, square_size, num_samples=20):
     """
     Clips a given path to the boundary using Shapely geometric operations.
-    For hearts and circles, segments are sampled to approximate curves.
+    Samples each segment to better approximate curves, then closes the resulting
+    path by connecting the entry and exit points along the boundary, including any
+    missing corner points.
     """
     try:
-        # Obtain coordinates either by sampling (for curves) or directly.
-        if shape_type in [ShapeMode.Heart, ShapeMode.Circle]:
-            sampled_coords = []
-            for seg in path:
-                for t in np.linspace(0, 1, num_samples, endpoint=False):
-                    point = seg.point(t)
-                    sampled_coords.append((point.real, point.imag))
-            last_point = path[-1].point(1.0)
-            sampled_coords.append((last_point.real, last_point.imag))
-        else:
-            sampled_coords = [(seg.start.real, seg.start.imag) for seg in path]
-            sampled_coords.append((path[-1].end.real, path[-1].end.imag))
+        # Sample points along each segment.
+        sampled_coords = []
+        for seg in path:
+            for t in np.linspace(0, 1, num_samples, endpoint=False):
+                pt = seg.point(t)
+                sampled_coords.append((pt.real, pt.imag))
+        # Ensure the final point is included.
+        last_pt = path[-1].point(1.0)
+        sampled_coords.append((last_pt.real, last_pt.imag))
 
         if len(sampled_coords) < 2:
             print("Skipping path: Not enough coordinates.")
             return None
 
         path_shape = LineString(sampled_coords)
-        print("path_shape", path_shape, "with", len(path_shape.coords), "coords")
-
         clipped_shape = path_shape.intersection(boundary)
-        print("clipped_shape", clipped_shape)
 
         if clipped_shape.is_empty:
             print("Warning: Clipped shape is empty!")
             return None
 
-        # Get the boundary limits to use in ensure_closed.
-        minx, miny, maxx, maxy = boundary.bounds
-        tol = 1e-9
-
+        # Process a single LineString result.
         if isinstance(clipped_shape, LineString):
             coords = list(clipped_shape.coords)
-            if shape_type != ShapeMode.Line:
-                # For fillable shapes, ensure the coordinate list is closed.
-                if coords[0] != coords[-1]:
-                    coords.append(coords[0])
-            segments = [
-                Line(complex(x, y), complex(x2, y2))
-                for (x, y), (x2, y2) in zip(coords[:-1], coords[1:])
-            ]
-            if shape_type != ShapeMode.Line:
-                print("TEST2")
-                print(f"TESTING Path before closing ({len(path)} segments):", path)
-                segments = ensure_closed(segments, minx, miny, maxx, maxy, tol)
-                print(f"TESTING Path after closing ({len(segments)} segments):", segments)
-            return Path(*segments)
+            coords = close_line_with_corners(coords, square_size)
+            new_path = Path(
+                *[Line(complex(x, y), complex(x2, y2))
+                  for (x, y), (x2, y2) in zip(coords[:-1], coords[1:])]
+            )
+            return new_path
 
+        # Process MultiLineString by merging segments.
         elif isinstance(clipped_shape, MultiLineString):
             all_coords = []
             for line in clipped_shape.geoms:
-                if len(line.coords) < 2:
-                    continue
-                all_coords.extend(list(line.coords))
-            # Simple deduplication.
-            all_coords = list(dict.fromkeys(all_coords))
-            if shape_type != ShapeMode.Line:
-                if all_coords[0] != all_coords[-1]:
-                    all_coords.append(all_coords[0])
-            segments = [
-                Line(complex(x, y), complex(x2, y2))
-                for (x, y), (x2, y2) in zip(all_coords[:-1], all_coords[1:])
-            ]
-            if shape_type != ShapeMode.Line:
-                print(f"Path before closing ({len(path)} segments):", path)
-                print("TEST")
-                segments = ensure_closed(segments, minx, miny, maxx, maxy, tol)
-                print(f"Path after closing ({len(segments)} segments):", segments)
-            return Path(*segments)
+                line_coords = list(line.coords)
+                if not all_coords:
+                    all_coords.extend(line_coords)
+                else:
+                    # If the end of the last segment isn't the start of the next,
+                    # insert a connecting segment.
+                    if (abs(all_coords[-1][0] - line_coords[0][0]) > 1e-6 or
+                        abs(all_coords[-1][1] - line_coords[0][1]) > 1e-6):
+                        all_coords.append(line_coords[0])
+                    all_coords.extend(line_coords)
+            all_coords = close_line_with_corners(all_coords, square_size)
+            new_path = Path(
+                *[Line(complex(x, y), complex(x2, y2))
+                  for (x, y), (x2, y2) in zip(all_coords[:-1], all_coords[1:])]
+            )
+            return new_path
 
         print("Warning: Unexpected geometry type from intersection:", type(clipped_shape))
         return None
@@ -203,31 +191,28 @@ def clip_path_to_boundary(path, shape_type, boundary, num_samples=20):
         print("Error while clipping path:", e)
         return None
 
-    
 
 
-def crop_svg(paths, shape_types, square_size):
+def crop_svg(paths, square_size):
     """
     Crops all paths to fit within the given square_size.
     """
     boundary = Polygon([(0, 0), (square_size, 0), (square_size, square_size), (0, square_size)])
 
-    # print("\nBoundary Polygon:", boundary)
-    # print("Total Paths Received for Clipping:", len(paths))
-
-    print("given paths", paths) 
+    #print("\nBoundary Polygon:", boundary)
+    #print("Total Paths Received for Clipping:", len(paths))
 
     clipped_paths = []
-    for path, shape_type in zip(paths, shape_types):
-        clipped = clip_path_to_boundary(path, shape_type, boundary)
+    for path in paths:
+        clipped = clip_path_to_boundary(path, boundary, square_size)
         if clipped:
             if isinstance(clipped, list):  # Handle MultiLineString cases
                 clipped_paths.extend(clipped)
             else:
                 clipped_paths.append(clipped)
 
-    # print("Final Clipped Paths:", clipped_paths)
-    
+    #print("Final Clipped Paths:", clipped_paths)
+
     return clipped_paths
 
 
