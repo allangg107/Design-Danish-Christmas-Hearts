@@ -3,6 +3,7 @@ from PyQt6.QtSvg import QSvgRenderer, QSvgGenerator
 from PyQt6.QtWidgets import QApplication, QWidget, QLabel
 from PyQt6.QtGui import QImage, QPainter, QTransform, QPixmap, QColor
 from PyQt6.QtCore import QSize, QByteArray, QRectF
+from shapely.geometry import LineString, Polygon, MultiLineString, MultiPolygon
 
 import xml.etree.ElementTree as ET
 from svgpathtools import svg2paths, wsvg, Path, Line, CubicBezier, QuadraticBezier, parse_path
@@ -32,14 +33,14 @@ MARGIN = 31
 def pre_process_user_input(original_pattern, shape_types, width, height, square_size):
     rotated_path_name = "rotated_pattern_step.svg"
     rotateSVG(original_pattern, rotated_path_name, 45)
-    
+
     # crop to the designated drawing space
     cropped_size = int((width - square_size) // 2)
     translated_path_name = "translated_pattern_step.svg"
     translateSVG(rotated_path_name, translated_path_name, -cropped_size, -cropped_size)
 
     paths, attributes = svg2paths(translated_path_name)
-    
+
     final_output_path_name = "preprocessed_pattern.svg"
     wsvg(paths, attributes=attributes, filename=final_output_path_name, dimensions=(square_size, square_size))
 
@@ -267,7 +268,7 @@ def translateSVG(input_svg, output_svg, x_shift, y_shift):
          attributes=attributes,
          filename=output_svg,
          dimensions=(height, width))
-    
+
 def rotateSVG(input_svg, output_svg, angle):
     paths, attributes = svg2paths(input_svg)
 
@@ -328,7 +329,7 @@ def rotateSVG(input_svg, output_svg, angle):
          attributes=attributes,
          filename=output_svg,
          dimensions=(width, height))
-    
+
 def resizeSVG(input_svg, output_svg, target_width):
     paths, attributes = svg2paths(input_svg)
 
@@ -379,7 +380,7 @@ def resizeSVG(input_svg, output_svg, target_width):
          filename=output_svg,
          dimensions=(int(target_width), int(target_height)),
          svg_attributes={'viewBox': f'0 0 {int(target_width)} {int(target_height)}'})
-    
+
 def createFinalHeartDisplay(image):
     line_color = (0, 0, 0)  # Black color
     height, width, _ = image.shape # isolated_pattern's shape is a square
@@ -459,7 +460,7 @@ def rotateImage(matrix, angle=-45):
 
 def drawEmptyStencil(width, height, starting_y, margin_x=MARGIN, line_color='black', file_name="allan is a miracle.svg"):
     dwg = svgwrite.Drawing(file_name, size=(width,height+starting_y))
-    
+
     # define the square size
     square_size = (height // 1.5) - margin_x
     margin_y = margin_x + starting_y
@@ -523,10 +524,10 @@ def getPattern(original_pattern):
         case _:
             return 'error'
 
-def overlayDrawingOnStencil(stencil_file, user_drawing_file, size, square_size, margin_x=MARGIN, margin_y=0, filename='combined_output.svg'):        
+def overlayDrawingOnStencil(stencil_file, user_drawing_file, size, square_size, margin_x=MARGIN, margin_y=0, filename='combined_output.svg'):
         translated_user_path = "translated_for_overlay.svg"
         translateSVG(user_drawing_file, translated_user_path, margin_x + square_size // 2, margin_y + (margin_x * 2))
-        
+
         paths1, attributes1 = svg2paths(stencil_file)
         paths2, attributes2 = svg2paths(translated_user_path)
 
@@ -562,10 +563,43 @@ def overlayPatternOnStencil(pattern, stencil, size, stencil_number, pattern_type
     combined_output_name = f"stencil_{stencil_number}_overlayed.svg"
     margin_y = 0 if stencil_number == 1 else size // 2
     overlayDrawingOnStencil(stencil, resized_pattern_name, size, square_size, margin, margin_y, combined_output_name)
-    
+
     return combined_output_name
 
-def drawSimpleStencil(width, height, starting_y, margin_x=MARGIN, line_color='black', file_name="allans test.svg"):
+def drawSimpleStencil(width, height, starting_y, margin_x=MARGIN, line_color='black', file_name="allans_test.svg"):
+    dwg = svgwrite.Drawing(file_name, size=(width, height + starting_y))
+
+    # Define the square size
+    square_size = (height // 1.5) - margin_x
+    margin_y = margin_x + starting_y
+    extension = 20  # Amount to extend the lines
+
+    # Define the left square margins
+    left_top_line_start = (margin_x + square_size // 2, margin_y)
+    left_top_line_end = (left_top_line_start[0] + square_size, left_top_line_start[1])
+    left_bottom_line_start = (left_top_line_start[0], left_top_line_start[1] + square_size)
+    left_bottom_line_end = (left_bottom_line_start[0] + square_size, left_bottom_line_start[1])
+
+    # Define the right square margins
+    right_top_line_start = left_top_line_end
+    right_top_line_end = (right_top_line_start[0] + square_size, right_top_line_start[1])
+    right_bottom_line_start = left_bottom_line_end
+    right_bottom_line_end = (right_bottom_line_start[0] + square_size, right_bottom_line_start[1])
+
+    # Draw the inner line cuts with extended length
+    dwg.add(dwg.line(start=(left_top_line_start[0] - extension, left_top_line_start[1] + margin_x),
+                      end=(right_top_line_end[0] + extension, right_top_line_end[1] + margin_x),
+                      stroke="brown", stroke_width=3))
+
+    dwg.add(dwg.line(start=(left_bottom_line_start[0] - extension, left_bottom_line_start[1] - margin_x),
+                      end=(right_bottom_line_end[0] + extension, right_bottom_line_end[1] - margin_x),
+                      stroke="brown", stroke_width=3))
+
+    dwg.save()
+
+    return file_name
+
+def drawClassicStencil(width, height, starting_y, margin_x=31, line_color='black', file_name="test_1.svg"):
     dwg = svgwrite.Drawing(file_name, size=(width,height+starting_y))
 
     # define the square size
@@ -583,24 +617,34 @@ def drawSimpleStencil(width, height, starting_y, margin_x=MARGIN, line_color='bl
     right_bottom_line_start = left_bottom_line_end
     right_bottom_line_end = (right_bottom_line_start[0] + square_size, right_bottom_line_start[1])
 
-    # draw the inner line cuts
-    dwg.add(dwg.line(start=((left_top_line_start[0], left_top_line_start[1] + margin_x)), end=((right_top_line_end[0], right_top_line_end[1] + margin_x)), stroke="brown", stroke_width=3))
-    dwg.add(dwg.line(start=((left_bottom_line_start[0], left_bottom_line_start[1] - margin_x)), end=((right_bottom_line_end[0], right_bottom_line_end[1] - margin_x)), stroke="brown", stroke_width=3))
+    offset = 90
+    y1 = left_top_line_start[1] + offset     # Top inner line
+    y3 = left_top_line_start[1] + square_size - offset
+    y2 = (y1 + y3) / 2   # Middle inner line
+    dwg.add(dwg.line(start=(left_top_line_start[0], y1), end=(right_top_line_end[0], y1), stroke="brown", stroke_width=3))
+    dwg.add(dwg.line(start=(left_top_line_start[0], y2), end=(right_top_line_end[0], y2), stroke="brown", stroke_width=3))
+    dwg.add(dwg.line(start=(left_top_line_start[0], y3), end=(right_top_line_end[0], y3), stroke="brown", stroke_width=3))
+
 
     dwg.save()
 
     return file_name
-    
-def determinePatternType():
-    return "simple"
+
+def determinePatternType(pattern_type):
+    if pattern_type == 'pattern_simple':
+        return 'simple'
+    elif pattern_type == 'pattern_symmetrical':
+        return 'symmetrical'
+    elif pattern_type == 'pattern_asymmetrical':
+        return 'asymmetrical'
+
 
 def createFinalHeartCutoutPatternExport(size, line_start=0, sides='onesided', line_color='black', background_color='white'):
+    width = size
+    height = size // 2
+    empty_stencil_1 = drawEmptyStencil(width, height, 0, file_name="stencil1.svg")
+    empty_stencil_2 = drawEmptyStencil(width, height, height, file_name="stencil2.svg")
     if sides=='onesided':
-        width = size
-        height = size // 2
-        empty_stencil_1 = drawEmptyStencil(width, height, 0, file_name="stencil1.svg")
-        empty_stencil_2 = drawEmptyStencil(width, height, height, file_name="stencil2.svg")
-
         pattern_type = determinePatternType()
 
         stencil_1_pattern = getPattern("front")
@@ -618,7 +662,16 @@ def createFinalHeartCutoutPatternExport(size, line_start=0, sides='onesided', li
             combineStencils(final_stencil, overlayed_pattern_1, combined_simple_stencil2)
 
             convertSvgToPng(combined_simple_stencil2, size, size, "final_output.png")
-            
+
+    else:
+        combined_classic_stencil = "combined_classic_stencil.svg"
+        classic_stencil1 = drawClassicStencil(width, height, 0, file_name="classic_stencil1.svg")
+        classic_stencil2 = drawClassicStencil(width, height, height, file_name="classic_stencil2.svg")
+        final_stencil = "classic_final_stencil.svg"
+        combined_classic_stencil_final = "combined_classic_stencil_final.svg"
+        combineStencils(empty_stencil_1, classic_stencil1, combined_classic_stencil)
+        combineStencils(empty_stencil_2, classic_stencil2, final_stencil)
+        combineStencils(final_stencil, combined_classic_stencil, combined_classic_stencil_final)
 
         # if pattern 1 == symetrical:
             # stencil_1_pattern = getSymetricalPattern(1)
@@ -627,7 +680,7 @@ def createFinalHeartCutoutPatternExport(size, line_start=0, sides='onesided', li
             # stencil_1_pattern = getAsymtricalPattern(1)
             # stencil_2_pattern = getAsymtricalPattern(2)
         # else:
-    
+
 
         #overlayed_pattern_1 = overlayPatternOnStencil(stencil_1_pattern, empty_stencil_1, size, 1, pattern_type)
         # overlayed_pattern_2 = overlayPatternOnStencil(stencil_2_pattern, empty_stencil_2, size, 2, pattern_type)
@@ -644,7 +697,7 @@ def createFinalHeartCutoutPatternExport(size, line_start=0, sides='onesided', li
 
 def convertSvgToPng(svg_file, width, height, output_file):
     cvImage = savePixmapToCvImage(saveSvgFileAsPixmap(svg_file, QSize(height, width)))
-    
+
     transparentImage = makeTrans(cvImage, [255, 255, 255])
     cv.imwrite(output_file, transparentImage)
 
@@ -668,7 +721,7 @@ def makeTrans(final_output_array, color):
     # Create an RGBA image by adding the alpha channel to the original matrix
     rgba_image = np.dstack((final_output_array, alpha_channel))
     return rgba_image
-    
+
 def saveSvgFileAsPixmap(filepath, size=QSize(600, 600)):
     renderer = QSvgRenderer(filepath)
 
@@ -701,9 +754,15 @@ def savePixmapToCvImage(pixmap):
 def mainAlgorithmSvg(img, function = 'create', shape_attributes=[]):
 
     match function:
-        case 'create':
-            createFinalHeartCutoutPatternExport(1200)
-
+        case 'create_simple':
+            pattern_type = getPattern('pattern_simple')
+            createFinalHeartCutoutPatternExport(1200, pattern_type)
+        case 'create_symmetrical':
+            pattern_type = getPattern('pattern_asymmetrical')
+            createFinalHeartCutoutPatternExport(1200, pattern_type)
+        case 'create_asymmetrical':
+            pattern_type = getPattern('pattern_symmetrical')
+            createFinalHeartCutoutPatternExport(1200, pattern_type)
         case 'show':
             # We start with a filepath to an svg image. But, we want to give createFinalHeartDisplay a CV Image
             heartPixmap = saveSvgFileAsPixmap(img)
@@ -712,4 +771,4 @@ def mainAlgorithmSvg(img, function = 'create', shape_attributes=[]):
             return createFinalHeartDisplay(heartCvImage)
 
         case _:
-            return 'error'
+            return createFinalHeartCutoutPatternExport(1200, sides= '')
