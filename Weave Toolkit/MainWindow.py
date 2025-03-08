@@ -947,17 +947,17 @@ class MainWindow(QMainWindow):
             shape_attr_list.append(updated_attr)
 
         file_with_attributes = "svg_file_2.svg"
-        
-        wsvg(paths,
-            attributes=shape_attr_list,
-            filename=file_with_attributes,
-            dimensions=(width, height))
+        try:
+            wsvg(paths,
+                attributes=shape_attr_list,
+                filename=file_with_attributes,
+                dimensions=(width, height))
         
         #print("original attributes: ", shape_attr_list)
 
-        print("shape types: ", shape_types)
+            print("shape types: ", shape_types)
         
-        pre_process_user_input(file_with_attributes, shape_types, width, height, square_size)
+            pre_process_user_input(file_with_attributes, shape_types, width, height, square_size)
 
             # self.shape_attributes = shape_attr_list
             # print("updated attributes: ", shape_attr_list)
