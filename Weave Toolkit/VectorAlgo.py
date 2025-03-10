@@ -50,7 +50,7 @@ def pre_process_user_input(original_pattern, shape_types, width, height, square_
     # print("pre-processed attributes: ", attributes)
 
     # print(f"Original path ({len(paths)} segments):", paths)
-    clipped_paths = crop_svg(paths, square_size)
+    clipped_paths = crop_svg(paths, square_size, square_size)
     # print(f"Original path ({len(paths)} segments):", paths)
 
     print("length of clipped paths: ", len(clipped_paths))
@@ -62,24 +62,24 @@ def pre_process_user_input(original_pattern, shape_types, width, height, square_
     wsvg(clipped_paths, attributes=attributes, filename=final_output_path_name, dimensions=(square_size, square_size))
 
 
-def get_edge(pt, square_size, tol=1e-6):
+def get_edge(pt, width, height, tol=1e-6):
     """Determine which edge of the square boundary a point lies on."""
     x, y = pt
     if abs(y) < tol:
         return 0  # bottom
-    elif abs(x - square_size) < tol:
+    elif abs(x - width) < tol:
         return 1  # right
-    elif abs(y - square_size) < tol:
+    elif abs(y - height) < tol:
         return 2  # top
     elif abs(x) < tol:
         return 3  # left
-    elif x < tol or y < tol or x > square_size - tol or y > square_size - tol:
+    elif x < tol or y < tol or x > width - tol or y > height - tol:
         return None  # Points very close but not exactly on an edge
     else:
         return None
 
 
-def close_line_with_corners(coords, square_size, tol=1e-6):
+def close_line_with_corners(coords, width, height, tol=1e-6):
     """
     Closes a polygon defined by `coords` by appending missing boundary corner points.
     This ensures that if the clipped path's endpoints lie on different edges,
@@ -91,8 +91,8 @@ def close_line_with_corners(coords, square_size, tol=1e-6):
     first = coords[0]
     last = coords[-1]
 
-    edge_first = get_edge(first, square_size, tol)
-    edge_last = get_edge(last, square_size, tol)
+    edge_first = get_edge(first, width, height, tol)
+    edge_last = get_edge(last, width, height, tol)
 
     # If either point isn't exactly on the boundary, simply close the loop.
     if edge_first is None or edge_last is None:
@@ -107,7 +107,7 @@ def close_line_with_corners(coords, square_size, tol=1e-6):
         return coords
 
     # Define square corners in clockwise order.
-    corners = [(0, 0), (square_size, 0), (square_size, square_size), (0, square_size)]
+    corners = [(0, 0), (width, 0), (width, height), (0, height)]
 
     # Insert corners from the last point's edge to the first point's edge,
     # following the boundary in clockwise order.
@@ -126,7 +126,7 @@ def close_line_with_corners(coords, square_size, tol=1e-6):
     new_coords.append(first)
     return new_coords
 
-def clip_path_to_boundary(path, boundary, square_size, num_samples=20):
+def clip_path_to_boundary(path, boundary, width, height, num_samples=20):
     """
     Clips a given path to the boundary using Shapely geometric operations.
     Samples each segment to better approximate curves, then closes the resulting
@@ -158,7 +158,7 @@ def clip_path_to_boundary(path, boundary, square_size, num_samples=20):
         # Process a single LineString result.
         if isinstance(clipped_shape, LineString):
             coords = list(clipped_shape.coords)
-            coords = close_line_with_corners(coords, square_size)
+            coords = close_line_with_corners(coords, width, height)
             new_path = Path(
                 *[Line(complex(x, y), complex(x2, y2))
                   for (x, y), (x2, y2) in zip(coords[:-1], coords[1:])]
@@ -179,7 +179,7 @@ def clip_path_to_boundary(path, boundary, square_size, num_samples=20):
                         abs(all_coords[-1][1] - line_coords[0][1]) > 1e-6):
                         all_coords.append(line_coords[0])
                     all_coords.extend(line_coords)
-            all_coords = close_line_with_corners(all_coords, square_size)
+            all_coords = close_line_with_corners(all_coords, width, height)
             new_path = Path(
                 *[Line(complex(x, y), complex(x2, y2))
                   for (x, y), (x2, y2) in zip(all_coords[:-1], all_coords[1:])]
@@ -195,22 +195,18 @@ def clip_path_to_boundary(path, boundary, square_size, num_samples=20):
 
 
 
-def crop_svg(paths, square_size, width = 0):
+def crop_svg(paths, width, height):
     """
     Crops all paths to fit within the given square_size.
     """
-    # call with width=square_size/2 to get the left half of the canvas
-    if width > 0:
-        boundary = Polygon([(0, 0), (square_size, 0), (width,width), (0, square_size)])
-    else:
-        boundary = Polygon([(0, 0), (square_size, 0), (square_size, square_size), (0, square_size)])
+    boundary = Polygon([(0, 0), (width, 0), (width,height), (0, height)])
 
     #print("\nBoundary Polygon:", boundary)
     #print("Total Paths Received for Clipping:", len(paths))
 
     clipped_paths = []
     for path in paths:
-        clipped = clip_path_to_boundary(path, boundary, square_size)
+        clipped = clip_path_to_boundary(path, boundary, width, height)
         if clipped:
             if isinstance(clipped, list):  # Handle MultiLineString cases
                 clipped_paths.extend(clipped)
@@ -663,23 +659,48 @@ def createFinalHeartCutoutPatternExport(size, pattern_type, line_start=0, sides=
         stencil_1_pattern = getPattern("front")
         stencil_2_pattern = getPattern("back")
         if pattern_type == "pattern_simple":
-            print("allanspeter")
+            print("Creating SIMPLE pattern")
             create_simple_pattern_stencil(width, height, size, stencil_1_pattern, empty_stencil_1, empty_stencil_2, pattern_type)
-            print("petersallan")
+        
         elif pattern_type == "pattern_symmetrical":
-            stencil_1_crop_half = "stencil_1_left_half_crop.svg"
-            paths, attributes = svg2paths(stencil_1_pattern)
-            stencil_1_clipped_paths = crop_svg(paths, DRAWING_SQUARE_SIZE, width=DRAWING_SQUARE_SIZE/2)
-            #rotateSVG(stencil_1_pattern, stencil_1_pattern, 45)
+            print("Creating SYMMETRICAL pattern")
+            # Step 1: Rotate the pattern 45 degrees clockwise
+            rotated_path_name = "rotated_pattern_step.svg"
+            rotateSVG(stencil_1_pattern, rotated_path_name, 45)
+            
+            # Step 2: Translate to correct position after rotation
+            cropped_size = int((500 - DRAWING_SQUARE_SIZE) // 2)
+            translated_path_name = "translated_pattern_step.svg"
+            translateSVG(rotated_path_name, translated_path_name, cropped_size, cropped_size)
+            
+            # Step 3: Crop to only the top half of the SVG
+            paths, attributes = svg2paths(translated_path_name)
+            stencil_1_clipped_paths = crop_svg(paths, 500, 500 // 2)
+            
+            # Adjust attributes if needed
             if len(stencil_1_clipped_paths) > len(attributes):
                 attributes = attributes * len(stencil_1_clipped_paths)
-
-            wsvg(stencil_1_clipped_paths, attributes=attributes, filename=stencil_1_crop_half, dimensions=(DRAWING_SQUARE_SIZE, DRAWING_SQUARE_SIZE))
-            rotateSVG(stencil_1_crop_half, stencil_1_crop_half, -45, width/2, height/2)
-            combined_simple_stencil = create_simple_pattern_stencil(width, height, size, stencil_1_crop_half, empty_stencil_1, empty_stencil_2, pattern_type)
+            
+            # Save the cropped half
+            stencil_1_crop_half = "stencil_1_top_half_crop.svg"
+            wsvg(stencil_1_clipped_paths, attributes=attributes, filename=stencil_1_crop_half, 
+                    dimensions=(DRAWING_SQUARE_SIZE, DRAWING_SQUARE_SIZE))
+            
+            # Step 4: Translate back to original position
+            translated_path_name2 = "translated_pattern_step2.svg"
+            translateSVG(stencil_1_crop_half, translated_path_name2, -cropped_size, -cropped_size)
+            
+            # Step 5: Rotate counter-clockwise 45 degrees
+            re_rotated_path_name = "re_rotated_pattern_step.svg"
+            rotateSVG(translated_path_name2, re_rotated_path_name, -45)
+            
+            # Step 6: Create the pattern stencil
+            combined_simple_stencil = create_simple_pattern_stencil(width, height, size, re_rotated_path_name, 
+                                                                    empty_stencil_1, empty_stencil_2, pattern_type)
 
 
         elif pattern_type == "pattern_classic":
+            print("Creating CLASSIC pattern")
             combined_classic_stencil = "combined_classic_stencil.svg"
             classic_stencil1 = drawClassicStencil(width, height, 0, file_name="classic_stencil1.svg")
             classic_stencil2 = drawClassicStencil(width, height, height, file_name="classic_stencil2.svg")
