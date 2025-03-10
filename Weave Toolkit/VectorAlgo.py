@@ -7,7 +7,6 @@ from shapely.geometry import LineString, Polygon, MultiLineString, MultiPolygon
 
 import xml.etree.ElementTree as ET
 from svgpathtools import svg2paths, wsvg, Path, Line, CubicBezier, QuadraticBezier, parse_path
-from shapely.geometry import LineString, Polygon, MultiLineString, MultiPolygon, Point
 
 import cv2 as cv
 import numpy as np
@@ -30,7 +29,11 @@ from ShapeMode import (
 
 MARGIN = 31
 
+
 def pre_process_user_input(original_pattern, shape_types, width, height, square_size):
+    global DRAWING_SQUARE_SIZE
+    DRAWING_SQUARE_SIZE = square_size
+
     rotated_path_name = "rotated_pattern_step.svg"
     rotateSVG(original_pattern, rotated_path_name, 45)
 
@@ -47,7 +50,7 @@ def pre_process_user_input(original_pattern, shape_types, width, height, square_
     # print("pre-processed attributes: ", attributes)
 
     # print(f"Original path ({len(paths)} segments):", paths)
-    clipped_paths = crop_svg(paths, shape_types, square_size)
+    clipped_paths = crop_svg(paths, square_size)
     # print(f"Original path ({len(paths)} segments):", paths)
 
     print("length of clipped paths: ", len(clipped_paths))
@@ -57,8 +60,7 @@ def pre_process_user_input(original_pattern, shape_types, width, height, square_
         attributes = attributes * len(clipped_paths)
 
     wsvg(clipped_paths, attributes=attributes, filename=final_output_path_name, dimensions=(square_size, square_size))
-import numpy as np
-from shapely.geometry import LineString, Polygon, MultiLineString
+
 
 def get_edge(pt, square_size, tol=1e-6):
     """Determine which edge of the square boundary a point lies on."""
@@ -193,7 +195,7 @@ def clip_path_to_boundary(path, boundary, square_size, num_samples=20):
 
 
 
-def crop_svg(paths, square_size, width=0):
+def crop_svg(paths, square_size, width = 0):
     """
     Crops all paths to fit within the given square_size.
     """
@@ -258,7 +260,7 @@ def translateSVG(input_svg, output_svg, x_shift, y_shift):
          filename=output_svg,
          dimensions=(height, width))
 
-def rotateSVG(input_svg, output_svg, angle):
+def rotateSVG(input_svg, output_svg, angle, center_x=None, center_y=None):
     paths, attributes = svg2paths(input_svg)
 
     tree = ET.parse(input_svg)
@@ -267,8 +269,9 @@ def rotateSVG(input_svg, output_svg, angle):
     height = float(root.get("height", "500"))
 
     # Calculate the center of the SVG
-    center_x = width / 2
-    center_y = height / 2
+    if center_x is None or center_y is None:
+        center_x = width / 2
+        center_y = height / 2
     center = complex(center_x, center_y)  # Convert to complex for easier rotation
 
     # Convert angle to radians
@@ -317,7 +320,7 @@ def rotateSVG(input_svg, output_svg, angle):
     wsvg(paths,
          attributes=attributes,
          filename=output_svg,
-         dimensions=(width, height))
+         dimensions=(center_x*2, center_y*2))
 
 def resizeSVG(input_svg, output_svg, target_width):
     paths, attributes = svg2paths(input_svg)
@@ -619,14 +622,34 @@ def drawClassicStencil(width, height, starting_y, margin_x=31, line_color='black
 
     return file_name
 
-def determinePatternType(pattern_type):
-    if pattern_type == 'pattern_simple':
-        return 'simple'
-    elif pattern_type == 'pattern_symmetrical':
-        return 'symmetrical'
-    elif pattern_type == 'pattern_asymmetrical':
-        return 'asymmetrical'
+def drawSymmetricStencil(width, height, starting_y, margin_x=MARGIN, filename="symmetric_stencil.svg"):
+    dwg = svgwrite.Drawing(filename, size=(width, height + starting_y))
 
+    square_size = (height // 1.5) - margin_x
+    margin_y = margin_x + starting_y
+    extension = 20  # Amount to extend the lines
+
+
+# def determinePatternType(pattern_type):
+#     if pattern_type == 'pattern_simple':
+#         return 'simple'
+#     elif pattern_type == 'pattern_symmetrical':
+#         return 'symmetrical'
+#     elif pattern_type == 'pattern_asymmetrical':
+#         return 'asymmetrical'
+
+
+def create_simple_pattern_stencil(width, height, size, stencil_1_pattern, empty_stencil_1, empty_stencil_2, pattern_type):
+                simpleStencil = drawSimpleStencil(width, height, 0, file_name="simpleStencil1.svg")
+                combined_simple_stencil1 = "combined_simple_stencil1.svg"
+                combineStencils(empty_stencil_1, simpleStencil, combined_simple_stencil1)
+                overlayed_pattern_1 = overlayPatternOnStencil(stencil_1_pattern, combined_simple_stencil1, size, 1, pattern_type)
+                simpleStencil = drawSimpleStencil(width, height, height, file_name="simpleStencil2.svg")
+                combined_simple_stencil2 = "combined_simple_stencil2.svg"
+                final_stencil = "thisguy.svg"
+                combineStencils(empty_stencil_2, simpleStencil, final_stencil)
+                combineStencils(final_stencil, overlayed_pattern_1, combined_simple_stencil2)
+                return combined_simple_stencil2
 
 def createFinalHeartCutoutPatternExport(size, pattern_type, line_start=0, sides='onesided', line_color='black', background_color='white'):
     width = size
@@ -634,31 +657,37 @@ def createFinalHeartCutoutPatternExport(size, pattern_type, line_start=0, sides=
     empty_stencil_1 = drawEmptyStencil(width, height, 0, file_name="stencil1.svg")
     empty_stencil_2 = drawEmptyStencil(width, height, height, file_name="stencil2.svg")
     print(sides)
+    print("pattern type: ", pattern_type)
 
     if sides=='onesided':
         stencil_1_pattern = getPattern("front")
         stencil_2_pattern = getPattern("back")
         if pattern_type == "pattern_simple":
-            simpleStencil = drawSimpleStencil(width, height, 0, file_name="simpleStencil1.svg")
-            combined_simple_stencil1 = "combined_simple_stencil1.svg"
-            combineStencils(empty_stencil_1, simpleStencil, combined_simple_stencil1)
-            overlayed_pattern_1 = overlayPatternOnStencil(stencil_1_pattern, combined_simple_stencil1, size, 1, pattern_type)
-            simpleStencil = drawSimpleStencil(width, height, height, file_name="simpleStencil2.svg")
-            combined_simple_stencil2 = "combined_simple_stencil2.svg"
-            final_stencil = "thisguy.svg"
-            combineStencils(empty_stencil_2, simpleStencil, final_stencil)
-            combineStencils(final_stencil, overlayed_pattern_1, combined_simple_stencil2)
-            convertSvgToPng(combined_simple_stencil2, size, size, "final_output.png")
+            print("allanspeter")
+            create_simple_pattern_stencil(width, height, size, stencil_1_pattern, empty_stencil_1, empty_stencil_2, pattern_type)
+            print("petersallan")
+        elif pattern_type == "pattern_symmetrical":
+            stencil_1_crop_half = "stencil_1_left_half_crop.svg"
+            paths, attributes = svg2paths(stencil_1_pattern)
+            stencil_1_clipped_paths = crop_svg(paths, DRAWING_SQUARE_SIZE, width=DRAWING_SQUARE_SIZE/2)
+            #rotateSVG(stencil_1_pattern, stencil_1_pattern, 45)
+            if len(stencil_1_clipped_paths) > len(attributes):
+                attributes = attributes * len(stencil_1_clipped_paths)
 
-    else:
-        combined_classic_stencil = "combined_classic_stencil.svg"
-        classic_stencil1 = drawClassicStencil(width, height, 0, file_name="classic_stencil1.svg")
-        classic_stencil2 = drawClassicStencil(width, height, height, file_name="classic_stencil2.svg")
-        final_stencil = "classic_final_stencil.svg"
-        combined_classic_stencil_final = "combined_classic_stencil_final.svg"
-        combineStencils(empty_stencil_1, classic_stencil1, combined_classic_stencil)
-        combineStencils(empty_stencil_2, classic_stencil2, final_stencil)
-        combineStencils(final_stencil, combined_classic_stencil, combined_classic_stencil_final)
+            wsvg(stencil_1_clipped_paths, attributes=attributes, filename=stencil_1_crop_half, dimensions=(DRAWING_SQUARE_SIZE, DRAWING_SQUARE_SIZE))
+            rotateSVG(stencil_1_crop_half, stencil_1_crop_half, -45, width/2, height/2)
+            combined_simple_stencil = create_simple_pattern_stencil(width, height, size, stencil_1_crop_half, empty_stencil_1, empty_stencil_2, pattern_type)
+
+
+        elif pattern_type == "pattern_classic":
+            combined_classic_stencil = "combined_classic_stencil.svg"
+            classic_stencil1 = drawClassicStencil(width, height, 0, file_name="classic_stencil1.svg")
+            classic_stencil2 = drawClassicStencil(width, height, height, file_name="classic_stencil2.svg")
+            final_stencil = "classic_final_stencil.svg"
+            combined_classic_stencil_final = "combined_classic_stencil_final.svg"
+            combineStencils(empty_stencil_1, classic_stencil1, combined_classic_stencil)
+            combineStencils(empty_stencil_2, classic_stencil2, final_stencil)
+            combineStencils(final_stencil, combined_classic_stencil, combined_classic_stencil_final)
 
         # if pattern 1 == symetrical:
             # stencil_1_pattern = getSymetricalPattern(1)
@@ -738,17 +767,9 @@ def savePixmapToCvImage(pixmap):
 
     return cv_image
 
-def mainAlgorithmSvg(img, pattern_type, function):
+def mainAlgorithmSvg(img, pattern_type, function='show'):
 
     match function:
-        case 'create_simple':
-            createFinalHeartCutoutPatternExport(1200, pattern_type)
-
-        case 'create_symmetrical':
-            createFinalHeartCutoutPatternExport(1200, pattern_type)
-
-        case 'create_asymmetrical':
-            createFinalHeartCutoutPatternExport(1200, pattern_type)
 
         case 'show':
             # We start with a filepath to an svg image. But, we want to give createFinalHeartDisplay a CV Image
@@ -758,4 +779,4 @@ def mainAlgorithmSvg(img, pattern_type, function):
             return createFinalHeartDisplay(heartCvImage)
 
         case _:
-            return createFinalHeartCutoutPatternExport(1200, pattern_type, sides= '')
+            return createFinalHeartCutoutPatternExport(1200, pattern_type)

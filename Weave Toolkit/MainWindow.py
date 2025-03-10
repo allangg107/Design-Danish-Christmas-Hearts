@@ -82,7 +82,7 @@ PEN_WIDTH = 3
 FILLED = True
 USER_OUTPUT_SVG_FILENAME = "svg_file.svg"
 USER_PREPROCESSED_PATTERN = "preprocessed_pattern.svg"
-CURRENT_PATTERN_TYPE = "simple"
+CURRENT_PATTERN_TYPE = "pattern_simple"
 
 def calculate_distance(point1, point2):
         return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
@@ -609,11 +609,12 @@ class MainWindow(QMainWindow):
         """)
         # Create actions
         action_new = QAction("New", self)
+        action_new.triggered.connect(lambda: self.clear_canvas())
         action_open = QAction("Open", self)
         action_save = QAction("Save", self)
         action_save.triggered.connect(lambda: self.save_canvas_as_png())
         action_save_svg = QAction("Export SVG", self)
-        action_save_svg.triggered.connect(lambda: self.exportSVG(function='create'))
+        action_save_svg.triggered.connect(lambda: self.exportSVG())
         action_export = QAction("Export", self)
         action_export.triggered.connect(lambda: self.exportHeart())
         action_guide_export = QAction("Export Guide", self)
@@ -649,6 +650,16 @@ class MainWindow(QMainWindow):
 
         return view_menu
 
+    def clear_canvas(self):
+            self.drawing_widget.shapes = []  # Clear all shapes
+            self.drawing_widget.free_form_points = []  # Clear all free form points
+            self.drawing_widget.begin = QPoint()  # Reset begin point
+            self.drawing_widget.end = QPoint()  # Reset end point
+            self.drawing_widget.update()  # Trigger repaint of the drawing widget
+            self.update_backside_image()  # Update the backside image
+            self.setPatternType('pattern_simple')  # Reset pattern type to default
+
+
     def setPatternType(self, pattern):
         global CURRENT_PATTERN_TYPE
         CURRENT_PATTERN_TYPE = pattern
@@ -674,9 +685,9 @@ class MainWindow(QMainWindow):
         action_simple = QAction("Simple", self)
         action_symmetrical = QAction("Symmetrical", self)
         action_asymmetrical = QAction("Asymmetrical", self)
-        action_simple.triggered.connect(lambda: (self.setPatternType('pattern_simple'), self.exportSVG(function='create_simple')))
-        action_symmetrical.triggered.connect(lambda: (self.setPatternType('pattern_symmetrical'), self.exportSVG(function='create_symmetrical')))
-        action_asymmetrical.triggered.connect(lambda: (self.setPatternType('pattern_asymmetrical'), self.exportSVG(function='create_asymmetrical')))
+        action_simple.triggered.connect(lambda: (self.setPatternType('pattern_simple')))
+        action_symmetrical.triggered.connect(lambda: (self.setPatternType('pattern_symmetrical')))
+        action_asymmetrical.triggered.connect(lambda: (self.setPatternType('pattern_asymmetrical')))
 
         # Add actions to the menu
         weaving_pattern_menu.addAction(action_simple)
@@ -964,30 +975,31 @@ class MainWindow(QMainWindow):
             shape_attr_list.append(updated_attr)
 
         file_with_attributes = "svg_file_2.svg"
-        try:
+
+        print("paths: ", paths)
+        if paths == []:
+            self.setPatternType("pattern_classic")
+            #mainAlgorithmSvg(file_name, "pattern_classic", function= ' ')
+        else:
             wsvg(paths,
                 attributes=shape_attr_list,
                 filename=file_with_attributes,
                 dimensions=(width, height))
 
         #print("original attributes: ", shape_attr_list)
-
-            print("shape types: ", shape_types)
-
             pre_process_user_input(file_with_attributes, shape_types, width, height, square_size)
 
             # self.shape_attributes = shape_attr_list
             # print("updated attributes: ", shape_attr_list)
-        except:
-            mainAlgorithmSvg(file_name, CURRENT_PATTERN_TYPE, ' ')
+
 
     def exportGuide(self):
         guide_window = GuideWindow()
         guide_window.exec()
 
-    def exportSVG(self, function='create_symmetrical'):
+    def exportSVG(self):
         svg_file_path = USER_OUTPUT_SVG_FILENAME
-        mainAlgorithmSvg(svg_file_path, CURRENT_PATTERN_TYPE, function)
+        mainAlgorithmSvg(svg_file_path, CURRENT_PATTERN_TYPE, function=' ')
 
     def pixmapToCvImage(self):
         pixmap = QPixmap(self.drawing_widget.size())  # Create pixmap of the same size
@@ -1016,6 +1028,14 @@ class MainWindow(QMainWindow):
         cv_img_rgb = cv.cvtColor(cv_img, cv.COLOR_BGR2RGB)  # Convert BGR to RGB
         q_image = QImage(cv_img_rgb.data, width, height, bytes_per_line, QImage.Format.Format_RGB888)
         return QPixmap.fromImage(q_image)
+
+import subprocess
+
+# Path to the batch script
+batch_script_path = "clear_svg_files.bat"
+
+# Run the batch script
+subprocess.run(batch_script_path, shell=True)
 
 app = QApplication(sys.argv)
 
