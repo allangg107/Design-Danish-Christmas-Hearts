@@ -13,6 +13,7 @@ import numpy as np
 import math
 import tempfile
 import svgwrite
+import copy
 from svgwrite.container import Group
 from collections import namedtuple
 
@@ -368,6 +369,44 @@ def resizeSVG(input_svg, output_svg, target_width):
          filename=output_svg,
          dimensions=(int(target_width), int(target_height)),
          svg_attributes={'viewBox': f'0 0 {int(target_width)} {int(target_height)}'})
+    
+
+def mirrorSVGOverYAxis(input_svg, output_svg, width, height):
+    paths, attributes = svg2paths(input_svg)
+    
+    # Mirror each path over the Y-axis by negating the x coordinates
+    mirrored_paths = []
+    for path in paths:
+        mirrored_segments = []
+        for segment in path:
+            if isinstance(segment, Line):
+                mirrored_segments.append(
+                    Line(
+                        complex(width - segment.start.real, segment.start.imag),
+                        complex(width - segment.end.real, segment.end.imag)
+                    )
+                )
+            elif isinstance(segment, CubicBezier):
+                mirrored_segments.append(
+                    CubicBezier(
+                        complex(width - segment.start.real, segment.start.imag),
+                        complex(width - segment.control1.real, segment.control1.imag),
+                        complex(width - segment.control2.real, segment.control2.imag),
+                        complex(width - segment.end.real, segment.end.imag)
+                    )
+                )
+            elif isinstance(segment, QuadraticBezier):
+                mirrored_segments.append(
+                    QuadraticBezier(
+                        complex(width - segment.start.real, segment.start.imag),
+                        complex(width - segment.control.real, segment.control.imag),
+                        complex(width - segment.end.real, segment.end.imag)
+                    )
+                )
+        mirrored_paths.append(Path(*mirrored_segments))
+    
+    # Write the mirrored paths to the output file
+    wsvg(mirrored_paths, attributes=attributes, filename=output_svg, dimensions=(width, height))
 
 def createFinalHeartDisplay(image):
     line_color = (0, 0, 0)  # Black color
@@ -618,34 +657,302 @@ def drawClassicStencil(width, height, starting_y, margin_x=31, line_color='black
 
     return file_name
 
-def drawSymmetricStencil(width, height, starting_y, margin_x=MARGIN, filename="symmetric_stencil.svg"):
-    dwg = svgwrite.Drawing(filename, size=(width, height + starting_y))
+def combine_overlapping_paths(paths, attrs, tolerance=1e-6):
+    """
+    Combine overlapping paths into single shapes using Shapely.
+    
+    Args:
+        paths: List of svgpathtools Path objects
+        attrs: List of attribute dictionaries for each path
+        tolerance: Tolerance for determining if points are close enough to be considered overlapping
+    
+    Returns:
+        Tuple of (combined_paths, combined_attrs) 
+    """
+    if not paths:
+        return [], []
+    
+    # Convert svgpathtools paths to shapely geometries
+    shapely_polygons = []
+    path_to_attr_map = {}
+    
+    for i, path in enumerate(paths):
+        # Sample points along the path to create a polygon
+        points = []
+        for segment in path:
+            for t in np.linspace(0, 1, 10):  # Sample 10 points per segment
+                pt = segment.point(t)
+                points.append((pt.real, pt.imag))
+        
+        # Ensure we have the endpoint as well
+        last_pt = path[-1].point(1.0)
+        points.append((last_pt.real, last_pt.imag))
+        
+        # Close the path if it's not already closed
+        if len(points) > 2 and distance(points[0], points[-1]) > tolerance:
+            points.append(points[0])
+        
+        if len(points) >= 3:  # Need at least 3 points to form a polygon
+            try:
+                poly = Polygon(points)
+                if poly.is_valid:
+                    shapely_polygons.append(poly)
+                    path_to_attr_map[poly] = attrs[i]
+            except Exception as e:
+                print(f"Error creating polygon: {e}")
+    
+    if not shapely_polygons:
+        return paths, attrs
+    
+    # Merge overlapping polygons
+    result_polygons = []
+    result_attrs = []
+    processed = set()
+    
+    for i, poly1 in enumerate(shapely_polygons):
+        if i in processed:
+            continue
+        
+        current_poly = poly1
+        current_attr = path_to_attr_map[poly1]
+        processed.add(i)
+        
+        # Check for overlaps with other polygons
+        for j, poly2 in enumerate(shapely_polygons):
+            if j in processed:
+                continue
+                
+            if current_poly.intersects(poly2):
+                try:
+                    # Merge the polygons
+                    current_poly = current_poly.union(poly2)
+                    # Keep attributes of the first polygon
+                    processed.add(j)
+                except Exception as e:
+                    print(f"Error merging polygons: {e}")
+        
+        result_polygons.append(current_poly)
+        result_attrs.append(current_attr)
+    
+    # Convert back to svgpathtools paths
+    combined_paths = []
+    combined_attrs = []
+    
+    for poly, attr in zip(result_polygons, result_attrs):
+        try:
+            if isinstance(poly, Polygon):
+                # Extract exterior coordinates
+                coords = list(poly.exterior.coords)
+                
+                # Create line segments for the outline
+                path_segments = []
+                for i in range(len(coords) - 1):
+                    start = complex(coords[i][0], coords[i][1])
+                    end = complex(coords[i+1][0], coords[i+1][1])
+                    path_segments.append(Line(start, end))
+                
+                combined_paths.append(Path(*path_segments))
+                combined_attrs.append(attr)
+                
+            elif isinstance(poly, MultiPolygon):
+                # Handle each polygon in the multipolygon
+                for geom in poly.geoms:
+                    coords = list(geom.exterior.coords)
+                    path_segments = []
+                    for i in range(len(coords) - 1):
+                        start = complex(coords[i][0], coords[i][1])
+                        end = complex(coords[i+1][0], coords[i+1][1])
+                        path_segments.append(Line(start, end))
+                    
+                    combined_paths.append(Path(*path_segments))
+                    combined_attrs.append(attr)
+        except Exception as e:
+            print(f"Error converting polygon to path: {e}")
+    
+    return combined_paths, combined_attrs
+
+def distance(p1, p2):
+    """Calculate Euclidean distance between two points."""
+    return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
+def grabLeftMostPointOfPaths(paths):
+    """Grab the left most point from a path or a list of paths"""
+    min_x = float('inf')
+    min_point = None
+
+    # Convert single path to a list for consistent processing
+    if not isinstance(paths, list):
+        paths = [paths]
+
+    for path in paths:
+        for segment in path:
+            # Sample points along the segment
+            for t in np.linspace(0, 1, 20):  # Sample 20 points per segment
+                pt = segment.point(t)
+                if pt.real < min_x:
+                    min_x = pt.real
+                    min_point = pt
+
+    return min_point
+
+def grabRightMostPointOfPaths(paths):
+    """Grab the right most point from a path or a list of paths"""
+    max_x = float('-inf')
+    max_point = None
+
+    # Convert single path to a list for consistent processing
+    if not isinstance(paths, list):
+        paths = [paths]
+
+    for path in paths:
+        for segment in path:
+            # Sample points along the segment
+            for t in np.linspace(0, 1, 20):  # Sample 20 points per segment
+                pt = segment.point(t)
+                if pt.real > max_x:
+                    max_x = pt.real
+                    max_point = pt
+
+    return max_point
+
+def drawSymmetricLines(combined_stencil, stencil_pattern, width, height, starting_y, margin_x=MARGIN, filename="symmetric_lines.svg"):
+    dwg = svgwrite.Drawing("test.svg", size=(width, height + starting_y))
 
     square_size = (height // 1.5) - margin_x
     margin_y = margin_x + starting_y
-    extension = 20  # Amount to extend the lines
 
+    combined_paths, combined_attrs = svg2paths(combined_stencil)
+    stencil_paths, stencil_attrs = svg2paths(stencil_pattern)
 
-# def determinePatternType(pattern_type):
-#     if pattern_type == 'pattern_simple':
-#         return 'simple'
-#     elif pattern_type == 'pattern_symmetrical':
-#         return 'symmetrical'
-#     elif pattern_type == 'pattern_asymmetrical':
-#         return 'asymmetrical'
+    # Convert paths to strings for comparison
+    combined_path_strings = [path.d() for path in combined_paths]
+    stencil_path_strings = [path.d() for path in stencil_paths]
+    
+    # Find paths that are in combined_paths but not in stencil_paths
+    pattern_paths = []
+    pattern_attrs = []
+    
+    for i, path_str in enumerate(combined_path_strings):
+        if path_str not in stencil_path_strings:
+            pattern_paths.append(combined_paths[i])
+            pattern_attrs.append(combined_attrs[i])
+    
+    print(f"Combined paths: {len(combined_paths)}")
+    print(f"Stencil paths: {len(stencil_paths)}")
+    print(f"Pattern paths (difference): {len(pattern_paths)}")
+
+    print("pattern: ", pattern_paths)
+
+    # wsvg(pattern_paths, attributes=pattern_attrs, filename=filename, dimensions=(width, width))
+
+    # combine overlapping paths
+    combined_paths, combined_attrs = combine_overlapping_paths(pattern_paths, pattern_attrs)
+    wsvg(combined_paths, attributes=combined_attrs, filename="combined_shapes.svg", dimensions=(width, width))
+    
+    combined_paths_w_lines = copy.deepcopy(combined_paths)
+    combined_attrs_w_lines = copy.deepcopy(combined_attrs)
+
+    # draw a line from the bottom most point to the left edge of the stencil and draw a line from the top most point to the right edge of the stencil
+    for path, attr in zip(combined_paths, combined_attrs):
+        # Extract the start and end points of the path
+        # Find all points in the path
+        points = []
+        for segment in path:
+            # Sample points along the segment
+            for t in np.linspace(0, 1, 20):  # Sample 20 points per segment
+                pt = segment.point(t)
+                points.append(pt)
+            # Make sure to include the endpoint
+            points.append(segment.end)
+
+        # Find the point with minimum y-coordinate (rightmost in case of ties)
+        min_y = float('inf')
+        min_y_point = None
+        for pt in points:
+            if pt.imag < min_y or (pt.imag == min_y and pt.real > (min_y_point.real if min_y_point else -float('inf'))):
+                min_y = pt.imag
+                min_y_point = pt
+
+        # Find the point with maximum y-coordinate (rightmost in case of ties)
+        max_y = float('-inf')
+        max_y_point = None
+        for pt in points:
+            if pt.imag > max_y or (pt.imag == max_y and pt.real > (max_y_point.real if max_y_point else -float('inf'))):
+                max_y = pt.imag
+                max_y_point = pt
+
+        # Use these points for drawing the lines
+        start = min_y_point
+        end = max_y_point
+        extension = 20
+        # left top line start
+        left_top_line_start = (margin_x + square_size // 2, margin_y)
+
+        # Create line from the bottom most point to the left edge of the stencil
+        left_line = Line(complex(left_top_line_start[0] - extension, start.imag), complex(start.real, start.imag))
+        combined_paths_w_lines.append(Path(left_line))
+        combined_attrs_w_lines.append({'stroke': 'red', 'stroke-width': 1, 'fill': 'none'})
+        
+        right_line = Line(complex(end.real, end.imag), complex(left_top_line_start[0] + square_size, end.imag))
+        combined_paths_w_lines.append(Path(right_line))
+        combined_attrs_w_lines.append({'stroke': 'red', 'stroke-width': 1, 'fill': 'none'})
+
+    combined_shapes_w_lines = "combined_shapes_w_lines.svg"
+    wsvg(combined_paths_w_lines, attributes=combined_attrs_w_lines, filename=combined_shapes_w_lines, dimensions=(width, width))
+
+    # mirror the lines over the y-axis
+    mirrored_lines = "mirrored_lines.svg"
+    mirrorSVGOverYAxis(combined_shapes_w_lines, mirrored_lines, width, height)
+
+    paths, _ = svg2paths(combined_shapes_w_lines)
+    mirrored_paths, _ = svg2paths(mirrored_lines)
+
+    left_point = grabLeftMostPointOfPaths(mirrored_paths)
+    right_point = grabRightMostPointOfPaths(paths)
+    # Calculate the distance between the leftmost and rightmost points
+    distance_between = abs(left_point.real - right_point.real)
+
+    fixed_rounding_mirrored_lines = "fixed_mirrored_lines.svg"
+    translateSVG(mirrored_lines, fixed_rounding_mirrored_lines, -distance_between, 0)
+
+    # translate the mirrored lines to the correct position
+    translated_mirrored_lines = "translated_mirrored_lines.svg"
+    translateSVG(fixed_rounding_mirrored_lines, translated_mirrored_lines, 0, height)
+    
+    # combine the mirrored lines with the original mirrored pattern
+    combined_mirrored_lines = "combined_mirrored_lines.svg"
+    combineStencils(translated_mirrored_lines, combined_shapes_w_lines, combined_mirrored_lines)
+
+    # combine the combined_mirrored_lines with the stencil pattern
+    combined_final = "combined_final.svg"
+    combineStencils(combined_mirrored_lines, stencil_pattern, combined_final)
 
 
 def create_simple_pattern_stencil(width, height, size, stencil_1_pattern, empty_stencil_1, empty_stencil_2, pattern_type):
-                simpleStencil = drawSimpleStencil(width, height, 0, file_name="simpleStencil1.svg")
-                combined_simple_stencil1 = "combined_simple_stencil1.svg"
-                combineStencils(empty_stencil_1, simpleStencil, combined_simple_stencil1)
-                overlayed_pattern_1 = overlayPatternOnStencil(stencil_1_pattern, combined_simple_stencil1, size, 1, pattern_type)
-                simpleStencil = drawSimpleStencil(width, height, height, file_name="simpleStencil2.svg")
-                combined_simple_stencil2 = "combined_simple_stencil2.svg"
-                final_stencil = "thisguy.svg"
-                combineStencils(empty_stencil_2, simpleStencil, final_stencil)
-                combineStencils(final_stencil, overlayed_pattern_1, combined_simple_stencil2)
-                return combined_simple_stencil2
+                # Create both simple stencils
+                simpleStencil1 = drawSimpleStencil(width, height, 0, file_name="simpleStencil1.svg")
+                simpleStencil2 = drawSimpleStencil(width, height, height, file_name="simpleStencil2.svg")
+
+                # Combine all stencils first
+                temp1 = "temp1.svg"
+                temp2 = "temp2.svg"
+                combined_stencils = "combined_stencils.svg"
+
+                # Combine empty stencil 1 with simple stencil 1
+                combineStencils(empty_stencil_1, simpleStencil1, temp1)
+                # Combine empty stencil 2 with simple stencil 2
+                combineStencils(empty_stencil_2, simpleStencil2, temp2)
+                # Combine both results
+                combineStencils(temp1, temp2, combined_stencils)
+
+                # rotate the pattern 90 degrees counter-clockwise
+                rotated_path_name = "fixed_pattern_rotation.svg"
+                rotateSVG(stencil_1_pattern, rotated_path_name, -90)
+
+                # Now overlay the pattern on the combined stencil
+                overlayed_pattern = overlayPatternOnStencil(rotated_path_name, combined_stencils, size, 1, pattern_type)
+
+                return overlayed_pattern, combined_stencils
 
 def createFinalHeartCutoutPatternExport(size, pattern_type, line_start=0, sides='onesided', line_color='black', background_color='white'):
     width = size
@@ -695,9 +1002,11 @@ def createFinalHeartCutoutPatternExport(size, pattern_type, line_start=0, sides=
             rotateSVG(translated_path_name2, re_rotated_path_name, -45)
             
             # Step 6: Create the pattern stencil
-            combined_simple_stencil = create_simple_pattern_stencil(width, height, size, re_rotated_path_name, 
+            combined_simple_stencil_w_patt, combined_simple_stencil_no_patt = create_simple_pattern_stencil(width, height, size, re_rotated_path_name, 
                                                                     empty_stencil_1, empty_stencil_2, pattern_type)
-
+            
+            # Step 7: Draw lines from shapes to the edges of the stencil
+            draw_symmetric_lines = drawSymmetricLines(combined_simple_stencil_w_patt, combined_simple_stencil_no_patt, width, height, 0)
 
         elif pattern_type == "pattern_classic":
             print("Creating CLASSIC pattern")
@@ -710,13 +1019,7 @@ def createFinalHeartCutoutPatternExport(size, pattern_type, line_start=0, sides=
             combineStencils(empty_stencil_2, classic_stencil2, final_stencil)
             combineStencils(final_stencil, combined_classic_stencil, combined_classic_stencil_final)
 
-        # if pattern 1 == symetrical:
-            # stencil_1_pattern = getSymetricalPattern(1)
-            # stencil_2_pattern = getSymetricalPattern(2)
-        # elif asymetrical:
-            # stencil_1_pattern = getAsymtricalPattern(1)
-            # stencil_2_pattern = getAsymtricalPattern(2)
-        # else:
+        
 
 
         #overlayed_pattern_1 = overlayPatternOnStencil(stencil_1_pattern, empty_stencil_1, size, 1, pattern_type)
