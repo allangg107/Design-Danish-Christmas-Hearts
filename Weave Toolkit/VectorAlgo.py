@@ -841,7 +841,7 @@ def drawSymmetricLines(combined_stencil, stencil_pattern, width, height, startin
     print(f"Stencil paths: {len(stencil_paths)}")
     print(f"Pattern paths (difference): {len(pattern_paths)}")
 
-    print("pattern: ", pattern_paths)
+    # print("pattern: ", pattern_paths)
 
     # wsvg(pattern_paths, attributes=pattern_attrs, filename=filename, dimensions=(width, width))
 
@@ -897,14 +897,81 @@ def drawSymmetricLines(combined_stencil, stencil_pattern, width, height, startin
         combined_paths_w_lines.append(Path(right_line))
         combined_attrs_w_lines.append({'stroke': 'red', 'stroke-width': 1, 'fill': 'none'})
 
-    combined_shapes_w_lines = "combined_shapes_w_lines.svg"
-    wsvg(combined_paths_w_lines, attributes=combined_attrs_w_lines, filename=combined_shapes_w_lines, dimensions=(width, width))
+    # combined_shapes_w_lines = "combined_shapes_w_lines.svg"
+    wsvg(combined_paths_w_lines, attributes=combined_attrs_w_lines, filename=filename, dimensions=(width, width))
 
+    return filename
+
+
+def create_simple_pattern_stencil(width, height, size, stencil_1_pattern, empty_stencil_1, empty_stencil_2, pattern_type):
+    # Create both simple stencils
+    simpleStencil1 = drawSimpleStencil(width, height, 0, file_name="simpleStencil1.svg")
+    simpleStencil2 = drawSimpleStencil(width, height, height, file_name="simpleStencil2.svg")
+
+    # Combine all stencils first
+    temp1 = "temp1.svg"
+    temp2 = "temp2.svg"
+    combined_stencils = "combined_stencils.svg"
+
+    # Combine empty stencil 1 with simple stencil 1
+    combineStencils(empty_stencil_1, simpleStencil1, temp1)
+
+    # Combine empty stencil 2 with simple stencil 2
+    combineStencils(empty_stencil_2, simpleStencil2, temp2)
+
+    # Combine both results
+    combineStencils(temp1, temp2, combined_stencils)
+
+    # rotate the pattern 90 degrees counter-clockwise
+    rotated_path_name = "fixed_pattern_rotation.svg"
+    rotateSVG(stencil_1_pattern, rotated_path_name, -90)
+
+    # Now overlay the pattern on the combined stencil
+    overlayed_pattern = overlayPatternOnStencil(rotated_path_name, combined_stencils, size, 1, pattern_type)
+    return overlayed_pattern, combined_stencils
+
+def cropTopHalf(translated_path_name, file_name = "stencil_1_top_half_crop.svg"):
+    # Step 3: Crop to only the top half of the SVG
+        paths, attributes = svg2paths(translated_path_name)
+        stencil_1_clipped_paths = crop_svg(paths, 500, 500 // 2)
+        
+        # Adjust attributes if needed
+        if len(stencil_1_clipped_paths) > len(attributes):
+            attributes = attributes * len(stencil_1_clipped_paths)
+        
+        # Save the cropped half
+        wsvg(stencil_1_clipped_paths, attributes=attributes, filename=file_name, 
+                dimensions=(DRAWING_SQUARE_SIZE, DRAWING_SQUARE_SIZE))
+        
+        return file_name
+
+def postCrop(stencil_1_crop_half, empty_stencil_1, empty_stencil_2, width, height, size, pattern_type, cropped_size, file_name="combined_shapes_w_lines.svg"):
+    # Step 4: Translate back to original position
+    translated_path_name2 = "translated_pattern_step2.svg"
+    translateSVG(stencil_1_crop_half, translated_path_name2, -cropped_size, -cropped_size)
+    
+    # Step 5: Rotate counter-clockwise 45 degrees
+    re_rotated_path_name = "re_rotated_pattern_step.svg"
+    rotateSVG(translated_path_name2, re_rotated_path_name, -45)
+
+    # Step 6: Create the pattern stencil
+    combined_simple_stencil_w_patt, combined_simple_stencil_no_patt = create_simple_pattern_stencil(width, height, size, re_rotated_path_name, 
+                                                            empty_stencil_1, empty_stencil_2, pattern_type)
+    
+    # Step 7: Draw lines from shapes to the edges of the stencil
+    draw_symmetric_lines = drawSymmetricLines(combined_simple_stencil_w_patt, combined_simple_stencil_no_patt, width, height, 0, filename=file_name)
+
+    return draw_symmetric_lines, combined_simple_stencil_no_patt
+
+def mirrorLines(draw_symmetric_lines, combined_simple_stencil_no_patt, width, height, pattern_type, draw_symmetric_lines_bottom=None):
     # mirror the lines over the y-axis
     mirrored_lines = "mirrored_lines.svg"
-    mirrorSVGOverYAxis(combined_shapes_w_lines, mirrored_lines, width, height)
+    if pattern_type == "pattern_symmetrical":
+        mirrorSVGOverYAxis(draw_symmetric_lines, mirrored_lines, width, height)
+    elif pattern_type == "pattern_asymmetrical":
+        mirrorSVGOverYAxis(draw_symmetric_lines_bottom, mirrored_lines, width, height)
 
-    paths, _ = svg2paths(combined_shapes_w_lines)
+    paths, _ = svg2paths(draw_symmetric_lines)
     mirrored_paths, _ = svg2paths(mirrored_lines)
 
     left_point = grabLeftMostPointOfPaths(mirrored_paths)
@@ -921,38 +988,47 @@ def drawSymmetricLines(combined_stencil, stencil_pattern, width, height, startin
     
     # combine the mirrored lines with the original mirrored pattern
     combined_mirrored_lines = "combined_mirrored_lines.svg"
-    combineStencils(translated_mirrored_lines, combined_shapes_w_lines, combined_mirrored_lines)
+    combineStencils(translated_mirrored_lines, draw_symmetric_lines, combined_mirrored_lines)
 
     # combine the combined_mirrored_lines with the stencil pattern
     combined_final = "combined_final.svg"
-    combineStencils(combined_mirrored_lines, stencil_pattern, combined_final)
+    combineStencils(combined_mirrored_lines, combined_simple_stencil_no_patt, combined_final)
 
+    print("saved final stencil")
 
-def create_simple_pattern_stencil(width, height, size, stencil_1_pattern, empty_stencil_1, empty_stencil_2, pattern_type):
-                # Create both simple stencils
-                simpleStencil1 = drawSimpleStencil(width, height, 0, file_name="simpleStencil1.svg")
-                simpleStencil2 = drawSimpleStencil(width, height, height, file_name="simpleStencil2.svg")
+def create_symmetrical_pattern_stencil(stencil_1_pattern, width, height, size, empty_stencil_1, empty_stencil_2, pattern_type):
+    # Step 1: Rotate the pattern 45 degrees clockwise
+    rotated_path_name = "rotated_pattern_step.svg"
+    rotateSVG(stencil_1_pattern, rotated_path_name, 45)
+    
+    # Step 2: Translate to correct position after rotation
+    cropped_size = int((500 - DRAWING_SQUARE_SIZE) // 2)
+    translated_path_name = "translated_pattern_step.svg"
+    translateSVG(rotated_path_name, translated_path_name, cropped_size, cropped_size)
+    
+    stencil_1_crop_half = cropTopHalf(translated_path_name)
+    
+    draw_symmetric_lines, combined_simple_stencil_no_patt = postCrop(stencil_1_crop_half, empty_stencil_1, empty_stencil_2, width, height, size, pattern_type, cropped_size)
 
-                # Combine all stencils first
-                temp1 = "temp1.svg"
-                temp2 = "temp2.svg"
-                combined_stencils = "combined_stencils.svg"
+    stencil_1_crop_bottom_half = ""
+    if pattern_type == "pattern_asymmetrical":
+        print("here")
+        translated_path_name_2 = "translated_pattern_step_2.svg"
+        translateSVG(translated_path_name, translated_path_name_2, 0, -500 // 2)
 
-                # Combine empty stencil 1 with simple stencil 1
-                combineStencils(empty_stencil_1, simpleStencil1, temp1)
-                # Combine empty stencil 2 with simple stencil 2
-                combineStencils(empty_stencil_2, simpleStencil2, temp2)
-                # Combine both results
-                combineStencils(temp1, temp2, combined_stencils)
+        stencil_1_crop_bottom_half = cropTopHalf(translated_path_name_2, "crop_top_half_stencil.svg")
 
-                # rotate the pattern 90 degrees counter-clockwise
-                rotated_path_name = "fixed_pattern_rotation.svg"
-                rotateSVG(stencil_1_pattern, rotated_path_name, -90)
+        translated_path_name_3 = "translated_pattern_step3.svg"
+        translateSVG(stencil_1_crop_bottom_half, translated_path_name_3, 0, 500 // 2)
 
-                # Now overlay the pattern on the combined stencil
-                overlayed_pattern = overlayPatternOnStencil(rotated_path_name, combined_stencils, size, 1, pattern_type)
+        file_name = "combined_shapes_w_lines_asym.svg"
 
-                return overlayed_pattern, combined_stencils
+        draw_symmetric_lines_bottom, _ = postCrop(translated_path_name_3, empty_stencil_1, empty_stencil_2, width, height, size, pattern_type, cropped_size, file_name)        
+
+        return draw_symmetric_lines, combined_simple_stencil_no_patt, draw_symmetric_lines_bottom
+
+    print("here2")
+    return draw_symmetric_lines, combined_simple_stencil_no_patt
 
 def createFinalHeartCutoutPatternExport(size, pattern_type, line_start=0, sides='onesided', line_color='black', background_color='white'):
     width = size
@@ -971,42 +1047,20 @@ def createFinalHeartCutoutPatternExport(size, pattern_type, line_start=0, sides=
         
         elif pattern_type == "pattern_symmetrical":
             print("Creating SYMMETRICAL pattern")
-            # Step 1: Rotate the pattern 45 degrees clockwise
-            rotated_path_name = "rotated_pattern_step.svg"
-            rotateSVG(stencil_1_pattern, rotated_path_name, 45)
             
-            # Step 2: Translate to correct position after rotation
-            cropped_size = int((500 - DRAWING_SQUARE_SIZE) // 2)
-            translated_path_name = "translated_pattern_step.svg"
-            translateSVG(rotated_path_name, translated_path_name, cropped_size, cropped_size)
+            draw_symmetric_lines, combined_simple_stencil_no_patt = create_symmetrical_pattern_stencil(stencil_1_pattern, width, height, size, empty_stencil_1, empty_stencil_2, pattern_type)
+
+            # mirror the lines over the y-axis
+            mirrorLines(draw_symmetric_lines, combined_simple_stencil_no_patt, width, height, pattern_type)
             
-            # Step 3: Crop to only the top half of the SVG
-            paths, attributes = svg2paths(translated_path_name)
-            stencil_1_clipped_paths = crop_svg(paths, 500, 500 // 2)
+        
+        elif pattern_type == "pattern_asymmetrical":
+            print("Creating A_SYMMETRICAL pattern")
             
-            # Adjust attributes if needed
-            if len(stencil_1_clipped_paths) > len(attributes):
-                attributes = attributes * len(stencil_1_clipped_paths)
-            
-            # Save the cropped half
-            stencil_1_crop_half = "stencil_1_top_half_crop.svg"
-            wsvg(stencil_1_clipped_paths, attributes=attributes, filename=stencil_1_crop_half, 
-                    dimensions=(DRAWING_SQUARE_SIZE, DRAWING_SQUARE_SIZE))
-            
-            # Step 4: Translate back to original position
-            translated_path_name2 = "translated_pattern_step2.svg"
-            translateSVG(stencil_1_crop_half, translated_path_name2, -cropped_size, -cropped_size)
-            
-            # Step 5: Rotate counter-clockwise 45 degrees
-            re_rotated_path_name = "re_rotated_pattern_step.svg"
-            rotateSVG(translated_path_name2, re_rotated_path_name, -45)
-            
-            # Step 6: Create the pattern stencil
-            combined_simple_stencil_w_patt, combined_simple_stencil_no_patt = create_simple_pattern_stencil(width, height, size, re_rotated_path_name, 
-                                                                    empty_stencil_1, empty_stencil_2, pattern_type)
-            
-            # Step 7: Draw lines from shapes to the edges of the stencil
-            draw_symmetric_lines = drawSymmetricLines(combined_simple_stencil_w_patt, combined_simple_stencil_no_patt, width, height, 0)
+            draw_symmetric_lines, combined_simple_stencil_no_patt, draw_symmetric_lines_bottom = create_symmetrical_pattern_stencil(stencil_1_pattern, width, height, size, empty_stencil_1, empty_stencil_2, pattern_type)
+
+            # mirror the lines over the y-axis
+            mirrorLines(draw_symmetric_lines, combined_simple_stencil_no_patt, width, height, pattern_type, draw_symmetric_lines_bottom)
 
         elif pattern_type == "pattern_classic":
             print("Creating CLASSIC pattern")
@@ -1018,9 +1072,6 @@ def createFinalHeartCutoutPatternExport(size, pattern_type, line_start=0, sides=
             combineStencils(empty_stencil_1, classic_stencil1, combined_classic_stencil)
             combineStencils(empty_stencil_2, classic_stencil2, final_stencil)
             combineStencils(final_stencil, combined_classic_stencil, combined_classic_stencil_final)
-
-        
-
 
         #overlayed_pattern_1 = overlayPatternOnStencil(stencil_1_pattern, empty_stencil_1, size, 1, pattern_type)
         # overlayed_pattern_2 = overlayPatternOnStencil(stencil_2_pattern, empty_stencil_2, size, 2, pattern_type)
