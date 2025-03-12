@@ -21,6 +21,10 @@ from ShapeMode import (
     ShapeMode
 )
 
+from PatternType import (
+    PatternType
+)
+
 # VectorAlgo will be used when the user presses the "Update SVG" button
 
 # The algorithm will be given a image, of SVG type, of the desired pattern as input and return 2 things:
@@ -29,18 +33,22 @@ from ShapeMode import (
 # 2. Assembly instructions to guide the user in weaving the output image
 
 MARGIN = 31
+FILE_STEP_COUNTER = 1
 
 
 def pre_process_user_input(original_pattern, shape_types, width, height, square_size):
+    global FILE_STEP_COUNTER
     global DRAWING_SQUARE_SIZE
     DRAWING_SQUARE_SIZE = square_size
 
-    rotated_path_name = "rotated_pattern_step.svg"
+    rotated_path_name = f"{FILE_STEP_COUNTER}_rotated_pattern_step.svg"
+    FILE_STEP_COUNTER += 1
     rotateSVG(original_pattern, rotated_path_name, 45)
 
     # crop to the designated drawing space
     cropped_size = int((width - square_size) // 2)
-    translated_path_name = "translated_pattern_step.svg"
+    translated_path_name = f"{FILE_STEP_COUNTER}_translated_pattern_step.svg"
+    FILE_STEP_COUNTER += 1
     translateSVG(rotated_path_name, translated_path_name, -cropped_size, -cropped_size)
 
     paths, attributes = svg2paths(translated_path_name)
@@ -127,6 +135,7 @@ def close_line_with_corners(coords, width, height, tol=1e-6):
     new_coords.append(first)
     return new_coords
 
+
 def clip_path_to_boundary(path, boundary, width, height, num_samples=20):
     """
     Clips a given path to the boundary using Shapely geometric operations.
@@ -195,7 +204,6 @@ def clip_path_to_boundary(path, boundary, width, height, num_samples=20):
         return None
 
 
-
 def crop_svg(paths, width, height):
     """
     Crops all paths to fit within the given square_size.
@@ -256,6 +264,7 @@ def translateSVG(input_svg, output_svg, x_shift, y_shift):
          attributes=attributes,
          filename=output_svg,
          dimensions=(height, width))
+
 
 def rotateSVG(input_svg, output_svg, angle, center_x=None, center_y=None):
     paths, attributes = svg2paths(input_svg)
@@ -319,6 +328,7 @@ def rotateSVG(input_svg, output_svg, angle, center_x=None, center_y=None):
          filename=output_svg,
          dimensions=(center_x*2, center_y*2))
 
+
 def resizeSVG(input_svg, output_svg, target_width):
     paths, attributes = svg2paths(input_svg)
 
@@ -368,8 +378,8 @@ def resizeSVG(input_svg, output_svg, target_width):
          attributes=attributes,
          filename=output_svg,
          dimensions=(int(target_width), int(target_height)),
-         svg_attributes={'viewBox': f'0 0 {int(target_width)} {int(target_height)}'})
-    
+         svg_attributes={'viewBox': f'0 0 {int(target_width)} {int(target_height)}'})    
+
 
 def mirrorSVGOverYAxis(input_svg, output_svg, width, height):
     paths, attributes = svg2paths(input_svg)
@@ -407,6 +417,7 @@ def mirrorSVGOverYAxis(input_svg, output_svg, width, height):
     
     # Write the mirrored paths to the output file
     wsvg(mirrored_paths, attributes=attributes, filename=output_svg, dimensions=(width, height))
+
 
 def createFinalHeartDisplay(image):
     line_color = (0, 0, 0)  # Black color
@@ -462,6 +473,7 @@ def createFinalHeartDisplay(image):
 
     return reverse_rotated_mask
 
+
 def rotateImage(matrix, angle=-45):
     height, width = matrix.shape[:2]
 
@@ -484,6 +496,7 @@ def rotateImage(matrix, angle=-45):
     rotated_matrix = cv.warpAffine(matrix, rotation_matrix, (new_width, new_height), borderValue=(255, 255, 255))
 
     return rotated_matrix
+
 
 def drawEmptyStencil(width, height, starting_y, margin_x=MARGIN, line_color='black', file_name="allan is a miracle.svg"):
     dwg = svgwrite.Drawing(file_name, size=(width,height+starting_y))
@@ -530,6 +543,7 @@ def drawEmptyStencil(width, height, starting_y, margin_x=MARGIN, line_color='bla
 
     return file_name
 
+
 def combineStencils(first_stencil, second_stencil, filename='combined.svg'):
     paths1, attributes1 = svg2paths(first_stencil)
     paths2, attributes2 = svg2paths(second_stencil)
@@ -551,8 +565,12 @@ def getPattern(original_pattern):
         case _:
             return 'error'
 
+
 def overlayDrawingOnStencil(stencil_file, user_drawing_file, size, square_size, margin_x=MARGIN, margin_y=0, filename='combined_output.svg'):
-        translated_user_path = "translated_for_overlay.svg"
+        global FILE_STEP_COUNTER
+        
+        translated_user_path = f"{FILE_STEP_COUNTER}_translated_for_overlay.svg"
+        FILE_STEP_COUNTER += 1
         translateSVG(user_drawing_file, translated_user_path, margin_x + square_size // 2, margin_y + (margin_x * 2))
 
         paths1, attributes1 = svg2paths(stencil_file)
@@ -579,19 +597,25 @@ def overlayDrawingOnStencil(stencil_file, user_drawing_file, size, square_size, 
         dwg.save()
         return filename
 
+
 def overlayPatternOnStencil(pattern, stencil, size, stencil_number, pattern_type, margin=MARGIN):
+    global FILE_STEP_COUNTER
+
     # scale the pattern
     square_size = size // 2 // 1.5 - margin
     inner_cut_size = square_size - (margin * 2)
-    resized_pattern_name = "scaled_pattern.svg"
+    resized_pattern_name = f"{FILE_STEP_COUNTER}_scaled_pattern.svg"
+    FILE_STEP_COUNTER += 1
     resizeSVG(pattern, resized_pattern_name, inner_cut_size)
 
     # shift the pattern right and down (overlay on stencil)
-    combined_output_name = f"stencil_{stencil_number}_overlayed.svg"
+    combined_output_name = f"{FILE_STEP_COUNTER}_stencil_{stencil_number}_overlayed.svg"
+    FILE_STEP_COUNTER += 1
     margin_y = 0 if stencil_number == 1 else size // 2
     overlayDrawingOnStencil(stencil, resized_pattern_name, size, square_size, margin, margin_y, combined_output_name)
 
     return combined_output_name
+
 
 def drawSimpleStencil(width, height, starting_y, margin_x=MARGIN, line_color='black', file_name="allans_test.svg"):
     dwg = svgwrite.Drawing(file_name, size=(width, height + starting_y))
@@ -626,36 +650,6 @@ def drawSimpleStencil(width, height, starting_y, margin_x=MARGIN, line_color='bl
 
     return file_name
 
-def drawClassicStencil(width, height, starting_y, margin_x=31, line_color='black', file_name="test_1.svg"):
-    dwg = svgwrite.Drawing(file_name, size=(width,height+starting_y))
-
-    # define the square size
-    square_size = (height // 1.5) - margin_x
-    margin_y = margin_x + starting_y
-
-    left_top_line_start = (margin_x + square_size // 2, margin_y)
-    left_top_line_end = (left_top_line_start[0] + square_size, left_top_line_start[1])
-    left_bottom_line_start = (left_top_line_start[0], left_top_line_start[1] + square_size)
-    left_bottom_line_end = (left_bottom_line_start[0] + square_size, left_bottom_line_start[1])
-
-    # draw the right square
-    right_top_line_start = left_top_line_end
-    right_top_line_end = (right_top_line_start[0] + square_size, right_top_line_start[1])
-    right_bottom_line_start = left_bottom_line_end
-    right_bottom_line_end = (right_bottom_line_start[0] + square_size, right_bottom_line_start[1])
-
-    offset = 90
-    y1 = left_top_line_start[1] + offset     # Top inner line
-    y3 = left_top_line_start[1] + square_size - offset
-    y2 = (y1 + y3) / 2   # Middle inner line
-    dwg.add(dwg.line(start=(left_top_line_start[0], y1), end=(right_top_line_end[0], y1), stroke="brown", stroke_width=3))
-    dwg.add(dwg.line(start=(left_top_line_start[0], y2), end=(right_top_line_end[0], y2), stroke="brown", stroke_width=3))
-    dwg.add(dwg.line(start=(left_top_line_start[0], y3), end=(right_top_line_end[0], y3), stroke="brown", stroke_width=3))
-
-
-    dwg.save()
-
-    return file_name
 
 def combine_overlapping_paths(paths, attrs, tolerance=1e-6):
     """
@@ -771,9 +765,11 @@ def combine_overlapping_paths(paths, attrs, tolerance=1e-6):
     
     return combined_paths, combined_attrs
 
+
 def distance(p1, p2):
     """Calculate Euclidean distance between two points."""
     return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+
 
 def grabLeftMostPointOfPaths(paths):
     """Grab the left most point from a path or a list of paths"""
@@ -795,6 +791,7 @@ def grabLeftMostPointOfPaths(paths):
 
     return min_point
 
+
 def grabRightMostPointOfPaths(paths):
     """Grab the right most point from a path or a list of paths"""
     max_x = float('-inf')
@@ -815,8 +812,193 @@ def grabRightMostPointOfPaths(paths):
 
     return max_point
 
-def drawSymmetricLines(combined_stencil, stencil_pattern, width, height, starting_y, margin_x=MARGIN, filename="symmetric_lines.svg"):
-    dwg = svgwrite.Drawing("test.svg", size=(width, height + starting_y))
+
+def create_classic_pattern_stencils(width, height, starting_y, margin_x=31, line_color='black', file_name="test_1.svg"):
+    dwg = svgwrite.Drawing(file_name, size=(width,height+starting_y))
+
+    # define the square size
+    square_size = (height // 1.5) - margin_x
+    margin_y = margin_x + starting_y
+
+    left_top_line_start = (margin_x + square_size // 2, margin_y)
+    left_top_line_end = (left_top_line_start[0] + square_size, left_top_line_start[1])
+    left_bottom_line_start = (left_top_line_start[0], left_top_line_start[1] + square_size)
+    left_bottom_line_end = (left_bottom_line_start[0] + square_size, left_bottom_line_start[1])
+
+    # draw the right square
+    right_top_line_start = left_top_line_end
+    right_top_line_end = (right_top_line_start[0] + square_size, right_top_line_start[1])
+    right_bottom_line_start = left_bottom_line_end
+    right_bottom_line_end = (right_bottom_line_start[0] + square_size, right_bottom_line_start[1])
+
+    offset = 90
+    y1 = left_top_line_start[1] + offset     # Top inner line
+    y3 = left_top_line_start[1] + square_size - offset
+    y2 = (y1 + y3) / 2   # Middle inner line
+    dwg.add(dwg.line(start=(left_top_line_start[0], y1), end=(right_top_line_end[0], y1), stroke="brown", stroke_width=3))
+    dwg.add(dwg.line(start=(left_top_line_start[0], y2), end=(right_top_line_end[0], y2), stroke="brown", stroke_width=3))
+    dwg.add(dwg.line(start=(left_top_line_start[0], y3), end=(right_top_line_end[0], y3), stroke="brown", stroke_width=3))
+
+
+    dwg.save()
+
+    return file_name
+
+
+def create_simple_pattern_stencils(width, height, size, stencil_1_pattern, empty_stencil_1, empty_stencil_2, pattern_type):
+    global FILE_STEP_COUNTER
+    
+    # Create both simple stencils
+    simpleStencil1 = drawSimpleStencil(width, height, 0, file_name=f"{FILE_STEP_COUNTER}_simpleStencil1.svg")
+    FILE_STEP_COUNTER += 1
+    simpleStencil2 = drawSimpleStencil(width, height, height, file_name=f"{FILE_STEP_COUNTER}_simpleStencil2.svg")
+    FILE_STEP_COUNTER += 1
+
+    # Combine all stencils first
+    temp1 = f"{FILE_STEP_COUNTER}_temp1.svg"
+    FILE_STEP_COUNTER += 1
+    temp2 = f"{FILE_STEP_COUNTER}_temp2.svg"
+    FILE_STEP_COUNTER += 1
+    combined_stencils = f"{FILE_STEP_COUNTER}_combined_stencils.svg"
+    FILE_STEP_COUNTER += 1
+
+    # Combine empty stencil 1 with simple stencil 1
+    combineStencils(empty_stencil_1, simpleStencil1, temp1)
+
+    # Combine empty stencil 2 with simple stencil 2
+    combineStencils(empty_stencil_2, simpleStencil2, temp2)
+
+    # Combine both results
+    combineStencils(temp1, temp2, combined_stencils)
+
+    # rotate the pattern 90 degrees counter-clockwise
+    rotated_path_name = f"{FILE_STEP_COUNTER}_fixed_pattern_rotation.svg"
+    FILE_STEP_COUNTER += 1
+    rotateSVG(stencil_1_pattern, rotated_path_name, -90)
+
+    # Now overlay the pattern on the combined stencil
+    overlayed_pattern = overlayPatternOnStencil(rotated_path_name, combined_stencils, size, 1, pattern_type)
+    return overlayed_pattern, combined_stencils
+
+
+def create_symmetric_pattern_stencils(stencil_1_pattern, width, height, size, empty_stencil_1, empty_stencil_2, pattern_type):
+    global FILE_STEP_COUNTER
+    
+    cropped_size = int((500 - DRAWING_SQUARE_SIZE) // 2)
+    
+    prepped_pattern = f"{FILE_STEP_COUNTER}_prepped_pattern.svg"
+    FILE_STEP_COUNTER += 1
+    cropPrep(stencil_1_pattern, prepped_pattern, cropped_size, 45)
+    
+    half_of_pattern = f"{FILE_STEP_COUNTER}_half_of_pattern.svg"
+    FILE_STEP_COUNTER += 1
+    cropToTopHalf(prepped_pattern, half_of_pattern)
+    
+    # undo the crop prep once the cropping is finished
+    post_cropped_pattern = f"{FILE_STEP_COUNTER}_post_cropped_pattern.svg"
+    FILE_STEP_COUNTER += 1
+    cropPrep(half_of_pattern, post_cropped_pattern, -cropped_size, -45)
+
+    combined_simple_stencil_w_patt, combined_simple_stencil_no_patt = create_simple_pattern_stencils(width, height, size, post_cropped_pattern, empty_stencil_1, empty_stencil_2, pattern_type)
+    
+    # Draw lines from shapes to the edges of the stencil
+    pattern_w_extended_lines = f"{FILE_STEP_COUNTER}_pattern_w_extended_lines.svg"
+    FILE_STEP_COUNTER += 1
+    drawExtensionLines(combined_simple_stencil_w_patt, combined_simple_stencil_no_patt, pattern_w_extended_lines, width, height, 0)
+
+    mirrored_pattern_extended = f"{FILE_STEP_COUNTER}_mirrored_pattern_extended.svg"
+    FILE_STEP_COUNTER += 1
+    mirrorLines(pattern_w_extended_lines, mirrored_pattern_extended, width, height, pattern_type)
+
+    combinePatternAndMirrorWithStencils(pattern_w_extended_lines, combined_simple_stencil_no_patt, mirrored_pattern_extended)
+
+
+def create_asymmetric_pattern_stencils(stencil_1_pattern, width, height, size, empty_stencil_1, empty_stencil_2, pattern_type):
+    global FILE_STEP_COUNTER
+    
+    cropped_size = int((500 - DRAWING_SQUARE_SIZE) // 2)
+    
+    prepped_pattern = f"{FILE_STEP_COUNTER}_prepped_pattern.svg"
+    FILE_STEP_COUNTER += 1
+    cropPrep(stencil_1_pattern, prepped_pattern, cropped_size, 45)
+    
+    half_of_pattern = f"{FILE_STEP_COUNTER}_half_of_pattern.svg"
+    FILE_STEP_COUNTER
+    cropToTopHalf(prepped_pattern, half_of_pattern)
+
+    translated_for_bottom_half = f"{FILE_STEP_COUNTER}_translated_for_bottom_half.svg"
+    FILE_STEP_COUNTER += 1
+    translateSVG(prepped_pattern, translated_for_bottom_half, 0, -500 // 2)
+
+    prepped_bottom_pattern = f"{FILE_STEP_COUNTER}_prepped_bottom_pattern.svg"
+    FILE_STEP_COUNTER += 1
+    cropToTopHalf(translated_for_bottom_half, prepped_bottom_pattern)
+
+    re_translated_for_bottom_half = f"{FILE_STEP_COUNTER}_post_cropped_bottom_pattern.svg"
+    FILE_STEP_COUNTER += 1
+    translateSVG(prepped_bottom_pattern, re_translated_for_bottom_half, 0, 500 // 2)
+
+    # undo the crop prep once the cropping is finished
+    post_cropped_pattern = f"{FILE_STEP_COUNTER}_post_cropped_pattern.svg"
+    FILE_STEP_COUNTER += 1
+    cropPrep(half_of_pattern, post_cropped_pattern, -cropped_size, -45)
+
+    # undo the crop prep for bottom half once the cropping is finished
+    post_cropped_bottom_pattern = f"{FILE_STEP_COUNTER}_post_cropped_bottom_pattern.svg"
+    FILE_STEP_COUNTER += 1
+    cropPrep(re_translated_for_bottom_half, post_cropped_bottom_pattern, -cropped_size, -45)
+
+    # --- for top half ---
+    combined_simple_stencil_w_patt, combined_simple_stencil_no_patt = create_simple_pattern_stencils(width, height, size, post_cropped_pattern, empty_stencil_1, empty_stencil_2, pattern_type)
+
+    pattern_w_extended_lines = f"{FILE_STEP_COUNTER}_pattern_w_extended_lines.svg"
+    FILE_STEP_COUNTER += 1
+    drawExtensionLines(combined_simple_stencil_w_patt, combined_simple_stencil_no_patt, pattern_w_extended_lines, width, height, 0)
+    # ------
+
+    # --- for bottom half ---
+    combined_simple_stencil_w_bot_patt, _ = create_simple_pattern_stencils(width, height, size, post_cropped_bottom_pattern, empty_stencil_1, empty_stencil_2, pattern_type)
+
+    bottom_pattern_w_extended_lines = f"{FILE_STEP_COUNTER}_bottom_pattern_w_extended_lines.svg"
+    FILE_STEP_COUNTER += 1
+    drawExtensionLines(combined_simple_stencil_w_bot_patt, combined_simple_stencil_no_patt, bottom_pattern_w_extended_lines, width, height, 0)
+    # ------
+    
+    mirrored_bottom_pattern_extended = f"{FILE_STEP_COUNTER}_mirrored_pattern_extended.svg"
+    FILE_STEP_COUNTER += 1
+    mirrorLines(pattern_w_extended_lines, mirrored_bottom_pattern_extended, width, height, pattern_type, bottom_pattern_w_extended_lines)
+
+    combinePatternAndMirrorWithStencils(pattern_w_extended_lines, combined_simple_stencil_no_patt, mirrored_bottom_pattern_extended)
+
+
+
+def cropPrep(pattern, output_name, cropped_size, angle):
+    global FILE_STEP_COUNTER
+    
+    # Step 1: Rotate the pattern 45 degrees clockwise
+    rotated_path_name = f"{FILE_STEP_COUNTER}_rotated_pattern_step.svg"
+    FILE_STEP_COUNTER += 1
+    rotateSVG(pattern, rotated_path_name, angle)
+    
+    # Step 2: Translate to correct position after rotation
+    translateSVG(rotated_path_name, output_name, cropped_size, cropped_size)
+
+
+def cropToTopHalf(input_svg, output_svg):
+    # Crop to only the top half of the SVG
+        paths, attributes = svg2paths(input_svg)
+        stencil_1_clipped_paths = crop_svg(paths, 500, 500 // 2)
+        
+        # Adjust attributes if needed
+        if len(stencil_1_clipped_paths) > len(attributes):
+            attributes = attributes * len(stencil_1_clipped_paths)
+        
+        # Save the cropped half
+        wsvg(stencil_1_clipped_paths, attributes=attributes, filename=output_svg, 
+                dimensions=(DRAWING_SQUARE_SIZE, DRAWING_SQUARE_SIZE))
+
+
+def drawExtensionLines(combined_stencil, stencil_pattern, output_name, width, height, starting_y, margin_x=MARGIN):
 
     square_size = (height // 1.5) - margin_x
     margin_y = margin_x + starting_y
@@ -836,12 +1018,6 @@ def drawSymmetricLines(combined_stencil, stencil_pattern, width, height, startin
         if path_str not in stencil_path_strings:
             pattern_paths.append(combined_paths[i])
             pattern_attrs.append(combined_attrs[i])
-    
-    print(f"Combined paths: {len(combined_paths)}")
-    print(f"Stencil paths: {len(stencil_paths)}")
-    print(f"Pattern paths (difference): {len(pattern_paths)}")
-
-    # print("pattern: ", pattern_paths)
 
     # wsvg(pattern_paths, attributes=pattern_attrs, filename=filename, dimensions=(width, width))
 
@@ -898,80 +1074,21 @@ def drawSymmetricLines(combined_stencil, stencil_pattern, width, height, startin
         combined_attrs_w_lines.append({'stroke': 'red', 'stroke-width': 1, 'fill': 'none'})
 
     # combined_shapes_w_lines = "combined_shapes_w_lines.svg"
-    wsvg(combined_paths_w_lines, attributes=combined_attrs_w_lines, filename=filename, dimensions=(width, width))
-
-    return filename
+    wsvg(combined_paths_w_lines, attributes=combined_attrs_w_lines, filename=output_name, dimensions=(width, width))
 
 
-def create_simple_pattern_stencil(width, height, size, stencil_1_pattern, empty_stencil_1, empty_stencil_2, pattern_type):
-    # Create both simple stencils
-    simpleStencil1 = drawSimpleStencil(width, height, 0, file_name="simpleStencil1.svg")
-    simpleStencil2 = drawSimpleStencil(width, height, height, file_name="simpleStencil2.svg")
-
-    # Combine all stencils first
-    temp1 = "temp1.svg"
-    temp2 = "temp2.svg"
-    combined_stencils = "combined_stencils.svg"
-
-    # Combine empty stencil 1 with simple stencil 1
-    combineStencils(empty_stencil_1, simpleStencil1, temp1)
-
-    # Combine empty stencil 2 with simple stencil 2
-    combineStencils(empty_stencil_2, simpleStencil2, temp2)
-
-    # Combine both results
-    combineStencils(temp1, temp2, combined_stencils)
-
-    # rotate the pattern 90 degrees counter-clockwise
-    rotated_path_name = "fixed_pattern_rotation.svg"
-    rotateSVG(stencil_1_pattern, rotated_path_name, -90)
-
-    # Now overlay the pattern on the combined stencil
-    overlayed_pattern = overlayPatternOnStencil(rotated_path_name, combined_stencils, size, 1, pattern_type)
-    return overlayed_pattern, combined_stencils
-
-def cropTopHalf(translated_path_name, file_name = "stencil_1_top_half_crop.svg"):
-    # Step 3: Crop to only the top half of the SVG
-        paths, attributes = svg2paths(translated_path_name)
-        stencil_1_clipped_paths = crop_svg(paths, 500, 500 // 2)
-        
-        # Adjust attributes if needed
-        if len(stencil_1_clipped_paths) > len(attributes):
-            attributes = attributes * len(stencil_1_clipped_paths)
-        
-        # Save the cropped half
-        wsvg(stencil_1_clipped_paths, attributes=attributes, filename=file_name, 
-                dimensions=(DRAWING_SQUARE_SIZE, DRAWING_SQUARE_SIZE))
-        
-        return file_name
-
-def postCrop(stencil_1_crop_half, empty_stencil_1, empty_stencil_2, width, height, size, pattern_type, cropped_size, file_name="combined_shapes_w_lines.svg"):
-    # Step 4: Translate back to original position
-    translated_path_name2 = "translated_pattern_step2.svg"
-    translateSVG(stencil_1_crop_half, translated_path_name2, -cropped_size, -cropped_size)
+def mirrorLines(pattern_w_extended_lines, output_name, width, height, pattern_type, draw_symmetric_lines_bottom=None):
+    global FILE_STEP_COUNTER
     
-    # Step 5: Rotate counter-clockwise 45 degrees
-    re_rotated_path_name = "re_rotated_pattern_step.svg"
-    rotateSVG(translated_path_name2, re_rotated_path_name, -45)
-
-    # Step 6: Create the pattern stencil
-    combined_simple_stencil_w_patt, combined_simple_stencil_no_patt = create_simple_pattern_stencil(width, height, size, re_rotated_path_name, 
-                                                            empty_stencil_1, empty_stencil_2, pattern_type)
-    
-    # Step 7: Draw lines from shapes to the edges of the stencil
-    draw_symmetric_lines = drawSymmetricLines(combined_simple_stencil_w_patt, combined_simple_stencil_no_patt, width, height, 0, filename=file_name)
-
-    return draw_symmetric_lines, combined_simple_stencil_no_patt
-
-def mirrorLines(draw_symmetric_lines, combined_simple_stencil_no_patt, width, height, pattern_type, draw_symmetric_lines_bottom=None):
     # mirror the lines over the y-axis
-    mirrored_lines = "mirrored_lines.svg"
-    if pattern_type == "pattern_symmetrical":
-        mirrorSVGOverYAxis(draw_symmetric_lines, mirrored_lines, width, height)
-    elif pattern_type == "pattern_asymmetrical":
+    mirrored_lines = f"{FILE_STEP_COUNTER}_mirrored_lines.svg"
+    FILE_STEP_COUNTER += 1
+    if pattern_type == PatternType.Symmetric:
+        mirrorSVGOverYAxis(pattern_w_extended_lines, mirrored_lines, width, height)
+    elif pattern_type == PatternType.Asymmetric:
         mirrorSVGOverYAxis(draw_symmetric_lines_bottom, mirrored_lines, width, height)
 
-    paths, _ = svg2paths(draw_symmetric_lines)
+    paths, _ = svg2paths(pattern_w_extended_lines)
     mirrored_paths, _ = svg2paths(mirrored_lines)
 
     left_point = grabLeftMostPointOfPaths(mirrored_paths)
@@ -979,112 +1096,85 @@ def mirrorLines(draw_symmetric_lines, combined_simple_stencil_no_patt, width, he
     # Calculate the distance between the leftmost and rightmost points
     distance_between = abs(left_point.real - right_point.real)
 
-    fixed_rounding_mirrored_lines = "fixed_mirrored_lines.svg"
+    fixed_rounding_mirrored_lines = f"{FILE_STEP_COUNTER}_fixed_mirrored_lines.svg"
+    FILE_STEP_COUNTER += 1
     translateSVG(mirrored_lines, fixed_rounding_mirrored_lines, -distance_between, 0)
 
     # translate the mirrored lines to the correct position
-    translated_mirrored_lines = "translated_mirrored_lines.svg"
-    translateSVG(fixed_rounding_mirrored_lines, translated_mirrored_lines, 0, height)
+    translateSVG(fixed_rounding_mirrored_lines, output_name, 0, height)
+
+
+def combinePatternAndMirrorWithStencils(pattern_w_extended_lines, combined_simple_stencil_no_patt, translated_mirrored_lines, output_name="final_output.svg"):
+    global FILE_STEP_COUNTER
     
     # combine the mirrored lines with the original mirrored pattern
-    combined_mirrored_lines = "combined_mirrored_lines.svg"
-    combineStencils(translated_mirrored_lines, draw_symmetric_lines, combined_mirrored_lines)
+    combined_mirrored_lines = f"{FILE_STEP_COUNTER}_combined_mirrored_lines.svg"
+    FILE_STEP_COUNTER += 1
+    combineStencils(translated_mirrored_lines, pattern_w_extended_lines, combined_mirrored_lines)
 
     # combine the combined_mirrored_lines with the stencil pattern
-    combined_final = "combined_final.svg"
-    combineStencils(combined_mirrored_lines, combined_simple_stencil_no_patt, combined_final)
+    combineStencils(combined_mirrored_lines, combined_simple_stencil_no_patt, output_name)
 
     print("saved final stencil")
 
-def create_symmetrical_pattern_stencil(stencil_1_pattern, width, height, size, empty_stencil_1, empty_stencil_2, pattern_type):
-    # Step 1: Rotate the pattern 45 degrees clockwise
-    rotated_path_name = "rotated_pattern_step.svg"
-    rotateSVG(stencil_1_pattern, rotated_path_name, 45)
+
+def createFinalHeartCutoutPatternExport(size, pattern_type, sides='onesided', line_color='black', background_color='white'):
+    global FILE_STEP_COUNTER
     
-    # Step 2: Translate to correct position after rotation
-    cropped_size = int((500 - DRAWING_SQUARE_SIZE) // 2)
-    translated_path_name = "translated_pattern_step.svg"
-    translateSVG(rotated_path_name, translated_path_name, cropped_size, cropped_size)
-    
-    stencil_1_crop_half = cropTopHalf(translated_path_name)
-    
-    draw_symmetric_lines, combined_simple_stencil_no_patt = postCrop(stencil_1_crop_half, empty_stencil_1, empty_stencil_2, width, height, size, pattern_type, cropped_size)
+    print("pattern type: ", pattern_type)
+    print("sides: ", sides)
 
-    stencil_1_crop_bottom_half = ""
-    if pattern_type == "pattern_asymmetrical":
-        print("here")
-        translated_path_name_2 = "translated_pattern_step_2.svg"
-        translateSVG(translated_path_name, translated_path_name_2, 0, -500 // 2)
-
-        stencil_1_crop_bottom_half = cropTopHalf(translated_path_name_2, "crop_top_half_stencil.svg")
-
-        translated_path_name_3 = "translated_pattern_step3.svg"
-        translateSVG(stencil_1_crop_bottom_half, translated_path_name_3, 0, 500 // 2)
-
-        file_name = "combined_shapes_w_lines_asym.svg"
-
-        draw_symmetric_lines_bottom, _ = postCrop(translated_path_name_3, empty_stencil_1, empty_stencil_2, width, height, size, pattern_type, cropped_size, file_name)        
-
-        return draw_symmetric_lines, combined_simple_stencil_no_patt, draw_symmetric_lines_bottom
-
-    print("here2")
-    return draw_symmetric_lines, combined_simple_stencil_no_patt
-
-def createFinalHeartCutoutPatternExport(size, pattern_type, line_start=0, sides='onesided', line_color='black', background_color='white'):
     width = size
     height = size // 2
-    empty_stencil_1 = drawEmptyStencil(width, height, 0, file_name="stencil1.svg")
-    empty_stencil_2 = drawEmptyStencil(width, height, height, file_name="stencil2.svg")
-    print(sides)
-    print("pattern type: ", pattern_type)
+
+    empty_stencil_1 = drawEmptyStencil(width, height, 0, file_name=f"{FILE_STEP_COUNTER}_stencil1.svg")
+    FILE_STEP_COUNTER += 1
+    empty_stencil_2 = drawEmptyStencil(width, height, height, file_name=f"{FILE_STEP_COUNTER}_stencil2.svg")
+    FILE_STEP_COUNTER += 1
 
     if sides=='onesided':
-        stencil_1_pattern = getPattern("front")
-        stencil_2_pattern = getPattern("back")
-        if pattern_type == "pattern_simple":
+        pre_processed_pattern = getPattern("front")
+
+        if pattern_type == PatternType.Simple:
             print("Creating SIMPLE pattern")
-            create_simple_pattern_stencil(width, height, size, stencil_1_pattern, empty_stencil_1, empty_stencil_2, pattern_type)
+            create_simple_pattern_stencils(width, height, size, pre_processed_pattern, empty_stencil_1, empty_stencil_2, pattern_type)
         
-        elif pattern_type == "pattern_symmetrical":
+        elif pattern_type == PatternType.Symmetric:
             print("Creating SYMMETRICAL pattern")
             
-            draw_symmetric_lines, combined_simple_stencil_no_patt = create_symmetrical_pattern_stencil(stencil_1_pattern, width, height, size, empty_stencil_1, empty_stencil_2, pattern_type)
-
-            # mirror the lines over the y-axis
-            mirrorLines(draw_symmetric_lines, combined_simple_stencil_no_patt, width, height, pattern_type)
+            create_symmetric_pattern_stencils(pre_processed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, pattern_type)
             
-        
-        elif pattern_type == "pattern_asymmetrical":
-            print("Creating A_SYMMETRICAL pattern")
+        elif pattern_type == PatternType.Asymmetric:
+            print("Creating A-SYMMETRICAL pattern")
             
-            draw_symmetric_lines, combined_simple_stencil_no_patt, draw_symmetric_lines_bottom = create_symmetrical_pattern_stencil(stencil_1_pattern, width, height, size, empty_stencil_1, empty_stencil_2, pattern_type)
+            create_asymmetric_pattern_stencils(pre_processed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, pattern_type)
 
-            # mirror the lines over the y-axis
-            mirrorLines(draw_symmetric_lines, combined_simple_stencil_no_patt, width, height, pattern_type, draw_symmetric_lines_bottom)
-
-        elif pattern_type == "pattern_classic":
+        elif pattern_type == PatternType.Classic:
             print("Creating CLASSIC pattern")
-            combined_classic_stencil = "combined_classic_stencil.svg"
-            classic_stencil1 = drawClassicStencil(width, height, 0, file_name="classic_stencil1.svg")
-            classic_stencil2 = drawClassicStencil(width, height, height, file_name="classic_stencil2.svg")
-            final_stencil = "classic_final_stencil.svg"
-            combined_classic_stencil_final = "combined_classic_stencil_final.svg"
+            combined_classic_stencil = f"{FILE_STEP_COUNTER}_combined_classic_stencil.svg"
+            FILE_STEP_COUNTER += 1
+            classic_stencil1 = create_classic_pattern_stencils(width, height, 0, file_name=f"{FILE_STEP_COUNTER}_classic_stencil1.svg")
+            FILE_STEP_COUNTER += 1
+            classic_stencil2 = create_classic_pattern_stencils(width, height, height, file_name=f"{FILE_STEP_COUNTER}_classic_stencil2.svg")
+            FILE_STEP_COUNTER += 1
+            final_stencil = f"{FILE_STEP_COUNTER}_classic_final_stencil.svg"
+            FILE_STEP_COUNTER += 1
+            combined_classic_stencil_final = f"{FILE_STEP_COUNTER}_combined_classic_stencil_final.svg"
+            FILE_STEP_COUNTER += 1
             combineStencils(empty_stencil_1, classic_stencil1, combined_classic_stencil)
             combineStencils(empty_stencil_2, classic_stencil2, final_stencil)
             combineStencils(final_stencil, combined_classic_stencil, combined_classic_stencil_final)
 
-        #overlayed_pattern_1 = overlayPatternOnStencil(stencil_1_pattern, empty_stencil_1, size, 1, pattern_type)
-        # overlayed_pattern_2 = overlayPatternOnStencil(stencil_2_pattern, empty_stencil_2, size, 2, pattern_type)
+        # resizeSvg(final_stencil, user_decided_export_size)
 
-        # combined_stencil = combineStencils(overlayed_pattern_1, overlayed_pattern_2)
+        # return final_stencil
 
-        # resizeSvg(combined_stencil, user_decided_export_size)
-
-        # return combined_stencil
-
-    # do the same for the mirrored version
     if sides =='twosided':
+        pre_processed_pattern_front = getPattern("front")
+        pre_processed_pattern_back = getPattern("back")
+
         return None
+
 
 def convertSvgToPng(svg_file, width, height, output_file):
     cvImage = savePixmapToCvImage(saveSvgFileAsPixmap(svg_file, QSize(height, width)))
@@ -1092,15 +1182,6 @@ def convertSvgToPng(svg_file, width, height, output_file):
     transparentImage = makeTrans(cvImage, [255, 255, 255])
     cv.imwrite(output_file, transparentImage)
 
-    # # Create a mask where the background is white
-    # background_color = [255, 255, 255, 255]  # White background with full opacity
-    # mask = np.all(cvImage[:, :, :3] == background_color[:3], axis=2)
-
-    # # Set alpha (transparency) to 0 where the mask is true
-    # cvImage[mask] = [0, 0, 0, 0]  # Set BGRA values to transparent
-
-    # # Save the result
-    # cv.imwrite('output_image.png', cvImage)
 
 def makeTrans(final_output_array, color):
     # Create an empty alpha channel (fully opaque)
@@ -1113,6 +1194,7 @@ def makeTrans(final_output_array, color):
     rgba_image = np.dstack((final_output_array, alpha_channel))
     return rgba_image
 
+
 def saveSvgFileAsPixmap(filepath, size=QSize(600, 600)):
     renderer = QSvgRenderer(filepath)
 
@@ -1124,6 +1206,7 @@ def saveSvgFileAsPixmap(filepath, size=QSize(600, 600)):
     painter.end()
 
     return pixmap
+
 
 def savePixmapToCvImage(pixmap):
     image = pixmap.toImage()
@@ -1142,12 +1225,13 @@ def savePixmapToCvImage(pixmap):
 
     return cv_image
 
+
 def mainAlgorithmSvg(img, pattern_type, function='show'):
 
     match function:
 
         case 'show':
-            # We start with a filepath to an svg image. But, we want to give createFinalHeartDisplay a CV Image
+            # convert SVG to CV Image for createFinalHeartDisplay
             heartPixmap = saveSvgFileAsPixmap(img)
             heartCvImage = savePixmapToCvImage(heartPixmap)
 

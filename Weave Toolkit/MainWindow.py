@@ -13,6 +13,10 @@ from ShapeMode import (
     ShapeMode
 )
 
+from PatternType import (
+    PatternType
+)
+
 from PyQt6.QtSvg import (
     QSvgGenerator,
     QSvgRenderer
@@ -74,6 +78,7 @@ from VectorAlgo import (
     mainAlgorithmSvg, pre_process_user_input
 )
 
+
 # Global variables for the shape mode and shape color
 SHAPE_MODE = ShapeMode.Cursor
 SHAPE_COLOR = QColor(0, 0, 0, 255)
@@ -82,10 +87,12 @@ PEN_WIDTH = 3
 FILLED = True
 USER_OUTPUT_SVG_FILENAME = "svg_file.svg"
 USER_PREPROCESSED_PATTERN = "preprocessed_pattern.svg"
-CURRENT_PATTERN_TYPE = "pattern_simple"
+CURRENT_PATTERN_TYPE = PatternType.Simple
+
 
 def calculate_distance(point1, point2):
         return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
+
 
 class DrawingWidget(QWidget):
     # Defining the initial state of the canvas
@@ -99,6 +106,7 @@ class DrawingWidget(QWidget):
         self.end = QPoint()
         self.drawing_mode = False
         self.show()
+
 
     # Draws the current canvas state
     def paintEvent(self, event):
@@ -130,6 +138,7 @@ class DrawingWidget(QWidget):
                     qp.drawLine(self.free_form_points[free_form_point], self.free_form_points[free_form_point + 1])
 
         self.redrawBorder(qp)
+
 
     def drawRotatedSquareEffect(self, qp):
         pen = QPen(Qt.GlobalColor.black, 3)
@@ -179,12 +188,14 @@ class DrawingWidget(QWidget):
         brush = QBrush(SHAPE_COLOR)
         qp.setBrush(brush)
 
+
     # Redraws all the shapes, while removing the ones that are erased
     def redrawAllShapes(self, qp):
         for shape in self.shapes[:]:  # Use a copy of the list to avoid modification issues
             shape_type = shape[2]
             qp.setBrush(SHAPE_COLOR) # set to shape[3] if we want to change color to stored shape color instead of global color
             qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin)) # pen width should needs to be saved in the shape list
+            
             # if in eraser mode, removes shapes that contain the point clicked
             if SHAPE_MODE == ShapeMode.Eraser:
                 point = self.begin
@@ -193,6 +204,7 @@ class DrawingWidget(QWidget):
                     if rect.contains(point):
                         self.shapes.remove(shape)
                         # continue  # Skip drawing since it's erased
+                
                 elif shape_type == ShapeMode.Circle:
                     center = shape[0]
                     radius = int((abs(center.x() - shape[1].x()) + abs(center.y() - shape[1].y())) / 2)
@@ -200,34 +212,44 @@ class DrawingWidget(QWidget):
                     if distance <= radius:
                         self.shapes.remove(shape)
                         # continue  # Skip drawing since it's erased
+                
                 elif shape_type == ShapeMode.Heart:
                     if self.heartContainsPoint(point, shape[0], shape[1]):
                         self.shapes.remove(shape)
                         # continue  # Skip drawing since it's erased
+                
                 elif shape_type == ShapeMode.Line:
                     if self.lineContainsPoint(point, shape[0], shape[1]):
                         self.shapes.remove(shape)
                         # continue # Skip drawing since it's erased
+                
                 elif shape_type == ShapeMode.FreeForm:
                     for free_form_point in range(len(shape[4]) - 1):
                         if self.lineContainsPoint(point, shape[4][free_form_point], shape[4][free_form_point + 1]):
                             self.shapes.remove(shape)
                             break  # Skip drawing since it's erased
+            
             # Draw the shape if not in eraser mode
             if shape_type == ShapeMode.Square:
                 self.drawSquare(qp, shape[0], shape[1], SHAPE_COLOR, shape[5], shape[6])
+            
             elif shape_type == ShapeMode.Circle:
                 self.drawCircle(qp, shape[0], shape[1], SHAPE_COLOR, shape[5], shape[6])
+            
             elif shape_type == ShapeMode.Heart:
                 self.drawHeart(qp, shape[0], shape[1], SHAPE_COLOR, shape[5], shape[6])
+            
             elif shape_type == ShapeMode.Line:
                 qp.setPen(QPen(SHAPE_COLOR, shape[5], Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
                 qp.drawLine(shape[0], shape[1])
+            
             elif shape_type == ShapeMode.FreeForm:
                 qp.setPen(QPen(SHAPE_COLOR, shape[5], Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
                 for free_form_point in range(len(shape[4]) - 1):
                     qp.drawLine(shape[4][free_form_point], shape[4][free_form_point + 1])
+            
             qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
+
 
     def redrawBorder(self, qp):
         pen = QPen(Qt.GlobalColor.black, 3)
@@ -277,7 +299,7 @@ class DrawingWidget(QWidget):
                              int(inner_coords[(i+1) % len(inner_coords)][0]),
                              int(inner_coords[(i+1) % len(inner_coords)][1]))
 
-        if CURRENT_PATTERN_TYPE == "pattern_symmetrical":
+        if CURRENT_PATTERN_TYPE == PatternType.Symmetric or CURRENT_PATTERN_TYPE == PatternType.Asymmetric:
             # draw a dashed line in the middle of the canvas
             pen.setStyle(Qt.PenStyle.DashLine)
             qp.setPen(pen)
@@ -288,12 +310,15 @@ class DrawingWidget(QWidget):
         pen = QPen(SHAPE_COLOR, PEN_WIDTH)
         qp.setPen(pen)
 
+
     def get_drawing_image(self):
         image = QImage(self.size(), QImage.Format.Format_ARGB32)
         image.fill(Qt.GlobalColor.transparent)  # Fill with transparent color
+        
         painter = QPainter(image)
         self.render(painter)  # Render the current drawing to the image
         return image
+
 
     def drawSquare(self, qp, start, end, color, pen_width, filled):
         self.penAndBrushSetup(qp, color, pen_width, filled)
@@ -303,18 +328,10 @@ class DrawingWidget(QWidget):
         path = QPainterPath()
         path.addRect(rect)  # Define rectangle with the given points
 
-        # stroker = QPainterPathStroker()
-        # stroker.setWidth(0)  # Apply stroke width
-        # stroker.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
-
-        # stroked_path = stroker.createStroke(path)  # Get the outline including stroke
-
-        # if filled:
         qp.drawRect(QRect(start, end))
-        # else:
-        #     qp.drawPath(stroked_path)
 
         qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
+
 
     def drawCircle(self, qp, start, end, color, pen_width, filled):
         self.penAndBrushSetup(qp, color, pen_width, filled)
@@ -331,6 +348,7 @@ class DrawingWidget(QWidget):
         qp.drawPath(path)
         qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
 
+
     def drawHeart(self, qp, start, end, color, pen_width, filled):
         self.penAndBrushSetup(qp, color, pen_width, filled)
 
@@ -346,18 +364,10 @@ class DrawingWidget(QWidget):
         drawpath.cubicTo(x_offset + width * 0.75, y_offset - height / 4, x_offset + width * 1.5, y_offset + height / 2, x_offset + width / 2, y_offset + height)
         drawpath.cubicTo(x_offset - width * 0.5, y_offset + height / 2, x_offset + width * 0.25, y_offset - height / 4, x_offset + width / 2, y_offset + height / 4)
 
-
-        # stroker = QPainterPathStroker()
-        # stroker.setWidth(0)  # Use your current pen width
-        # stroked_path = stroker.createStroke(drawpath)
-        # stroker.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-
-        # if filled:
         qp.drawPath(drawpath)
-        # else:
-        #     qp.drawPath(stroked_path)
 
         qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
+
 
     def penAndBrushSetup(self, qp, color, pen_width, filled):
         if filled:
@@ -366,6 +376,7 @@ class DrawingWidget(QWidget):
             qp.setBrush(Qt.BrushStyle.NoBrush)
 
         qp.setPen(QPen(color, pen_width, Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
+
 
     # Checks if the point is within a certain threshold of the line
     def lineContainsPoint(self, point, begin, end, threshold=4.0):
@@ -381,6 +392,7 @@ class DrawingWidget(QWidget):
                         (min(begin.y(), end.y()) <= point.y() <= max(begin.y(), end.y()))
 
         return distance <= threshold and within_bounds
+
 
     def heartContainsPoint(self, point, start, end):
         width = abs(end.x() - start.x())
@@ -405,31 +417,38 @@ class DrawingWidget(QWidget):
 
         return False  # Point is outside the heart
 
+
     def mousePressEvent(self, event):
         if self.drawing_mode:
             self.begin = event.pos()
             self.end = event.pos()
+            
             if SHAPE_MODE == ShapeMode.FreeForm:
                 self.free_form_points = [event.position().toPoint()]
             self.update()
 
+
     def mouseMoveEvent(self, event):
         if self.drawing_mode:
             self.end = event.pos()
+            
             if SHAPE_MODE == ShapeMode.FreeForm:
                 self.free_form_points.append(event.position().toPoint())
             self.update()
+
 
     def mouseReleaseEvent(self, event):
         if self.drawing_mode:
             if SHAPE_MODE == ShapeMode.FreeForm:
                 self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, list(self.free_form_points), PEN_WIDTH, False])
+            
             else:
                 if SHAPE_MODE == ShapeMode.Line:
                     self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, [], PEN_WIDTH, False])
                 else:
                     self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, [], 1, FILLED])
-            if CURRENT_PATTERN_TYPE == "pattern_symmetrical":
+            
+            if CURRENT_PATTERN_TYPE == PatternType.Symmetric:
                 self.shapes.append([QPoint(self.width() - self.begin.x(), self.begin.y()), QPoint(self.width() - self.end.x(), self.end.y()), SHAPE_MODE, SHAPE_COLOR, [], 1, FILLED])
 
             self.begin = event.pos()
@@ -437,9 +456,11 @@ class DrawingWidget(QWidget):
             self.update()
             self.main_window.update_backside_image()
 
+
     def set_drawing_mode(self, enabled):
         self.drawing_mode = enabled
         self.update()
+
 
 class GuideWindow(QDialog):
     def __init__(self):
@@ -464,6 +485,7 @@ class GuideWindow(QDialog):
 
         self.setFixedSize(QSize(1200, 700))
 
+
 # Subclass QMainWindow to customize your application's main window
 class MainWindow(QMainWindow):
     cursor_button = None
@@ -473,6 +495,7 @@ class MainWindow(QMainWindow):
     square_button = None
     circle_button = None
     heart_button = None
+
 
     def __init__(self):
         super().__init__()
@@ -544,10 +567,12 @@ class MainWindow(QMainWindow):
 
         self.update_backside_image()
 
+
     def eventFilter(self, source, event):
         if event.type() == QEvent.Type.MouseButtonRelease and source == self.drawing_widget:
             self.update_backside_image()
         return super().eventFilter(source, event)
+
 
     def update_backside_image(self):
         self.backside_label.setText(f"Back Side (not modifiable) and the Pattern Type is: {CURRENT_PATTERN_TYPE}")
@@ -555,6 +580,7 @@ class MainWindow(QMainWindow):
         mirrored_image = drawing_image.mirrored(True, False)  # Mirror horizontally
         pixmap = QPixmap.fromImage(mirrored_image)
         self.drawing_backside.setPixmap(pixmap)
+
 
     def createMenuToolbar(self):
         menu_toolbar = QToolBar("Menu toolbar")
@@ -595,6 +621,7 @@ class MainWindow(QMainWindow):
 
         return menu_toolbar
 
+
     def createFileDropdownMenu(self):
         file_menu = QMenu("File", self)
         file_menu.setStyleSheet("""
@@ -607,6 +634,7 @@ class MainWindow(QMainWindow):
             color: black;
         }
         """)
+
         # Create actions
         action_new = QAction("New", self)
         action_new.triggered.connect(lambda: self.clear_canvas())
@@ -632,6 +660,7 @@ class MainWindow(QMainWindow):
 
         return file_menu
 
+
     def createViewDropdownMenu(self):
         view_menu = QMenu("View", self)
         view_menu.setStyleSheet("color: black;")
@@ -650,6 +679,7 @@ class MainWindow(QMainWindow):
 
         return view_menu
 
+
     def clear_canvas(self):
             self.drawing_widget.shapes = []  # Clear all shapes
             self.drawing_widget.free_form_points = []  # Clear all free form points
@@ -657,7 +687,7 @@ class MainWindow(QMainWindow):
             self.drawing_widget.end = QPoint()  # Reset end point
             self.drawing_widget.update()  # Trigger repaint of the drawing widget
             self.update_backside_image()  # Update the backside image
-            self.setPatternType('pattern_simple')  # Reset pattern type to default
+            self.setPatternType(PatternType.Simple)  # Reset pattern type to default
 
 
     def setPatternType(self, pattern):
@@ -666,8 +696,10 @@ class MainWindow(QMainWindow):
         self.update()
         self.update_backside_image()
 
+
     def getPatternType(self):
         return CURRENT_PATTERN_TYPE
+
 
     def createWeavingPatternDropdownMenu(self):
         weaving_pattern_menu = QMenu("Weaving Pattern", self)
@@ -681,13 +713,14 @@ class MainWindow(QMainWindow):
             color: black;
         }
         """)
+
         # Create actions
         action_simple = QAction("Simple", self)
         action_symmetrical = QAction("Symmetrical", self)
         action_asymmetrical = QAction("Asymmetrical", self)
-        action_simple.triggered.connect(lambda: (self.setPatternType('pattern_simple')))
-        action_symmetrical.triggered.connect(lambda: (self.setPatternType('pattern_symmetrical')))
-        action_asymmetrical.triggered.connect(lambda: (self.setPatternType('pattern_asymmetrical')))
+        action_simple.triggered.connect(lambda: (self.setPatternType(PatternType.Simple)))
+        action_symmetrical.triggered.connect(lambda: (self.setPatternType(PatternType.Symmetric)))
+        action_asymmetrical.triggered.connect(lambda: (self.setPatternType(PatternType.Asymmetric)))
 
         # Add actions to the menu
         weaving_pattern_menu.addAction(action_simple)
@@ -695,6 +728,7 @@ class MainWindow(QMainWindow):
         weaving_pattern_menu.addAction(action_asymmetrical)
 
         return weaving_pattern_menu
+
 
     def updateDisplaySvg(self):
         self.backside_label.setText("Front Side final product:")
@@ -711,6 +745,7 @@ class MainWindow(QMainWindow):
             )
         self.drawing_backside.setPixmap(scaled_pixmap)
         self.drawing_backside.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
 
     def updateDisplay(self, write_to_image = False):
 
@@ -731,14 +766,17 @@ class MainWindow(QMainWindow):
             Qt.AspectRatioMode.KeepAspectRatio,
             Qt.TransformationMode.SmoothTransformation
             )
+        
         self.drawing_backside.setPixmap(scaled_pixmap)
         self.drawing_backside.setAlignment(Qt.AlignmentFlag.AlignCenter)
         #self.drawing_backside.setScaledContents(True)
+
 
     def editDisplay(self):
         self.backside_label.setText(f"Back Side (not modifiable) - {CURRENT_PATTERN_TYPE}:")
         self.stacked_widget.setCurrentWidget(self.drawing_widget)
         self.update_backside_image()
+
 
     def createShapesToolbar(self):
         shapes_toolbar = QToolBar("Shapes toolbar")
@@ -781,41 +819,31 @@ class MainWindow(QMainWindow):
         MainWindow.heart_button = self.createShapeButton("icons/heart.png", "Heart", ShapeMode.Heart)
         shapes_toolbar.addAction(MainWindow.heart_button)
 
-        # self.fill_checkbox_label = QLabel("Fill Shape:")
-        # self.fill_checkbox_label.setStyleSheet("color: black;")
-        # shapes_toolbar.addWidget(self.fill_checkbox_label)
-        # self.fill_checkbox = QCheckBox('', self)
-        # self.fill_checkbox.setStyleSheet("background: light grey;")
-        # self.fill_checkbox.stateChanged.connect(self.updateFilledState)
-        # shapes_toolbar.addWidget(self.fill_checkbox)
-
         return shapes_toolbar
-
-    def updateFilledState(self, state):
-        global FILLED
-        FILLED = True # filled is always set to True. Unfilled shapes not supported yet
-        # FILLED = state == Qt.CheckState.Checked.value
 
 
     def createShapeButton(self, icon_path, button_text, shape_mode):
         shape_button = QAction(QIcon(icon_path), button_text, self)
-        # shape_button.setStatusTip(status_tip)
         shape_button.triggered.connect(lambda: self.setMode(shape_mode))
         return shape_button
+
 
     # When a shape button is clicked, it is then set to that drawing mode
     def setMode(self, shape_mode):
         if shape_mode == ShapeMode.Cursor:
             self.drawing_widget.set_drawing_mode(False)
+        
         elif shape_mode == ShapeMode.Eraser:
             self.drawing_widget.begin = QPoint(-999, -999) # Reset the begin and end points so the most recent shape isn't erased
             self.drawing_widget.end = QPoint(-1, -1)
             self.drawing_widget.set_drawing_mode(True)
+        
         else:
             self.drawing_widget.set_drawing_mode(True)
 
         global SHAPE_MODE
         SHAPE_MODE = shape_mode
+
 
     def createColorsToolbar(self):
         colors_toolbar = QToolBar("Colors toolbar")
@@ -825,6 +853,7 @@ class MainWindow(QMainWindow):
         colors_toolbar.addWidget(foreground_label)
 
         foreground_colors = [("Red", "red"), ("Green", "green"), ("Orange", "orange"), ("Blue", "blue")]
+        
         for color_name, color_value in foreground_colors:
             button = QPushButton(color_name, self, styleSheet=f"background-color: {color_value}")
             button.clicked.connect(partial(self.change_foreground_color, color_value))
@@ -845,6 +874,7 @@ class MainWindow(QMainWindow):
                 );
             }
         """)
+
         colors_toolbar.addWidget(rainbow_button)
 
         background_label = QLabel("Background Colors: ")
@@ -852,6 +882,7 @@ class MainWindow(QMainWindow):
         colors_toolbar.addWidget(background_label)
 
         background_colors = [("Red", "red"), ("Green", "green"), ("Orange", "orange"), ("Blue", "blue"), ("White", "white")]
+        
         for color_name, color_value in background_colors:
             button = QPushButton(color_name, self, styleSheet=f"background-color: {color_value}")
             button.clicked.connect(partial(self.change_background_color, color_value))
@@ -860,6 +891,7 @@ class MainWindow(QMainWindow):
         colors_toolbar.addWidget(self.createStrokeWidthWidget())
 
         return colors_toolbar
+
 
     def createStrokeWidthWidget(self):
         self.stroke_width_layout = QVBoxLayout()
@@ -884,10 +916,12 @@ class MainWindow(QMainWindow):
         stroke_width_container.setLayout(self.stroke_width_layout)
         return stroke_width_container
 
+
     def updateStrokeWidth(self, value):
         self.stroke_width_label.setText(f'Stroke Width: {value}')
         global PEN_WIDTH
         PEN_WIDTH = value
+
 
     def change_foreground_color(self, color):
         global SHAPE_COLOR
@@ -895,23 +929,26 @@ class MainWindow(QMainWindow):
         self.update()
         self.update_backside_image()
 
+
     def change_background_color(self, color):
         global BACKGROUND_COLOR
         BACKGROUND_COLOR = QColor(color)
         self.update()
         self.update_backside_image()
 
+
     def save_canvas_as_png(self, filename="canvas_output.png"):
         pixmap = QPixmap(self.drawing_widget.size())  # Create pixmap of the same size
         self.drawing_widget.render(pixmap)  # Render the widget onto the pixmap
         pixmap.save(filename, "PNG")  # Save as PNG
 
+
     def exportHeart(self):
         arr = self.pixmapToCvImage()
         mainAlgorithm(arr,'create')
 
-    def save_as_svg(self, file_name, canvas_size):
 
+    def save_as_svg(self, file_name, canvas_size):
         # calculate the min/max x/y of the inner square
         width = canvas_size.width()
         height = canvas_size.height()
@@ -924,6 +961,7 @@ class MainWindow(QMainWindow):
             (center_x, y1),
             (x2, center_y)
         ]
+
         square_size = calculate_distance(inner_coords[0], inner_coords[1])
 
         # save the drawing canvas as an svg
@@ -978,8 +1016,9 @@ class MainWindow(QMainWindow):
 
         print("paths: ", paths)
         if paths == []:
-            self.setPatternType("pattern_classic")
-            #mainAlgorithmSvg(file_name, "pattern_classic", function= ' ')
+            self.setPatternType(PatternType.Classic)
+            #mainAlgorithmSvg(file_name, PatternType.Classic, function= ' ')
+        
         else:
             wsvg(paths,
                 attributes=shape_attr_list,
@@ -997,9 +1036,11 @@ class MainWindow(QMainWindow):
         guide_window = GuideWindow()
         guide_window.exec()
 
+
     def exportSVG(self):
         svg_file_path = USER_OUTPUT_SVG_FILENAME
         mainAlgorithmSvg(svg_file_path, CURRENT_PATTERN_TYPE, function=' ')
+
 
     def pixmapToCvImage(self):
         pixmap = QPixmap(self.drawing_widget.size())  # Create pixmap of the same size
@@ -1022,12 +1063,14 @@ class MainWindow(QMainWindow):
 
         return arr
 
+
     def cvImageToPixmap(self, cv_img):
         height, width, channel = cv_img.shape
         bytes_per_line = 3 * width  # RGB format uses 3 bytes per pixel
         cv_img_rgb = cv.cvtColor(cv_img, cv.COLOR_BGR2RGB)  # Convert BGR to RGB
         q_image = QImage(cv_img_rgb.data, width, height, bytes_per_line, QImage.Format.Format_RGB888)
         return QPixmap.fromImage(q_image)
+
 
 import subprocess
 
