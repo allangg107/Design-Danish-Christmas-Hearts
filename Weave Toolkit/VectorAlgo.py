@@ -1063,13 +1063,27 @@ def drawExtensionLines(combined_stencil, stencil_pattern, output_name, width, he
         extension = 20
         # left top line start
         left_top_line_start = (margin_x + square_size // 2, margin_y)
+        right_top_line_start = (left_top_line_start[0] + square_size, left_top_line_start[1])
+        right_top_line_end = (right_top_line_start[0] + square_size, right_top_line_start[1])
+        rightmost_point = grabRightMostPointOfPaths(path)  # `paths` should be your drawing's paths
+
+
 
         # Create line from the bottom most point to the left edge of the stencil
         left_line = Line(complex(left_top_line_start[0] - extension, start.imag), complex(start.real, start.imag))
         combined_paths_w_lines.append(Path(left_line))
         combined_attrs_w_lines.append({'stroke': 'red', 'stroke-width': 1, 'fill': 'none'})
+
+        right_line = Line(complex(rightmost_point.real, rightmost_point.imag), complex(right_top_line_end[0] + extension, rightmost_point.imag))
+        combined_paths_w_lines.append(Path(right_line))
+        combined_attrs_w_lines.append({'stroke': 'red', 'stroke-width': 1, 'fill': 'none'})
+
+        # Create line from the bottom most point to the left edge of the stencil
+        ##left_line = Line(complex(left_top_line_start[0] - extension, start.imag), complex(start.real, start.imag))
+        ##combined_paths_w_lines.append(Path(left_line))
+        ##combined_attrs_w_lines.append({'stroke': 'red', 'stroke-width': 1, 'fill': 'none'})
         
-        right_line = Line(complex(end.real, end.imag), complex(left_top_line_start[0] + square_size, end.imag))
+        ##right_line = Line(complex(end.real, end.imag), complex(left_top_line_start[0] + square_size, end.imag))
         combined_paths_w_lines.append(Path(right_line))
         combined_attrs_w_lines.append({'stroke': 'red', 'stroke-width': 1, 'fill': 'none'})
 
@@ -1101,7 +1115,7 @@ def mirrorLines(pattern_w_extended_lines, output_name, width, height, pattern_ty
     translateSVG(mirrored_lines, fixed_rounding_mirrored_lines, -distance_between, 0)
 
     # translate the mirrored lines to the correct position
-    translateSVG(fixed_rounding_mirrored_lines, output_name, 0, height)
+    translateSVG(fixed_rounding_mirrored_lines, output_name, distance_between-31, height)
 
 
 def combinePatternAndMirrorWithStencils(pattern_w_extended_lines, combined_simple_stencil_no_patt, translated_mirrored_lines, output_name="final_output.svg"):
