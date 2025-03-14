@@ -62,8 +62,16 @@ def pre_process_user_input(original_pattern, shape_types, width, height, square_
     clipped_paths = crop_svg(paths, square_size, square_size)
     # print(f"Original path ({len(paths)} segments):", paths)
 
-    print("length of clipped paths: ", len(clipped_paths))
-    print("length of attributes: ", len(attributes))
+    print(f"Number of paths after translation: {len(paths)}")
+    for i, path in enumerate(paths):
+        print(f"Path {i} has {len(path)} segments")
+
+    clipped_paths = crop_svg(paths, square_size, square_size)
+
+    # Print the number of clipped paths and segments
+    print(f"Number of clipped paths: {len(clipped_paths)}")
+    for i, path in enumerate(clipped_paths):
+        print(f"Clipped path {i} has {len(path)} segments")
 
     if len(clipped_paths) > len(attributes):
         attributes = attributes * len(clipped_paths)
@@ -132,11 +140,13 @@ def close_line_with_corners(coords, width, height, tol=1e-6):
     # Build the new coordinate list: original coords, then the inserted corners, then close.
     new_coords = coords[:]  # make a copy
     new_coords.extend(inserted)
-    new_coords.append(first)
+    #new_coords.append(first)
     return new_coords
 
+from svgpathtools import Path, Line, CubicBezier, QuadraticBezier
+from shapely.geometry import LineString, Polygon, MultiLineString
 
-def clip_path_to_boundary(path, boundary, width, height, num_samples=20):
+def clip_path_to_boundary(path, boundary, width, height, num_samples_line=1, num_samples_bezier=20):
     """
     Clips a given path to the boundary using Shapely geometric operations.
     Samples each segment to better approximate curves, then closes the resulting
@@ -147,6 +157,11 @@ def clip_path_to_boundary(path, boundary, width, height, num_samples=20):
         # Sample points along each segment.
         sampled_coords = []
         for seg in path:
+            if isinstance(seg, CubicBezier):
+                num_samples = num_samples_bezier
+            else:
+                num_samples = num_samples_line
+
             for t in np.linspace(0, 1, num_samples, endpoint=False):
                 pt = seg.point(t)
                 sampled_coords.append((pt.real, pt.imag))
@@ -168,7 +183,6 @@ def clip_path_to_boundary(path, boundary, width, height, num_samples=20):
         # Process a single LineString result.
         if isinstance(clipped_shape, LineString):
             coords = list(clipped_shape.coords)
-            coords = close_line_with_corners(coords, width, height)
             new_path = Path(
                 *[Line(complex(x, y), complex(x2, y2))
                   for (x, y), (x2, y2) in zip(coords[:-1], coords[1:])]
@@ -189,7 +203,6 @@ def clip_path_to_boundary(path, boundary, width, height, num_samples=20):
                         abs(all_coords[-1][1] - line_coords[0][1]) > 1e-6):
                         all_coords.append(line_coords[0])
                     all_coords.extend(line_coords)
-            all_coords = close_line_with_corners(all_coords, width, height)
             new_path = Path(
                 *[Line(complex(x, y), complex(x2, y2))
                   for (x, y), (x2, y2) in zip(all_coords[:-1], all_coords[1:])]
@@ -378,12 +391,12 @@ def resizeSVG(input_svg, output_svg, target_width):
          attributes=attributes,
          filename=output_svg,
          dimensions=(int(target_width), int(target_height)),
-         svg_attributes={'viewBox': f'0 0 {int(target_width)} {int(target_height)}'})    
+         svg_attributes={'viewBox': f'0 0 {int(target_width)} {int(target_height)}'})
 
 
 def mirrorSVGOverYAxis(input_svg, output_svg, width, height):
     paths, attributes = svg2paths(input_svg)
-    
+
     # Mirror each path over the Y-axis by negating the x coordinates
     mirrored_paths = []
     for path in paths:
@@ -414,7 +427,7 @@ def mirrorSVGOverYAxis(input_svg, output_svg, width, height):
                     )
                 )
         mirrored_paths.append(Path(*mirrored_segments))
-    
+
     # Write the mirrored paths to the output file
     wsvg(mirrored_paths, attributes=attributes, filename=output_svg, dimensions=(width, height))
 
@@ -568,7 +581,7 @@ def getPattern(original_pattern):
 
 def overlayDrawingOnStencil(stencil_file, user_drawing_file, size, square_size, margin_x=MARGIN, margin_y=0, filename='combined_output.svg'):
         global FILE_STEP_COUNTER
-        
+
         translated_user_path = f"{FILE_STEP_COUNTER}_translated_for_overlay.svg"
         FILE_STEP_COUNTER += 1
         translateSVG(user_drawing_file, translated_user_path, margin_x + square_size // 2, margin_y + (margin_x * 2))
@@ -665,27 +678,31 @@ def combine_overlapping_paths(paths, attrs, tolerance=1e-6):
     """
     if not paths:
         return [], []
-    
+
+    # Print the number of input paths and segments
+    print(f"Number of input paths: {len(paths)}")
+    for i, path in enumerate(paths):
+        print(f"Input path {i} has {len(path)} segments")
     # Convert svgpathtools paths to shapely geometries
     shapely_polygons = []
     path_to_attr_map = {}
-    
+
     for i, path in enumerate(paths):
         # Sample points along the path to create a polygon
         points = []
         for segment in path:
-            for t in np.linspace(0, 1, 10):  # Sample 10 points per segment
+            for t in np.linspace(0, 1, 1):  # Sample 10 points per segment
                 pt = segment.point(t)
                 points.append((pt.real, pt.imag))
-        
+
         # Ensure we have the endpoint as well
         last_pt = path[-1].point(1.0)
         points.append((last_pt.real, last_pt.imag))
-        
+
         # Close the path if it's not already closed
-        if len(points) > 2 and distance(points[0], points[-1]) > tolerance:
-            points.append(points[0])
-        
+        #if len(points) > 2 and distance(points[0], points[-1]) > tolerance:
+        #    points.append(points[0])
+
         if len(points) >= 3:  # Need at least 3 points to form a polygon
             try:
                 poly = Polygon(points)
@@ -694,28 +711,28 @@ def combine_overlapping_paths(paths, attrs, tolerance=1e-6):
                     path_to_attr_map[poly] = attrs[i]
             except Exception as e:
                 print(f"Error creating polygon: {e}")
-    
+
     if not shapely_polygons:
         return paths, attrs
-    
+
     # Merge overlapping polygons
     result_polygons = []
     result_attrs = []
     processed = set()
-    
+
     for i, poly1 in enumerate(shapely_polygons):
         if i in processed:
             continue
-        
+
         current_poly = poly1
         current_attr = path_to_attr_map[poly1]
         processed.add(i)
-        
+
         # Check for overlaps with other polygons
         for j, poly2 in enumerate(shapely_polygons):
             if j in processed:
                 continue
-                
+
             if current_poly.intersects(poly2):
                 try:
                     # Merge the polygons
@@ -724,30 +741,30 @@ def combine_overlapping_paths(paths, attrs, tolerance=1e-6):
                     processed.add(j)
                 except Exception as e:
                     print(f"Error merging polygons: {e}")
-        
+
         result_polygons.append(current_poly)
         result_attrs.append(current_attr)
-    
+
     # Convert back to svgpathtools paths
     combined_paths = []
     combined_attrs = []
-    
+
     for poly, attr in zip(result_polygons, result_attrs):
         try:
             if isinstance(poly, Polygon):
                 # Extract exterior coordinates
                 coords = list(poly.exterior.coords)
-                
+
                 # Create line segments for the outline
                 path_segments = []
                 for i in range(len(coords) - 1):
                     start = complex(coords[i][0], coords[i][1])
                     end = complex(coords[i+1][0], coords[i+1][1])
                     path_segments.append(Line(start, end))
-                
+
                 combined_paths.append(Path(*path_segments))
                 combined_attrs.append(attr)
-                
+
             elif isinstance(poly, MultiPolygon):
                 # Handle each polygon in the multipolygon
                 for geom in poly.geoms:
@@ -757,12 +774,12 @@ def combine_overlapping_paths(paths, attrs, tolerance=1e-6):
                         start = complex(coords[i][0], coords[i][1])
                         end = complex(coords[i+1][0], coords[i+1][1])
                         path_segments.append(Line(start, end))
-                    
+
                     combined_paths.append(Path(*path_segments))
                     combined_attrs.append(attr)
         except Exception as e:
             print(f"Error converting polygon to path: {e}")
-    
+
     return combined_paths, combined_attrs
 
 
@@ -847,7 +864,7 @@ def create_classic_pattern_stencils(width, height, starting_y, margin_x=31, line
 
 def create_simple_pattern_stencils(width, height, size, stencil_1_pattern, empty_stencil_1, empty_stencil_2, pattern_type):
     global FILE_STEP_COUNTER
-    
+
     # Create both simple stencils
     simpleStencil1 = drawSimpleStencil(width, height, 0, file_name=f"{FILE_STEP_COUNTER}_simpleStencil1.svg")
     FILE_STEP_COUNTER += 1
@@ -883,24 +900,24 @@ def create_simple_pattern_stencils(width, height, size, stencil_1_pattern, empty
 
 def create_symmetric_pattern_stencils(stencil_1_pattern, width, height, size, empty_stencil_1, empty_stencil_2, pattern_type):
     global FILE_STEP_COUNTER
-    
+
     cropped_size = int((500 - DRAWING_SQUARE_SIZE) // 2)
-    
+
     prepped_pattern = f"{FILE_STEP_COUNTER}_prepped_pattern.svg"
     FILE_STEP_COUNTER += 1
     cropPrep(stencil_1_pattern, prepped_pattern, cropped_size, 45)
-    
+
     half_of_pattern = f"{FILE_STEP_COUNTER}_half_of_pattern.svg"
     FILE_STEP_COUNTER += 1
     cropToTopHalf(prepped_pattern, half_of_pattern)
-    
+
     # undo the crop prep once the cropping is finished
     post_cropped_pattern = f"{FILE_STEP_COUNTER}_post_cropped_pattern.svg"
     FILE_STEP_COUNTER += 1
     cropPrep(half_of_pattern, post_cropped_pattern, -cropped_size, -45)
 
     combined_simple_stencil_w_patt, combined_simple_stencil_no_patt = create_simple_pattern_stencils(width, height, size, post_cropped_pattern, empty_stencil_1, empty_stencil_2, pattern_type)
-    
+
     # Draw lines from shapes to the edges of the stencil
     pattern_w_extended_lines = f"{FILE_STEP_COUNTER}_pattern_w_extended_lines.svg"
     FILE_STEP_COUNTER += 1
@@ -915,13 +932,13 @@ def create_symmetric_pattern_stencils(stencil_1_pattern, width, height, size, em
 
 def create_asymmetric_pattern_stencils(stencil_1_pattern, width, height, size, empty_stencil_1, empty_stencil_2, pattern_type):
     global FILE_STEP_COUNTER
-    
+
     cropped_size = int((500 - DRAWING_SQUARE_SIZE) // 2)
-    
+
     prepped_pattern = f"{FILE_STEP_COUNTER}_prepped_pattern.svg"
     FILE_STEP_COUNTER += 1
     cropPrep(stencil_1_pattern, prepped_pattern, cropped_size, 45)
-    
+
     half_of_pattern = f"{FILE_STEP_COUNTER}_half_of_pattern.svg"
     FILE_STEP_COUNTER
     cropToTopHalf(prepped_pattern, half_of_pattern)
@@ -963,7 +980,7 @@ def create_asymmetric_pattern_stencils(stencil_1_pattern, width, height, size, e
     FILE_STEP_COUNTER += 1
     drawExtensionLines(combined_simple_stencil_w_bot_patt, combined_simple_stencil_no_patt, bottom_pattern_w_extended_lines, width, height, 0)
     # ------
-    
+
     mirrored_bottom_pattern_extended = f"{FILE_STEP_COUNTER}_mirrored_pattern_extended.svg"
     FILE_STEP_COUNTER += 1
     mirrorLines(pattern_w_extended_lines, mirrored_bottom_pattern_extended, width, height, pattern_type, bottom_pattern_w_extended_lines)
@@ -974,12 +991,12 @@ def create_asymmetric_pattern_stencils(stencil_1_pattern, width, height, size, e
 
 def cropPrep(pattern, output_name, cropped_size, angle):
     global FILE_STEP_COUNTER
-    
+
     # Step 1: Rotate the pattern 45 degrees clockwise
     rotated_path_name = f"{FILE_STEP_COUNTER}_rotated_pattern_step.svg"
     FILE_STEP_COUNTER += 1
     rotateSVG(pattern, rotated_path_name, angle)
-    
+
     # Step 2: Translate to correct position after rotation
     translateSVG(rotated_path_name, output_name, cropped_size, cropped_size)
 
@@ -988,18 +1005,36 @@ def cropToTopHalf(input_svg, output_svg):
     # Crop to only the top half of the SVG
         paths, attributes = svg2paths(input_svg)
         stencil_1_clipped_paths = crop_svg(paths, 500, 500 // 2)
-        
+
         # Adjust attributes if needed
         if len(stencil_1_clipped_paths) > len(attributes):
             attributes = attributes * len(stencil_1_clipped_paths)
-        
+
         # Save the cropped half
-        wsvg(stencil_1_clipped_paths, attributes=attributes, filename=output_svg, 
+        wsvg(stencil_1_clipped_paths, attributes=attributes, filename=output_svg,
                 dimensions=(DRAWING_SQUARE_SIZE, DRAWING_SQUARE_SIZE))
+
+def set_fill_to_none(paths, attrs):
+    """
+    Set the fill attribute to none for all paths.
+    
+    Args:
+        paths: List of svgpathtools Path objects
+        attrs: List of attribute dictionaries for each path
+    
+    Returns:
+        Tuple of (paths, updated_attrs)
+    """
+    updated_attrs = []
+    for attr in attrs:
+        updated_attr = attr.copy()
+        updated_attr['fill'] = 'none'
+        updated_attrs.append(updated_attr)
+    return paths, updated_attrs
+
 
 
 def drawExtensionLines(combined_stencil, stencil_pattern, output_name, width, height, starting_y, margin_x=MARGIN):
-
     square_size = (height // 1.5) - margin_x
     margin_y = margin_x + starting_y
 
@@ -1009,26 +1044,27 @@ def drawExtensionLines(combined_stencil, stencil_pattern, output_name, width, he
     # Convert paths to strings for comparison
     combined_path_strings = [path.d() for path in combined_paths]
     stencil_path_strings = [path.d() for path in stencil_paths]
-    
+
     # Find paths that are in combined_paths but not in stencil_paths
     pattern_paths = []
     pattern_attrs = []
-    
+
     for i, path_str in enumerate(combined_path_strings):
         if path_str not in stencil_path_strings:
             pattern_paths.append(combined_paths[i])
             pattern_attrs.append(combined_attrs[i])
 
-    # wsvg(pattern_paths, attributes=pattern_attrs, filename=filename, dimensions=(width, width))
+    # Set fill to none for pattern paths
+    pattern_paths, pattern_attrs = set_fill_to_none(pattern_paths, pattern_attrs)
 
-    # combine overlapping paths
+    # Combine overlapping paths
     combined_paths, combined_attrs = combine_overlapping_paths(pattern_paths, pattern_attrs)
     wsvg(combined_paths, attributes=combined_attrs, filename="combined_shapes.svg", dimensions=(width, width))
-    
+
     combined_paths_w_lines = copy.deepcopy(combined_paths)
     combined_attrs_w_lines = copy.deepcopy(combined_attrs)
 
-    # draw a line from the bottom most point to the left edge of the stencil and draw a line from the top most point to the right edge of the stencil
+    # Draw a line from the bottom most point to the left edge of the stencil and draw a line from the top most point to the right edge of the stencil
     for path, attr in zip(combined_paths, combined_attrs):
         # Extract the start and end points of the path
         # Find all points in the path
@@ -1061,39 +1097,41 @@ def drawExtensionLines(combined_stencil, stencil_pattern, output_name, width, he
         start = min_y_point
         end = max_y_point
         extension = 20
-        # left top line start
+
+
         left_top_line_start = (margin_x + square_size // 2, margin_y)
         right_top_line_start = (left_top_line_start[0] + square_size, left_top_line_start[1])
         right_top_line_end = (right_top_line_start[0] + square_size, right_top_line_start[1])
         rightmost_point = grabRightMostPointOfPaths(path)  # `paths` should be your drawing's paths
 
-
-
         # Create line from the bottom most point to the left edge of the stencil
         left_line = Line(complex(left_top_line_start[0] - extension, start.imag), complex(start.real, start.imag))
+        # Create line from the top most point to the right edge of the stencil
+        right_line = Line(complex(rightmost_point.real, rightmost_point.imag), complex(right_top_line_end[0] + extension, rightmost_point.imag))
+
+        # Filter out segments that fall between the left_line and right_line
+
+
+        # Add the filtered segments to the final paths
+
+
+        # Add the left_line and right_line to the final paths
         combined_paths_w_lines.append(Path(left_line))
         combined_attrs_w_lines.append({'stroke': 'red', 'stroke-width': 1, 'fill': 'none'})
-
-        right_line = Line(complex(rightmost_point.real, rightmost_point.imag), complex(right_top_line_end[0] + extension, rightmost_point.imag))
         combined_paths_w_lines.append(Path(right_line))
         combined_attrs_w_lines.append({'stroke': 'red', 'stroke-width': 1, 'fill': 'none'})
 
-        # Create line from the bottom most point to the left edge of the stencil
-        ##left_line = Line(complex(left_top_line_start[0] - extension, start.imag), complex(start.real, start.imag))
-        ##combined_paths_w_lines.append(Path(left_line))
-        ##combined_attrs_w_lines.append({'stroke': 'red', 'stroke-width': 1, 'fill': 'none'})
-        
-        ##right_line = Line(complex(end.real, end.imag), complex(left_top_line_start[0] + square_size, end.imag))
-        combined_paths_w_lines.append(Path(right_line))
-        combined_attrs_w_lines.append({'stroke': 'red', 'stroke-width': 1, 'fill': 'none'})
 
-    # combined_shapes_w_lines = "combined_shapes_w_lines.svg"
+
+
+
+
+    # Save the final SVG with extended lines
     wsvg(combined_paths_w_lines, attributes=combined_attrs_w_lines, filename=output_name, dimensions=(width, width))
-
 
 def mirrorLines(pattern_w_extended_lines, output_name, width, height, pattern_type, draw_symmetric_lines_bottom=None):
     global FILE_STEP_COUNTER
-    
+
     # mirror the lines over the y-axis
     mirrored_lines = f"{FILE_STEP_COUNTER}_mirrored_lines.svg"
     FILE_STEP_COUNTER += 1
@@ -1120,7 +1158,7 @@ def mirrorLines(pattern_w_extended_lines, output_name, width, height, pattern_ty
 
 def combinePatternAndMirrorWithStencils(pattern_w_extended_lines, combined_simple_stencil_no_patt, translated_mirrored_lines, output_name="final_output.svg"):
     global FILE_STEP_COUNTER
-    
+
     # combine the mirrored lines with the original mirrored pattern
     combined_mirrored_lines = f"{FILE_STEP_COUNTER}_combined_mirrored_lines.svg"
     FILE_STEP_COUNTER += 1
@@ -1134,7 +1172,7 @@ def combinePatternAndMirrorWithStencils(pattern_w_extended_lines, combined_simpl
 
 def createFinalHeartCutoutPatternExport(size, pattern_type, sides='onesided', line_color='black', background_color='white'):
     global FILE_STEP_COUNTER
-    
+
     print("pattern type: ", pattern_type)
     print("sides: ", sides)
 
@@ -1152,15 +1190,15 @@ def createFinalHeartCutoutPatternExport(size, pattern_type, sides='onesided', li
         if pattern_type == PatternType.Simple:
             print("Creating SIMPLE pattern")
             create_simple_pattern_stencils(width, height, size, pre_processed_pattern, empty_stencil_1, empty_stencil_2, pattern_type)
-        
+
         elif pattern_type == PatternType.Symmetric:
             print("Creating SYMMETRICAL pattern")
-            
+
             create_symmetric_pattern_stencils(pre_processed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, pattern_type)
-            
+
         elif pattern_type == PatternType.Asymmetric:
             print("Creating A-SYMMETRICAL pattern")
-            
+
             create_asymmetric_pattern_stencils(pre_processed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, pattern_type)
 
         elif pattern_type == PatternType.Classic:
