@@ -918,6 +918,8 @@ def create_symmetric_pattern_stencils(stencil_1_pattern, width, height, size, em
 
     combined_simple_stencil_w_patt, combined_simple_stencil_no_patt = create_simple_pattern_stencils(width, height, size, post_cropped_pattern, empty_stencil_1, empty_stencil_2, pattern_type)
 
+    # rotate the pattern, grab the 2 points on the line of symmetry, and then rotate it back (including the points we grabbed)
+
     # Draw lines from shapes to the edges of the stencil
     pattern_w_extended_lines = f"{FILE_STEP_COUNTER}_pattern_w_extended_lines.svg"
     FILE_STEP_COUNTER += 1
@@ -988,7 +990,6 @@ def create_asymmetric_pattern_stencils(stencil_1_pattern, width, height, size, e
     combinePatternAndMirrorWithStencils(pattern_w_extended_lines, combined_simple_stencil_no_patt, mirrored_bottom_pattern_extended)
 
 
-
 def cropPrep(pattern, output_name, cropped_size, angle):
     global FILE_STEP_COUNTER
 
@@ -1014,6 +1015,7 @@ def cropToTopHalf(input_svg, output_svg):
         wsvg(stencil_1_clipped_paths, attributes=attributes, filename=output_svg,
                 dimensions=(DRAWING_SQUARE_SIZE, DRAWING_SQUARE_SIZE))
 
+
 def set_fill_to_none(paths, attrs):
     """
     Set the fill attribute to none for all paths.
@@ -1033,8 +1035,105 @@ def set_fill_to_none(paths, attrs):
     return paths, updated_attrs
 
 
+def find_rightmost_vertical_line(svg_file):
+    """
+    Find the rightmost vertical line in an SVG file.
+    
+    Args:
+        svg_file: Path to the SVG file
+        
+    Returns:
+        Tuple of (path, index) for the rightmost vertical line, or None if no vertical line is found
+    """
+    paths, attributes = svg2paths(svg_file)
+    
+    rightmost_x = float('-inf')
+    rightmost_vertical_line = None
+    rightmost_path_index = -1
+    rightmost_segment_index = -1
+    
+    for path_index, path in enumerate(paths):
+        for segment_index, segment in enumerate(path):
+            # Check if the segment is a vertical line (or nearly vertical)
+            if isinstance(segment, Line):
+                # Calculate the angle of the line with the x-axis
+                dx = segment.end.real - segment.start.real
+                dy = segment.end.imag - segment.start.imag
+                
+                # Check if line is vertical (slope is close to infinity)
+                if abs(dx) < 1e-10:  # Almost zero change in x direction
+                    # Find the x-coordinate of this vertical line
+                    x_coord = segment.start.real  # or segment.end.real, they're the same
+                    
+                    # If this is the rightmost vertical line found so far
+                    if x_coord > rightmost_x:
+                        rightmost_x = x_coord
+                        rightmost_vertical_line = segment
+                        rightmost_path_index = path_index
+                        rightmost_segment_index = segment_index
+    
+    if rightmost_vertical_line is None:
+        return None
+    
+    return (paths[rightmost_path_index], rightmost_path_index, rightmost_segment_index, rightmost_vertical_line)
+
+def get_vertical_line_endpoints(vertical_line):
+    """
+    Get the top and bottom points of a vertical line.
+    
+    Args:
+        vertical_line: Line segment object
+        
+    Returns:
+        Tuple of (top_point, bottom_point)
+    """
+    if vertical_line.start.imag <= vertical_line.end.imag:
+        return (vertical_line.start, vertical_line.end)
+    else:
+        return (vertical_line.end, vertical_line.start)
+    
+
+def rotatePoint(point, angle, center=None):
+    """
+    Rotate a point around the center by the given angle in degrees.
+    
+    Args:
+        point: A complex number or tuple representing the point to rotate
+        angle: Angle in degrees to rotate
+        center: A tuple (x, y) representing the center of rotation, defaults to (0, 0)
+    
+    Returns:
+        A complex number representing the rotated point
+    """
+    # Default center is (0, 0)
+    if center is None:
+        center = (0, 0)
+    
+    # Convert angle to radians
+    angle_rad = math.radians(angle)
+    
+    # Convert point to complex number if it's a tuple
+    if isinstance(point, tuple):
+        point = complex(point[0], point[1])
+    
+    # Convert center to complex number
+    center_complex = complex(center[0], center[1])
+    
+    # Translate point so that center becomes the origin
+    translated = point - center_complex
+    
+    # Rotate the translated point
+    rotated = translated * complex(math.cos(angle_rad), math.sin(angle_rad))
+    
+    # Translate back
+    result = rotated + center_complex
+    
+    return result
+
 
 def drawExtensionLines(combined_stencil, stencil_pattern, output_name, width, height, starting_y, margin_x=MARGIN):
+    global FILE_STEP_COUNTER
+    
     square_size = (height // 1.5) - margin_x
     margin_y = margin_x + starting_y
 
@@ -1064,62 +1163,44 @@ def drawExtensionLines(combined_stencil, stencil_pattern, output_name, width, he
     combined_paths_w_lines = copy.deepcopy(combined_paths)
     combined_attrs_w_lines = copy.deepcopy(combined_attrs)
 
+    # rotate "combined_shapes.svg" 45 degrees clockwise
+    rotated_path_name = f"{FILE_STEP_COUNTER}_rotated_pattern_step.svg"
+    FILE_STEP_COUNTER += 1
+    rotateSVG("combined_shapes.svg", rotated_path_name, 45, width // 2, height // 2)
+    
+    # find the right-most vertical line of the pattern. Grab the top and bottom points from it
+    rightmost_vertical_line = find_rightmost_vertical_line(rotated_path_name)
+    if rightmost_vertical_line is None:
+        print("No vertical line found.")
+        return
+    
+    # extract the top point from the rightmost vertical line
+    path, path_index, segment_index, line = rightmost_vertical_line
+    top_point, bottom_point = get_vertical_line_endpoints(line)
+
+    # rotate the top and bottom points back to the original orientation
+    top_point_rotated = rotatePoint(top_point, -45, (width // 2, height // 2))
+    bottom_point_rotated = rotatePoint(bottom_point, -45, (width // 2, height // 2))
+
+    del combined_paths_w_lines[path_index][segment_index]
+
     # Draw a line from the bottom most point to the left edge of the stencil and draw a line from the top most point to the right edge of the stencil
     for path, attr in zip(combined_paths, combined_attrs):
-        # Extract the start and end points of the path
-        # Find all points in the path
-        points = []
-        for segment in path:
-            # Sample points along the segment
-            for t in np.linspace(0, 1, 20):  # Sample 20 points per segment
-                pt = segment.point(t)
-                points.append(pt)
-            # Make sure to include the endpoint
-            points.append(segment.end)
-
-        # Find the point with minimum y-coordinate (rightmost in case of ties)
-        min_y = float('inf')
-        min_y_point = None
-        for pt in points:
-            if pt.imag < min_y or (pt.imag == min_y and pt.real > (min_y_point.real if min_y_point else -float('inf'))):
-                min_y = pt.imag
-                min_y_point = pt
-
-        # Find the point with maximum y-coordinate (rightmost in case of ties)
-        max_y = float('-inf')
-        max_y_point = None
-        for pt in points:
-            if pt.imag > max_y or (pt.imag == max_y and pt.real > (max_y_point.real if max_y_point else -float('inf'))):
-                max_y = pt.imag
-                max_y_point = pt
-
-        # Use these points for drawing the lines
-        start = min_y_point
-        end = max_y_point
         extension = 20
 
+        stencil_square_start = margin_x + square_size // 2
 
-        left_top_line_start = (margin_x + square_size // 2, margin_y)
-        right_top_line_start = (left_top_line_start[0] + square_size, left_top_line_start[1])
-        right_top_line_end = (right_top_line_start[0] + square_size, right_top_line_start[1])
-        rightmost_point = grabRightMostPointOfPaths(path)  # `paths` should be your drawing's paths
-
-        # Create line from the bottom most point to the left edge of the stencil
-        left_line = Line(complex(left_top_line_start[0] - extension, start.imag), complex(start.real, start.imag))
-        # Create line from the top most point to the right edge of the stencil
-        right_line = Line(complex(rightmost_point.real, rightmost_point.imag), complex(right_top_line_end[0] + extension, rightmost_point.imag))
-
-        # Filter out segments that fall between the left_line and right_line
-
-
-        # Add the filtered segments to the final paths
-
+        # Create a line from the top_point_rotated to the left edge of the stencil
+        top_of_los = Line(top_point_rotated, complex(stencil_square_start - extension, top_point_rotated.imag))
+        
+        # Create a line from the bottom_point_rotated to the right edge of the stencil
+        bottom_of_los = Line(bottom_point_rotated, complex(stencil_square_start + square_size * 2 + extension, bottom_point_rotated.imag))
 
         # Add the left_line and right_line to the final paths
-        combined_paths_w_lines.append(Path(left_line))
+        combined_paths_w_lines.append(Path(top_of_los))
         combined_attrs_w_lines.append({'stroke': 'red', 'stroke-width': 1, 'fill': 'none'})
-        combined_paths_w_lines.append(Path(right_line))
-        combined_attrs_w_lines.append({'stroke': 'red', 'stroke-width': 1, 'fill': 'none'})
+        combined_paths_w_lines.append(Path(bottom_of_los))
+        combined_attrs_w_lines.append({'stroke': 'blue', 'stroke-width': 1, 'fill': 'none'})
 
 
 
