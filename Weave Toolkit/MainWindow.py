@@ -1074,11 +1074,16 @@ class MainWindow(QMainWindow):
 
 import subprocess
 
-# Path to the batch script
 batch_script_path = "clear_svg_files.bat"
-
-# Run the batch script
-subprocess.run(batch_script_path, shell=True)
+bash_script_path = "clear_svg_files.sh"
+# Path to the batch script
+os_name = sys.platform
+if os_name.startswith("win"):
+    # Run the batch script
+    subprocess.run(batch_script_path, shell=True)
+elif os_name.startswith("darwin"):
+    # Run the bash script
+    subprocess.run(["bash", bash_script_path])
 
 app = QApplication(sys.argv)
 
