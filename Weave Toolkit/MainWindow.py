@@ -17,6 +17,9 @@ from PatternType import (
     PatternType
 )
 
+from SideType import (
+    SideType
+)
 from PyQt6.QtSvg import (
     QSvgGenerator,
     QSvgRenderer
@@ -88,6 +91,7 @@ FILLED = True
 USER_OUTPUT_SVG_FILENAME = "svg_file.svg"
 USER_PREPROCESSED_PATTERN = "preprocessed_pattern.svg"
 CURRENT_PATTERN_TYPE = PatternType.Simple
+CURRENT_SIDE = SideType.OneSided
 
 
 def calculate_distance(point1, point2):
@@ -619,6 +623,12 @@ class MainWindow(QMainWindow):
         weaving_pattern_button.setMenu(weaving_pattern_button_menu)
         menu_toolbar.addWidget(weaving_pattern_button)
 
+        side_types_button = QPushButton("Side Type", self)
+        side_types_button.setStyleSheet("background-color: lightgray; color: black;")
+        side_types_button_menu = self.createSidesDropdownMenu()
+        side_types_button.setMenu(side_types_button_menu)
+        menu_toolbar.addWidget(side_types_button)
+
         return menu_toolbar
 
 
@@ -695,7 +705,15 @@ class MainWindow(QMainWindow):
         CURRENT_PATTERN_TYPE = pattern
         self.update()
         self.update_backside_image()
+    
+    def setSideType(self, side):
+        global CURRENT_SIDE
+        CURRENT_SIDE = side
+        self.update()
+        self.update_backside_image()
 
+    def getSideType(self, side):
+        return CURRENT_SIDE
 
     def getPatternType(self):
         return CURRENT_PATTERN_TYPE
@@ -728,11 +746,36 @@ class MainWindow(QMainWindow):
         weaving_pattern_menu.addAction(action_asymmetrical)
 
         return weaving_pattern_menu
+    
+    def createSidesDropdownMenu(self):
+        sides_menu = QMenu("Sides", self)
+        sides_menu.setStyleSheet("""
+        QMenu::item {
+            color: black;
+            background: transparent;
+        }
+        QMenu::item:selected {
+            background-color: #D3D3D3;  /* Lighter gray */
+            color: black;
+        }
+        """)
+
+        # Create actions
+        action_one_sided = QAction("One-sided", self)
+        action_two_sided = QAction("Two-sided", self)
+        action_one_sided.triggered.connect(lambda: (self.setSideType(SideType.OneSided)))
+        action_two_sided.triggered.connect(lambda: (self.setSideType(SideType.TwoSided)))
+
+        # Add actions to the menu
+        sides_menu.addAction(action_one_sided)
+        sides_menu.addAction(action_two_sided)
+
+        return sides_menu
 
 
     def updateDisplaySvg(self):
         self.backside_label.setText("Front Side final product:")
-        heart = self.cvImageToPixmap(mainAlgorithmSvg(USER_PREPROCESSED_PATTERN, CURRENT_PATTERN_TYPE, "show"))
+        heart = self.cvImageToPixmap(mainAlgorithmSvg(USER_PREPROCESSED_PATTERN, CURRENT_SIDE, CURRENT_PATTERN_TYPE, "show"))
 
         # Shows the design created by the users on the heart
         pixmap = QPixmap(heart)
@@ -1023,7 +1066,7 @@ class MainWindow(QMainWindow):
             if len(shape_attr_list) < len(paths):
                 missing_attrs =[{}] * (len(paths) - len(shape_attr_list)) # use empty attributes as placeholders
                 shape_attr_list.extend(missing_attrs)
-                
+
             wsvg(paths,
                 attributes=shape_attr_list,
                 filename=file_with_attributes,
@@ -1043,7 +1086,7 @@ class MainWindow(QMainWindow):
 
     def exportSVG(self):
         svg_file_path = USER_OUTPUT_SVG_FILENAME
-        mainAlgorithmSvg(svg_file_path, CURRENT_PATTERN_TYPE, function=' ')
+        mainAlgorithmSvg(svg_file_path, CURRENT_SIDE, CURRENT_PATTERN_TYPE, function=' ')
 
 
     def pixmapToCvImage(self):
