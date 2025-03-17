@@ -1020,6 +1020,10 @@ class MainWindow(QMainWindow):
             #mainAlgorithmSvg(file_name, PatternType.Classic, function= ' ')
         
         else:
+            if len(shape_attr_list) < len(paths):
+                missing_attrs =[{}] * (len(paths) - len(shape_attr_list)) # use empty attributes as placeholders
+                shape_attr_list.extend(missing_attrs)
+                
             wsvg(paths,
                 attributes=shape_attr_list,
                 filename=file_with_attributes,

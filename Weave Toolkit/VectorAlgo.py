@@ -639,12 +639,24 @@ def getPattern(original_pattern):
             return 'error'
 
 
-def overlayDrawingOnStencil(stencil_file, user_drawing_file, size, square_size, margin_x=MARGIN, margin_y=0, filename='combined_output.svg'):
+def overlayDrawingOnStencil(stencil_file, user_drawing_file, size, square_size, pattern_type, margin_x=MARGIN, margin_y=0, filename='combined_output.svg'):
         global FILE_STEP_COUNTER
 
         translated_user_path = f"{FILE_STEP_COUNTER}_translated_for_overlay.svg"
         FILE_STEP_COUNTER += 1
-        translateSVGTo(user_drawing_file, translated_user_path, margin_x * 2 + square_size // 2, margin_y + (margin_x * 2))
+
+        x_multi = 0
+        y_multi = 0
+        if pattern_type == PatternType.Simple:
+            x_multi = 2
+            y_multi = 2
+        else:
+            x_multi = 4
+            y_multi = 3
+
+        x_shift = margin_x * x_multi + square_size // 2
+        y_shift = margin_y + (margin_x * y_multi)
+        translateSVGBy(user_drawing_file, translated_user_path, x_shift, y_shift)
 
         paths1, attributes1 = svg2paths(stencil_file)
         paths2, attributes2 = svg2paths(translated_user_path)
@@ -685,7 +697,7 @@ def overlayPatternOnStencil(pattern, stencil, size, stencil_number, pattern_type
     combined_output_name = f"{FILE_STEP_COUNTER}_stencil_{stencil_number}_overlayed.svg"
     FILE_STEP_COUNTER += 1
     margin_y = 0 if stencil_number == 1 else size // 2
-    overlayDrawingOnStencil(stencil, resized_pattern_name, size, square_size, margin, margin_y, combined_output_name)
+    overlayDrawingOnStencil(stencil, resized_pattern_name, size, square_size, pattern_type, margin, margin_y, combined_output_name)
 
     return combined_output_name
 
@@ -726,7 +738,7 @@ def drawSimpleStencil(width, height, starting_y, margin_x=MARGIN, line_color='bl
 
 def combine_overlapping_paths(paths, attrs, tolerance=1e-6):
     """
-    Combine overlapping paths into single shapes using Shapely.
+    Combine overlapping paths into single shapes using Shapely and simplify resulting paths.
     
     Args:
         paths: List of svgpathtools Path objects
@@ -734,7 +746,7 @@ def combine_overlapping_paths(paths, attrs, tolerance=1e-6):
         tolerance: Tolerance for determining if points are close enough to be considered overlapping
     
     Returns:
-        Tuple of (combined_paths, combined_attrs) 
+        Tuple of (combined_paths, combined_attrs) with simplified lines
     """
     if not paths:
         return [], []
@@ -743,6 +755,7 @@ def combine_overlapping_paths(paths, attrs, tolerance=1e-6):
     print(f"Number of input paths: {len(paths)}")
     for i, path in enumerate(paths):
         print(f"Input path {i} has {len(path)} segments")
+    
     # Convert svgpathtools paths to shapely geometries
     shapely_polygons = []
     path_to_attr_map = {}
@@ -751,17 +764,13 @@ def combine_overlapping_paths(paths, attrs, tolerance=1e-6):
         # Sample points along the path to create a polygon
         points = []
         for segment in path:
-            for t in np.linspace(0, 1, 1):  # Sample 10 points per segment
+            for t in np.linspace(0, 1, 10):  # Sample 10 points per segment
                 pt = segment.point(t)
                 points.append((pt.real, pt.imag))
 
         # Ensure we have the endpoint as well
         last_pt = path[-1].point(1.0)
         points.append((last_pt.real, last_pt.imag))
-
-        # Close the path if it's not already closed
-        #if len(points) > 2 and distance(points[0], points[-1]) > tolerance:
-        #    points.append(points[0])
 
         if len(points) >= 3:  # Need at least 3 points to form a polygon
             try:
@@ -793,7 +802,7 @@ def combine_overlapping_paths(paths, attrs, tolerance=1e-6):
             if j in processed:
                 continue
 
-            if current_poly.intersects(poly2):
+            if current_poly.intersects(poly2) or current_poly.distance(poly2) < tolerance:
                 try:
                     # Merge the polygons
                     current_poly = current_poly.union(poly2)
@@ -805,40 +814,107 @@ def combine_overlapping_paths(paths, attrs, tolerance=1e-6):
         result_polygons.append(current_poly)
         result_attrs.append(current_attr)
 
-    # Convert back to svgpathtools paths
+    # Convert back to svgpathtools paths with simplified segments
     combined_paths = []
     combined_attrs = []
 
     for poly, attr in zip(result_polygons, result_attrs):
         try:
             if isinstance(poly, Polygon):
-                # Extract exterior coordinates
-                coords = list(poly.exterior.coords)
+                # Extract exterior coordinates and simplify the polygon
+                exterior = poly.exterior
+                # Simplify the exterior to remove redundant points
+                simplified = exterior.simplify(tolerance)
+                coords = list(simplified.coords)
 
                 # Create line segments for the outline
                 path_segments = []
+                
+                # Simplify collinear segments
+                if len(coords) > 2:
+                    simplified_coords = [coords[0]]
+                    
+                    for i in range(1, len(coords) - 1):
+                        # Check if three points are collinear
+                        p1 = simplified_coords[-1]
+                        p2 = coords[i]
+                        p3 = coords[i + 1]
+                        
+                        # Calculate slopes or check vertical alignment
+                        if abs(p1[0] - p2[0]) < tolerance and abs(p2[0] - p3[0]) < tolerance:
+                            # Points are vertically aligned, skip the middle point
+                            continue
+                        
+                        if abs(p1[1] - p2[1]) < tolerance and abs(p2[1] - p3[1]) < tolerance:
+                            # Points are horizontally aligned, skip the middle point
+                            continue
+                            
+                        # Check for general collinearity
+                        if abs((p3[1] - p1[1]) * (p2[0] - p1[0]) - (p2[1] - p1[1]) * (p3[0] - p1[0])) < tolerance:
+                            # Points are collinear, skip the middle point
+                            continue
+                            
+                        simplified_coords.append(p2)
+                    
+                    simplified_coords.append(coords[-1])
+                    coords = simplified_coords
+                
+                # Create the path segments from simplified coordinates
                 for i in range(len(coords) - 1):
                     start = complex(coords[i][0], coords[i][1])
                     end = complex(coords[i+1][0], coords[i+1][1])
                     path_segments.append(Line(start, end))
 
-                combined_paths.append(Path(*path_segments))
-                combined_attrs.append(attr)
+                if path_segments:
+                    combined_paths.append(Path(*path_segments))
+                    combined_attrs.append(attr)
 
             elif isinstance(poly, MultiPolygon):
                 # Handle each polygon in the multipolygon
                 for geom in poly.geoms:
-                    coords = list(geom.exterior.coords)
+                    exterior = geom.exterior
+                    simplified = exterior.simplify(tolerance)
+                    coords = list(simplified.coords)
+                    
+                    # Simplify collinear segments as above
+                    if len(coords) > 2:
+                        simplified_coords = [coords[0]]
+                        
+                        for i in range(1, len(coords) - 1):
+                            p1 = simplified_coords[-1]
+                            p2 = coords[i]
+                            p3 = coords[i + 1]
+                            
+                            if abs(p1[0] - p2[0]) < tolerance and abs(p2[0] - p3[0]) < tolerance:
+                                continue
+                            
+                            if abs(p1[1] - p2[1]) < tolerance and abs(p2[1] - p3[1]) < tolerance:
+                                continue
+                                
+                            if abs((p3[1] - p1[1]) * (p2[0] - p1[0]) - (p2[1] - p1[1]) * (p3[0] - p1[0])) < tolerance:
+                                continue
+                                
+                            simplified_coords.append(p2)
+                        
+                        simplified_coords.append(coords[-1])
+                        coords = simplified_coords
+                    
                     path_segments = []
                     for i in range(len(coords) - 1):
                         start = complex(coords[i][0], coords[i][1])
                         end = complex(coords[i+1][0], coords[i+1][1])
                         path_segments.append(Line(start, end))
 
-                    combined_paths.append(Path(*path_segments))
-                    combined_attrs.append(attr)
+                    if path_segments:
+                        combined_paths.append(Path(*path_segments))
+                        combined_attrs.append(attr)
         except Exception as e:
             print(f"Error converting polygon to path: {e}")
+
+    # Print the number of output paths and segments
+    print(f"Number of output paths: {len(combined_paths)}")
+    for i, path in enumerate(combined_paths):
+        print(f"Output path {i} has {len(path)} segments")
 
     return combined_paths, combined_attrs
 
