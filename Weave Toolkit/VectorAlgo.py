@@ -49,7 +49,7 @@ def pre_process_user_input(original_pattern, shape_types, width, height, square_
     cropped_size = int((width - square_size) // 2)
     translated_path_name = f"{FILE_STEP_COUNTER}_translated_pattern_step.svg"
     FILE_STEP_COUNTER += 1
-    translateSVG(rotated_path_name, translated_path_name, -cropped_size, -cropped_size)
+    translateSVGBy(rotated_path_name, translated_path_name, -cropped_size, -cropped_size)
 
     paths, attributes = svg2paths(translated_path_name)
 
@@ -240,7 +240,7 @@ def crop_svg(paths, width, height):
     return clipped_paths
 
 
-def translateSVG(input_svg, output_svg, x_shift, y_shift):
+def translateSVGBy(input_svg, output_svg, x_shift, y_shift):
     paths, attributes = svg2paths(input_svg)
 
     translation = complex(x_shift, y_shift)
@@ -277,6 +277,66 @@ def translateSVG(input_svg, output_svg, x_shift, y_shift):
          attributes=attributes,
          filename=output_svg,
          dimensions=(height, width))
+    
+
+def translateSVGTo(input_svg, output_svg, target_x, target_y):
+    """
+    Translates an SVG to a specific target position (target_x, target_y).
+    The top-left corner of the SVG will be positioned at these coordinates.
+    """
+    paths, attributes = svg2paths(input_svg)
+
+    # Get the current position of the top-left corner
+    min_x = float('inf')
+    min_y = float('inf')
+    
+    for path in paths:
+        for segment in path:
+            # Sample points to find the minimum x and y coordinates
+            for t in np.linspace(0, 1, 10):
+                pt = segment.point(t)
+                min_x = min(min_x, pt.real)
+                min_y = min(min_y, pt.imag)
+    
+    # Calculate the translation needed to move to target position
+    x_shift = target_x - min_x
+    y_shift = target_y - min_y
+    
+    # Apply the translation
+    translation = complex(x_shift, y_shift)
+
+    tree = ET.parse(input_svg)
+    root = tree.getroot()
+    width = float(root.get("width", "500"))  # Default to 500 if missing
+    height = float(root.get("height", "500"))
+
+    # Apply translation to all paths
+    for i in range(len(paths)):
+        new_segments = []
+        for segment in paths[i]:
+            if isinstance(segment, Line):
+                new_segments.append(Line(segment.start + translation, segment.end + translation))
+            elif isinstance(segment, CubicBezier):
+                new_segments.append(CubicBezier(
+                    segment.start + translation,
+                    segment.control1 + translation,
+                    segment.control2 + translation,
+                    segment.end + translation
+                ))
+            elif isinstance(segment, QuadraticBezier):
+                new_segments.append(QuadraticBezier(
+                    segment.start + translation,
+                    segment.control + translation,
+                    segment.end + translation
+                ))
+            else:
+                print("translateSVGTo: unsupported segment type detected")
+        paths[i] = Path(*new_segments)
+
+    wsvg(paths,
+         attributes=attributes,
+         filename=output_svg,
+         dimensions=(width, height))
 
 
 def rotateSVG(input_svg, output_svg, angle, center_x=None, center_y=None):
@@ -584,7 +644,7 @@ def overlayDrawingOnStencil(stencil_file, user_drawing_file, size, square_size, 
 
         translated_user_path = f"{FILE_STEP_COUNTER}_translated_for_overlay.svg"
         FILE_STEP_COUNTER += 1
-        translateSVG(user_drawing_file, translated_user_path, margin_x + square_size // 2, margin_y + (margin_x * 2))
+        translateSVGTo(user_drawing_file, translated_user_path, margin_x * 2 + square_size // 2, margin_y + (margin_x * 2))
 
         paths1, attributes1 = svg2paths(stencil_file)
         paths2, attributes2 = svg2paths(translated_user_path)
@@ -947,7 +1007,7 @@ def create_asymmetric_pattern_stencils(stencil_1_pattern, width, height, size, e
 
     translated_for_bottom_half = f"{FILE_STEP_COUNTER}_translated_for_bottom_half.svg"
     FILE_STEP_COUNTER += 1
-    translateSVG(prepped_pattern, translated_for_bottom_half, 0, -500 // 2)
+    translateSVGBy(prepped_pattern, translated_for_bottom_half, 0, -500 // 2)
 
     prepped_bottom_pattern = f"{FILE_STEP_COUNTER}_prepped_bottom_pattern.svg"
     FILE_STEP_COUNTER += 1
@@ -955,7 +1015,7 @@ def create_asymmetric_pattern_stencils(stencil_1_pattern, width, height, size, e
 
     re_translated_for_bottom_half = f"{FILE_STEP_COUNTER}_post_cropped_bottom_pattern.svg"
     FILE_STEP_COUNTER += 1
-    translateSVG(prepped_bottom_pattern, re_translated_for_bottom_half, 0, 500 // 2)
+    translateSVGBy(prepped_bottom_pattern, re_translated_for_bottom_half, 0, 500 // 2)
 
     # undo the crop prep once the cropping is finished
     post_cropped_pattern = f"{FILE_STEP_COUNTER}_post_cropped_pattern.svg"
@@ -999,7 +1059,7 @@ def cropPrep(pattern, output_name, cropped_size, angle):
     rotateSVG(pattern, rotated_path_name, angle)
 
     # Step 2: Translate to correct position after rotation
-    translateSVG(rotated_path_name, output_name, cropped_size, cropped_size)
+    translateSVGBy(rotated_path_name, output_name, cropped_size, cropped_size)
 
 
 def cropToTopHalf(input_svg, output_svg):
@@ -1231,10 +1291,10 @@ def mirrorLines(pattern_w_extended_lines, output_name, width, height, pattern_ty
 
     fixed_rounding_mirrored_lines = f"{FILE_STEP_COUNTER}_fixed_mirrored_lines.svg"
     FILE_STEP_COUNTER += 1
-    translateSVG(mirrored_lines, fixed_rounding_mirrored_lines, -distance_between, 0)
+    translateSVGBy(mirrored_lines, fixed_rounding_mirrored_lines, -distance_between, 0)
 
     # translate the mirrored lines to the correct position
-    translateSVG(fixed_rounding_mirrored_lines, output_name, distance_between-31, height)
+    translateSVGBy(fixed_rounding_mirrored_lines, output_name, distance_between-31, height)
 
 
 def combinePatternAndMirrorWithStencils(pattern_w_extended_lines, combined_simple_stencil_no_patt, translated_mirrored_lines, output_name="final_output.svg"):
