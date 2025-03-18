@@ -311,6 +311,13 @@ class DrawingWidget(QWidget):
             pen.setStyle(Qt.PenStyle.DashLine)
             qp.setPen(pen)
             qp.drawLine(int(center_x), int(y1), int(center_x), int(y2))
+        elif CURRENT_PATTERN_TYPE == PatternType.Classic:
+            # draw 3 dashed lines going from lower left to upper right
+            pen.setStyle(Qt.PenStyle.DashLine)
+            qp.setPen(pen)
+            qp.drawLine(int((x1) / 2), int(center_y + center_y /2), int(x2 / 2), int(center_y / 2))
+            #for i in range(3):
+            #    qp.drawLine(int(x1 + i * 15), int(y2), int(center_x+100 + i * 15), int(height-width + 200))
 
         brush = QBrush(SHAPE_COLOR)
         qp.setBrush(brush)
