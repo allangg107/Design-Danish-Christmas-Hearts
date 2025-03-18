@@ -78,9 +78,12 @@ from Algorithm import (
 )
 
 from VectorAlgo import (
-    mainAlgorithmSvg, pre_process_user_input
+    mainAlgorithmSvg
 )
 
+from VectorAlgoUtils import (
+    pre_process_user_input
+)
 
 # Global variables for the shape mode and shape color
 SHAPE_MODE = ShapeMode.Cursor
@@ -736,14 +739,17 @@ class MainWindow(QMainWindow):
         action_simple = QAction("Simple", self)
         action_symmetrical = QAction("Symmetrical", self)
         action_asymmetrical = QAction("Asymmetrical", self)
+        action_classic = QAction("Classic", self)
         action_simple.triggered.connect(lambda: (self.setPatternType(PatternType.Simple)))
         action_symmetrical.triggered.connect(lambda: (self.setPatternType(PatternType.Symmetric)))
         action_asymmetrical.triggered.connect(lambda: (self.setPatternType(PatternType.Asymmetric)))
+        action_classic.triggered.connect(lambda: (self.setPatternType(PatternType.Classic)))
 
         # Add actions to the menu
         weaving_pattern_menu.addAction(action_simple)
         weaving_pattern_menu.addAction(action_symmetrical)
         weaving_pattern_menu.addAction(action_asymmetrical)
+        weaving_pattern_menu.addAction(action_classic)
 
         return weaving_pattern_menu
     
