@@ -311,16 +311,17 @@ class DrawingWidget(QWidget):
             qp.drawLine(int(center_x), int(y1), int(center_x), int(y2))
         elif CURRENT_PATTERN_TYPE == PatternType.Classic:
             # draw 3 dashed lines going from lower left to upper right
-            print((x1+center_x)/2,(y1+center_y)/2)
             pen.setStyle(Qt.PenStyle.DashLine)
             qp.setPen(pen)
             scaling = 75
+            qp.drawLine( int(((x1+center_x) / 2) * (-scaling)), int(((center_y+y2) / 2) * scaling), int(((x2 + center_x) / 2) * (-scaling)), int(((center_y + y1) /2) * scaling))
             for i in range(2):
                 qp.drawLine( int(((x1+center_x) / 2) + i * (-scaling)), int(((center_y+y1) / 2) + i * scaling), int(((x2 + center_x) / 2) + i * (-scaling)), int(((center_y + y2) /2) + i * scaling))
-
+                qp.drawLine( int(((x1+center_x) / 2) - i * scaling), int(((center_y+y2) / 2) + i * (-scaling)), int(((x2 + center_x) / 2) + i * (-scaling)), int(((center_y + y1) /2) + i * (-scaling)))
+                
             for j in range(2):
                 qp.drawLine( int(((x1+center_x) / 2) - j * (-scaling)), int(((center_y+y1) / 2) - j * scaling), int(((x2 + center_x) / 2) - j * (-scaling)), int(((center_y + y2) /2) - j * scaling))            
-            
+                qp.drawLine( int(((x1+center_x) / 2) + j * scaling), int(((center_y+y2) / 2) -j * (-scaling)), int(((x2 + center_x) / 2) -j * (-scaling)), int(((center_y + y1) /2) -j * (-scaling)))        
 
         brush = QBrush(SHAPE_COLOR)
         qp.setBrush(brush)
