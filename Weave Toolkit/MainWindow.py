@@ -95,8 +95,6 @@ USER_OUTPUT_SVG_FILENAME = "svg_file.svg"
 USER_PREPROCESSED_PATTERN = "preprocessed_pattern.svg"
 CURRENT_PATTERN_TYPE = PatternType.Simple
 CURRENT_SIDE = SideType.OneSided
-
-
 def calculate_distance(point1, point2):
         return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
 
@@ -313,11 +311,16 @@ class DrawingWidget(QWidget):
             qp.drawLine(int(center_x), int(y1), int(center_x), int(y2))
         elif CURRENT_PATTERN_TYPE == PatternType.Classic:
             # draw 3 dashed lines going from lower left to upper right
+            print((x1+center_x)/2,(y1+center_y)/2)
             pen.setStyle(Qt.PenStyle.DashLine)
             qp.setPen(pen)
-            qp.drawLine(int((x1) / 2), int(center_y + center_y /2), int(x2 / 2), int(center_y / 2))
-            #for i in range(3):
-            #    qp.drawLine(int(x1 + i * 15), int(y2), int(center_x+100 + i * 15), int(height-width + 200))
+            scaling = 75
+            for i in range(2):
+                qp.drawLine( int(((x1+center_x) / 2) + i * (-scaling)), int(((center_y+y1) / 2) + i * scaling), int(((x2 + center_x) / 2) + i * (-scaling)), int(((center_y + y2) /2) + i * scaling))
+
+            for j in range(2):
+                qp.drawLine( int(((x1+center_x) / 2) - j * (-scaling)), int(((center_y+y1) / 2) - j * scaling), int(((x2 + center_x) / 2) - j * (-scaling)), int(((center_y + y2) /2) - j * scaling))            
+            
 
         brush = QBrush(SHAPE_COLOR)
         qp.setBrush(brush)
