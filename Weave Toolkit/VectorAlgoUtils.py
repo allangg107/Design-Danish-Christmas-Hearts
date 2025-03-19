@@ -377,6 +377,81 @@ def mirrorSVGOverXAxis(input_svg, output_svg, width, height):
     # Write the mirrored paths to the output file
     wsvg(mirrored_paths, attributes=attributes, filename=output_svg, dimensions=(width, height))
 
+def mirrorSVGOverXAxisWithY(input_svg, output_svg, width, height, y_mirror):
+    paths, attributes = svg2paths(input_svg)
+    
+    # Mirror each path over the X-axis by negating the y-coordinates
+    mirrored_paths = []
+    for path in paths:
+        mirrored_segments = []
+        for segment in path:
+            if isinstance(segment, Line):
+                mirrored_segments.append(
+                    Line(
+                        complex(segment.start.real, 2 * y_mirror - segment.start.imag),
+                        complex(segment.end.real, 2 * y_mirror - segment.end.imag)
+                    )
+                )
+            elif isinstance(segment, CubicBezier):
+                mirrored_segments.append(
+                    CubicBezier(
+                        complex(segment.start.real, 2 * y_mirror - segment.start.imag),
+                        complex(segment.control1.real, 2 * y_mirror - segment.control1.imag),
+                        complex(segment.control2.real, 2 * y_mirror - segment.control2.imag),
+                        complex(segment.end.real, 2 * y_mirror - segment.end.imag)
+                    )
+                )
+            elif isinstance(segment, QuadraticBezier):
+                mirrored_segments.append(
+                    QuadraticBezier(
+                        complex(segment.start.real, 2 * y_mirror - segment.start.imag),
+                        complex(segment.control.real, 2 * y_mirror - segment.control.imag),
+                        complex(segment.end.real, 2 * y_mirror - segment.end.imag)
+                    )
+                )
+        mirrored_paths.append(Path(*mirrored_segments))
+    
+    # Write the mirrored paths to the output file
+    wsvg(mirrored_paths, attributes=attributes, filename=output_svg, dimensions=(width, height))
+
+
+def removeDuplicateLinesFromSVG(svg_with_pattern, svg_without_pattern, output_filename=None):
+    """
+    Extracts paths that exist in svg_with_pattern but not in svg_without_pattern.
+    
+    Args:
+        svg_with_pattern: Path to SVG file containing pattern and stencil
+        svg_without_pattern: Path to SVG file containing only the stencil
+        output_filename: Optional filename for output SVG, defaults to auto-generated name
+        
+    Returns:
+        Path to the output SVG file containing only the pattern elements
+    """
+    if output_filename is None:
+        output_filename = f"{getFileStepCounter()}_pattern_only.svg"
+        incrementFileStepCounter()
+    
+    # Extract paths from both SVGs
+    with_paths, with_attrs = svg2paths(svg_with_pattern)
+    without_paths, without_attrs = svg2paths(svg_without_pattern)
+    
+    # Convert paths to strings for comparison
+    without_path_strings = [path.d() for path in without_paths]
+    
+    # Find paths that are in with_paths but not in without_paths
+    pattern_paths = []
+    pattern_attrs = []
+    
+    for i, path in enumerate(with_paths):
+        path_str = path.d()
+        if path_str not in without_path_strings:
+            pattern_paths.append(path)
+            pattern_attrs.append(with_attrs[i])
+    
+    # Save the pattern-only paths to a new SVG
+    wsvg(pattern_paths, attributes=pattern_attrs, filename=output_filename)
+    
+    return output_filename
 
 
 """Cropping of SVG files"""
@@ -550,7 +625,7 @@ def savePixmapToCvImage(pixmap):
 
     return cv_image
 
-"""FunctionS to get the global values"""
+"""Functions to get the global values"""
 
 def getFileStepCounter():
     return FILE_STEP_COUNTER
@@ -560,9 +635,9 @@ def getDrawingSquareSize():
 
 """Functions to set global values"""
 
-def setFileStepCounter(value):
+def incrementFileStepCounter():
     global FILE_STEP_COUNTER
-    FILE_STEP_COUNTER += value
+    FILE_STEP_COUNTER += 1
 
 def setDrawingSquareSize(value):
     global DRAWING_SQUARE_SIZE

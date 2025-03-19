@@ -29,19 +29,20 @@ from VectorAlgoUtils import (
     saveSvgFileAsPixmap,
     rotateImage,
     getFileStepCounter,
-    setFileStepCounter,
+    incrementFileStepCounter,
     getDrawingSquareSize,
-    setDrawingSquareSize,
+    setDrawingSquareSize
 )
 
 from VectorAlgoStencils import (
     
     create_classic_pattern_stencils,
-    create_simple_pattern_stencils,
+    create_and_combine_stencils_onesided,
     combineStencils,
     drawEmptyStencil,
     create_asymmetric_pattern_stencils,
-    create_symmetric_pattern_stencils
+    create_symmetric_pattern_stencils,
+    create_simple_pattern_stencils
 )
 
 from ShapeMode import (
@@ -192,16 +193,17 @@ def createFinalHeartCutoutPatternExport(size, side_type, pattern_type, line_colo
     height = size // 2
 
     empty_stencil_1 = drawEmptyStencil(width, height, 0, file_name=f"{getFileStepCounter()}_stencil1.svg")
-    setFileStepCounter(1)
+    incrementFileStepCounter()
     empty_stencil_2 = drawEmptyStencil(width, height, height, file_name=f"{getFileStepCounter()}_stencil2.svg")
-    setFileStepCounter(1)
+    incrementFileStepCounter()
 
     preprocessed_pattern = "preprocessed_pattern.svg"
 
     if pattern_type == PatternType.Simple:
         print("Creating SIMPLE pattern")
-        create_simple_pattern_stencils(width, height, size, preprocessed_pattern, empty_stencil_1, empty_stencil_2, side_type, pattern_type)
-
+        
+        create_simple_pattern_stencils(preprocessed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, side_type, pattern_type)
+    
     elif pattern_type == PatternType.Symmetric:
         print("Creating SYMMETRICAL pattern")
 
@@ -215,15 +217,15 @@ def createFinalHeartCutoutPatternExport(size, side_type, pattern_type, line_colo
     elif pattern_type == PatternType.Classic:
         print("Creating CLASSIC pattern")
         combined_classic_stencil = f"{getFileStepCounter()}_combined_classic_stencil.svg"
-        setFileStepCounter(1)
+        incrementFileStepCounter()
         classic_stencil1 = create_classic_pattern_stencils(width, height, 0, file_name=f"{getFileStepCounter()}_classic_stencil1.svg")
-        setFileStepCounter(1)
+        incrementFileStepCounter()
         classic_stencil2 = create_classic_pattern_stencils(width, height, height, file_name=f"{getFileStepCounter()}_classic_stencil2.svg")
-        setFileStepCounter(1)
+        incrementFileStepCounter()
         final_stencil = f"{getFileStepCounter()}_classic_final_stencil.svg"
-        setFileStepCounter(1)
+        incrementFileStepCounter()
         combined_classic_stencil_final = f"{getFileStepCounter()}_combined_classic_stencil_final.svg"
-        setFileStepCounter(1)
+        incrementFileStepCounter()
         combineStencils(empty_stencil_1, classic_stencil1, combined_classic_stencil)
         combineStencils(empty_stencil_2, classic_stencil2, final_stencil)
         combineStencils(final_stencil, combined_classic_stencil, combined_classic_stencil_final)
