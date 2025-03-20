@@ -314,7 +314,6 @@ class DrawingWidget(QWidget):
             pen.setStyle(Qt.PenStyle.DashLine)
             qp.setPen(pen)
             scaling = 75
-            #qp.drawLine( int(((x1+center_x) / 2) * (-scaling)), int(((center_y+y2) / 2) * scaling), int(((x2 + center_x) / 2) * (-scaling)), int(((center_y + y1) /2) * scaling))
             for i in range(2):
                 qp.drawLine( int(((x1+center_x) / 2) + i * (-scaling)), int(((center_y+y1) / 2) + i * scaling), int(((x2 + center_x) / 2) + i * (-scaling)), int(((center_y + y2) /2) + i * scaling))
                 qp.drawLine( int(((x1+center_x) / 2) - i * scaling), int(((center_y+y2) / 2) + i * (-scaling)), int(((x2 + center_x) / 2) + i * (-scaling)), int(((center_y + y1) /2) + i * (-scaling)))

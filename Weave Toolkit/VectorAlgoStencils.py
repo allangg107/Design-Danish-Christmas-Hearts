@@ -204,7 +204,7 @@ def drawSimpleStencil(width, height, starting_y, margin_x=MARGIN, line_color='bl
 
 
 
-def drawClassicStencil(width, height, starting_y, n, margin_x=MARGIN, line_color='black', file_name="allans_test.svg"):
+def drawClassicStencil(width, height, starting_y, n, margin_x=MARGIN, line_color='black', file_name="test1.svg"):
     dwg = svgwrite.Drawing(file_name, size=(width,height+starting_y))
 
     #define the square size
@@ -232,8 +232,21 @@ def drawClassicStencil(width, height, starting_y, n, margin_x=MARGIN, line_color
 
     return file_name
 
-def create_classic_pattern_stencils():
-    return None
+def create_classic_pattern_stencils(stencil_1_pattern, width, height, size, empty_stencil_1, empty_stencil_2, pattern_type):
+
+    combined_classic_stencil = f"{getFileStepCounter()}_combined_classic_stencil.svg"
+    incrementFileStepCounter()
+    classic_stencil1 = drawClassicStencil(width, height, 0, 3, file_name=f"{getFileStepCounter()}_classic_stencil1.svg")
+    incrementFileStepCounter()
+    classic_stencil2 = drawClassicStencil(width, height, height, 3, file_name=f"{getFileStepCounter()}_classic_stencil2.svg")
+    incrementFileStepCounter()
+    final_stencil = f"{getFileStepCounter()}_classic_final_stencil.svg"
+    incrementFileStepCounter()
+    combined_classic_stencil_final = f"{getFileStepCounter()}_combined_classic_stencil_final.svg"
+    incrementFileStepCounter()
+    combineStencils(empty_stencil_1, classic_stencil1, combined_classic_stencil)
+    combineStencils(empty_stencil_2, classic_stencil2, final_stencil)
+    combineStencils(final_stencil, combined_classic_stencil, combined_classic_stencil_final)
 
 
 def create_and_combine_stencils_onesided(width, height, size, stencil_1_pattern, empty_stencil_1, empty_stencil_2, pattern_type):
