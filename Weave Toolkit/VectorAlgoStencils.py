@@ -204,7 +204,7 @@ def drawSimpleStencil(width, height, starting_y, margin_x=MARGIN, line_color='bl
 
 
 
-def drawClassicStencil(width, height, starting_y, n, margin_x=MARGIN, line_color='black', file_name="test1.svg"):
+def drawClassicStencil(width, height, starting_y, n_lines, margin_x=MARGIN, line_color='black', file_name="test1.svg"):
     dwg = svgwrite.Drawing(file_name, size=(width,height+starting_y))
 
     #define the square size
@@ -222,9 +222,9 @@ def drawClassicStencil(width, height, starting_y, n, margin_x=MARGIN, line_color
     right_bottom_line_start = left_bottom_line_end
     right_bottom_line_end = (right_bottom_line_start[0] + square_size, right_bottom_line_start[1])
 
-    offset = square_size / (n + 1)
+    offset = square_size / (n_lines + 1)
       
-    for i in range(n):
+    for i in range(n_lines):
         y = left_top_line_start[1] + offset  * (i + 1)
         dwg.add(dwg.line(start=(left_top_line_start[0], y), end=(right_top_line_end[0], y), stroke="brown", stroke_width=3))
 
