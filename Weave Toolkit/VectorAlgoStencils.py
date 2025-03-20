@@ -204,7 +204,7 @@ def drawSimpleStencil(width, height, starting_y, margin_x=MARGIN, line_color='bl
 
 
 
-def create_classic_pattern_stencils(width, height, starting_y, margin_x=MARGIN, line_color='black', file_name="allans_test.svg"):
+def drawClassicStencil(width, height, starting_y, n, margin_x=MARGIN, line_color='black', file_name="allans_test.svg"):
     dwg = svgwrite.Drawing(file_name, size=(width,height+starting_y))
 
     #define the square size
@@ -222,19 +222,18 @@ def create_classic_pattern_stencils(width, height, starting_y, margin_x=MARGIN, 
     right_bottom_line_start = left_bottom_line_end
     right_bottom_line_end = (right_bottom_line_start[0] + square_size, right_bottom_line_start[1])
 
-    offset = 90
-    y1 = left_top_line_start[1] + offset     # Top inner line
-    y3 = left_top_line_start[1] + square_size - offset
-    y2 = (y1 + y3) / 2   # Middle inner line
-    dwg.add(dwg.line(start=(left_top_line_start[0], y1), end=(right_top_line_end[0], y1), stroke="brown", stroke_width=3))
-    dwg.add(dwg.line(start=(left_top_line_start[0], y2), end=(right_top_line_end[0], y2), stroke="brown", stroke_width=3))
-    dwg.add(dwg.line(start=(left_top_line_start[0], y3), end=(right_top_line_end[0], y3), stroke="brown", stroke_width=3))
-    #overlayPatternOnStencil()
-
+    offset = square_size / (n + 1)
+      
+    for i in range(n):
+        y = left_top_line_start[1] + offset  * (i + 1)
+        dwg.add(dwg.line(start=(left_top_line_start[0], y), end=(right_top_line_end[0], y), stroke="brown", stroke_width=3))
 
     dwg.save()
 
     return file_name
+
+def create_classic_pattern_stencils():
+    return None
 
 
 def create_and_combine_stencils_onesided(width, height, size, stencil_1_pattern, empty_stencil_1, empty_stencil_2, pattern_type):
@@ -749,14 +748,6 @@ def create_simple_pattern_stencils(stencil_1_pattern, width, height, size, empty
         combined_patt_and_mirror = f"{getFileStepCounter()}_combined_patt_and_mirror.svg"
         incrementFileStepCounter()
         combineStencils(processed_pattern, mirrored_pattern, combined_patt_and_mirror)
-        # create copy of the combined pattern and mirror
-        # paths, attributes = svg2paths(combined_patt_and_mirror)
-        # combined_patt_and_mirror_copy = f"{getFileStepCounter()}_combined_patt_and_mirror_copy.svg"
-        # incrementFileStepCounter()
-        # paths_copy = copy.deepcopy(paths)
-        # attributes_copy = copy.deepcopy(attributes)
-        # wsvg(paths_copy, attributes=attributes_copy, filename=combined_patt_and_mirror_copy, dimensions=(width, height))
-        # translateSVGBy(combined_patt_and_mirror_copy, combined_patt_and_mirror_copy, 0, height)
 
         combinePatternAndMirrorWithStencils(processed_pattern, combined_simple_stencil_no_patt, mirrored_pattern)
 

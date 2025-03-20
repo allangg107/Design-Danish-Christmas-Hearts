@@ -36,7 +36,7 @@ from VectorAlgoUtils import (
 
 from VectorAlgoStencils import (
     
-    create_classic_pattern_stencils,
+    drawClassicStencil,
     create_and_combine_stencils_onesided,
     combineStencils,
     drawEmptyStencil,
@@ -218,9 +218,9 @@ def createFinalHeartCutoutPatternExport(size, side_type, pattern_type, line_colo
         print("Creating CLASSIC pattern")
         combined_classic_stencil = f"{getFileStepCounter()}_combined_classic_stencil.svg"
         incrementFileStepCounter()
-        classic_stencil1 = create_classic_pattern_stencils(width, height, 0, file_name=f"{getFileStepCounter()}_classic_stencil1.svg")
+        classic_stencil1 = drawClassicStencil(width, height, 0, 3, file_name=f"{getFileStepCounter()}_classic_stencil1.svg")
         incrementFileStepCounter()
-        classic_stencil2 = create_classic_pattern_stencils(width, height, height, file_name=f"{getFileStepCounter()}_classic_stencil2.svg")
+        classic_stencil2 = drawClassicStencil(width, height, height, 3, file_name=f"{getFileStepCounter()}_classic_stencil2.svg")
         incrementFileStepCounter()
         final_stencil = f"{getFileStepCounter()}_classic_final_stencil.svg"
         incrementFileStepCounter()
