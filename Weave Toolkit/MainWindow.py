@@ -1061,14 +1061,6 @@ class MainWindow(QMainWindow):
             updated_attr['stroke-width'] = pen_width
             updated_attr['fill'] = shape_color.name()
 
-            # in order to compensate for the (I believe) stroke width it is necessary to offset the final end point in every rectangle
-            # AS IT TURNS out this causes issues for drawing hearts and filling
-            # if shape[2] == ShapeMode.Square:
-            #     last_line = path[-1]  # Get the last line
-            #     offset = complex(0, - (pen_width/2))
-            #     new_end = last_line.end + offset
-            #     path[-1] = Line(last_line.start, new_end)
-
             shape_attr_list.append(updated_attr)
 
         file_with_attributes = "svg_file_2.svg"

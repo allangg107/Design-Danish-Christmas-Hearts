@@ -168,8 +168,7 @@ def drawEmptyStencil(width, height, starting_y, margin_x=MARGIN, line_color='bla
     return file_name
 
 
-
-def drawSimpleStencil(width, height, starting_y, margin_x=MARGIN, line_color='black', file_name="allans_test.svg"):
+def drawInnerCutLines(width, height, starting_y, margin_x=MARGIN, line_color='black', file_name="allans_test.svg"):
     dwg = svgwrite.Drawing(file_name, size=(width, height + starting_y))
 
     # Define the square size
@@ -191,22 +190,19 @@ def drawSimpleStencil(width, height, starting_y, margin_x=MARGIN, line_color='bl
 
     # Draw the inner line cuts with extended length
     dwg.add(dwg.line(start=(left_top_line_start[0] - extension, left_top_line_start[1] + margin_x),
-                      end=(right_top_line_end[0] + extension, right_top_line_end[1] + margin_x),
-                      stroke="brown", stroke_width=3))
+                            end=(right_top_line_end[0] + extension, right_top_line_end[1] + margin_x),
+                            stroke="brown", stroke_width=3))
 
     dwg.add(dwg.line(start=(left_bottom_line_start[0] - extension, left_bottom_line_start[1] - margin_x),
-                      end=(right_bottom_line_end[0] + extension, right_bottom_line_end[1] - margin_x),
-                      stroke="brown", stroke_width=3))
+                            end=(right_bottom_line_end[0] + extension, right_bottom_line_end[1] - margin_x),
+                            stroke="brown", stroke_width=3))
 
     dwg.save()
 
     return file_name
 
 
-
-def drawClassicStencil(width, height, starting_y, n_lines, margin_x=MARGIN, line_color='black', file_name="test1.svg"):
-    dwg = svgwrite.Drawing(file_name, size=(width,height+starting_y))
-
+def createClassicInnerCuts(width, height, starting_y, n_lines, margin_x=MARGIN, line_color='black'):
     #define the square size
     square_size = (height // 1.5) - margin_x
     margin_y = margin_x + starting_y
@@ -224,36 +220,25 @@ def drawClassicStencil(width, height, starting_y, n_lines, margin_x=MARGIN, line
 
     offset = square_size / (n_lines + 1)
       
-    for i in range(n_lines):
-        y = left_top_line_start[1] + offset  * (i + 1)
-        dwg.add(dwg.line(start=(left_top_line_start[0], y), end=(right_top_line_end[0], y), stroke="brown", stroke_width=3))
+    paths = []
+    attributes = []
+    
+    new_paths = [Line(
+        start=complex(left_top_line_start[0], left_top_line_start[1] + offset * (i + 1)),
+        end=complex(right_top_line_end[0], left_top_line_start[1] + offset * (i + 1))
+    ) for i in range(n_lines)]
+    new_attributes = [{'stroke': line_color, 'stroke-width': 3, 'fill': 'none'} for _ in range(n_lines)]
+    paths.extend(new_paths)
+    attributes.extend(new_attributes)
 
-    dwg.save()
-
-    return file_name
-
-def create_classic_pattern_stencils(stencil_1_pattern, width, height, size, empty_stencil_1, empty_stencil_2, pattern_type):
-
-    combined_classic_stencil = f"{getFileStepCounter()}_combined_classic_stencil.svg"
-    incrementFileStepCounter()
-    classic_stencil1 = drawClassicStencil(width, height, 0, 3, file_name=f"{getFileStepCounter()}_classic_stencil1.svg")
-    incrementFileStepCounter()
-    classic_stencil2 = drawClassicStencil(width, height, height, 3, file_name=f"{getFileStepCounter()}_classic_stencil2.svg")
-    incrementFileStepCounter()
-    final_stencil = f"{getFileStepCounter()}_classic_final_stencil.svg"
-    incrementFileStepCounter()
-    combined_classic_stencil_final = f"{getFileStepCounter()}_combined_classic_stencil_final.svg"
-    incrementFileStepCounter()
-    combineStencils(empty_stencil_1, classic_stencil1, combined_classic_stencil)
-    combineStencils(empty_stencil_2, classic_stencil2, final_stencil)
-    combineStencils(final_stencil, combined_classic_stencil, combined_classic_stencil_final)
+    return paths, attributes
 
 
 def create_and_combine_stencils_onesided(width, height, size, stencil_1_pattern, empty_stencil_1, empty_stencil_2, pattern_type):
     # Create both simple stencils
-    simpleStencil1 = drawSimpleStencil(width, height, 0, file_name=f"{getFileStepCounter()}_simpleStencil1.svg")
+    simpleStencil1 = drawInnerCutLines(width, height, 0, file_name=f"{getFileStepCounter()}_simpleStencil1.svg")
     incrementFileStepCounter()
-    simpleStencil2 = drawSimpleStencil(width, height, height, file_name=f"{getFileStepCounter()}_simpleStencil2.svg")
+    simpleStencil2 = drawInnerCutLines(width, height, height, file_name=f"{getFileStepCounter()}_simpleStencil2.svg")
     incrementFileStepCounter()
 
     # Combine all stencils first
@@ -514,6 +499,7 @@ def grabRightMostPointOfPaths(paths):
 
     return max_point
 
+
 def set_fill_to_none(paths, attrs):
     """
     Set the fill attribute to none for all paths.
@@ -531,6 +517,7 @@ def set_fill_to_none(paths, attrs):
         updated_attr['fill'] = 'none'
         updated_attrs.append(updated_attr)
     return paths, updated_attrs
+
 
 def find_rightmost_vertical_line(svg_file):
     """
@@ -573,6 +560,7 @@ def find_rightmost_vertical_line(svg_file):
         return None
     
     return (paths[rightmost_path_index], rightmost_path_index, rightmost_segment_index, rightmost_vertical_line)
+
 
 def get_vertical_line_endpoints(vertical_line):
     """
@@ -629,7 +617,7 @@ def rotatePoint(point, angle, center=None):
 
 
 def drawExtensionLines(combined_stencil, stencil_pattern, output_name, side_type, width, height, starting_y, margin_x=MARGIN):
-    
+
     square_size = (height // 1.5) - margin_x
     margin_y = margin_x + starting_y
 
@@ -709,6 +697,7 @@ def drawExtensionLines(combined_stencil, stencil_pattern, output_name, side_type
     # Save the final SVG with extended lines
     wsvg(combined_paths_w_lines, attributes=combined_attrs_w_lines, filename=output_name, dimensions=(width, width))
 
+
 def mirrorLines(pattern_w_extended_lines, output_name, width, height, pattern_type):
     
     global MARGIN
@@ -765,7 +754,55 @@ def create_simple_pattern_stencils(stencil_1_pattern, width, height, size, empty
         combinePatternAndMirrorWithStencils(processed_pattern, combined_simple_stencil_no_patt, mirrored_pattern)
 
 
-"""Symmetric and Asymmetric stencils"""
+def fitClassicCuts(classic_cuts, stencil_pattern, output_name, width, height, size):
+    """
+    Fit classic cuts around the pattern.
+    """
+    pass
+
+
+"""Create Non-Simple stencils"""
+
+def create_classic_pattern_stencils(stencil_1_pattern, width, height, size, empty_stencil_1, empty_stencil_2, pattern_type):
+    
+    # 1. create the classic inner cuts
+    stencil_1_classic_cuts_paths, stencil_1_classic_cuts_attr = createClassicInnerCuts(width, height, 0, 3)
+    stencil_2_classic_cuts_paths, stencil_2_classic_cuts_attr = createClassicInnerCuts(width, height, height, 3)
+
+    stencil_1_classic_cuts = f"{getFileStepCounter()}_stencil_1_classic_cuts.svg"
+    incrementFileStepCounter()
+    stencil_2_classic_cuts = f"{getFileStepCounter()}_stencil_2_classic_cuts.svg"
+    incrementFileStepCounter()
+
+    wsvg(stencil_1_classic_cuts_paths, attributes=stencil_1_classic_cuts_attr, filename=stencil_1_classic_cuts, dimensions=(width, width))
+    wsvg(stencil_2_classic_cuts_paths, attributes=stencil_2_classic_cuts_attr, filename=stencil_2_classic_cuts, dimensions=(width, width))
+
+    # 2. fit the classic cuts around the pattern
+    fitted_stencil_1_classic_cuts = f"{getFileStepCounter()}_fitted_stencil_1_classic_cuts.svg"
+    incrementFileStepCounter()
+    
+    fitClassicCuts(stencil_1_classic_cuts, stencil_1_pattern, fitted_stencil_1_classic_cuts, width, height, size)
+    fitted_stencil_1_classic_cuts = removeDuplicateLinesFromSVG(fitted_stencil_1_classic_cuts, stencil_1_pattern)
+
+    fitted_stencil_2_classic_cuts = f"{getFileStepCounter()}_fitted_stencil_2_classic_cuts.svg"
+    incrementFileStepCounter()
+
+    fitClassicCuts(stencil_2_classic_cuts, stencil_1_pattern, fitted_stencil_2_classic_cuts, width, height, size)
+    fitted_stencil_2_classic_cuts = removeDuplicateLinesFromSVG(fitted_stencil_2_classic_cuts, stencil_1_pattern)
+    
+    # 4. combine the fitted classic cuts and pattern with the empty stencils
+    stencil_1 = f"{getFileStepCounter()}_final_stencil_1.svg"
+    incrementFileStepCounter()
+    stencil_2 = f"{getFileStepCounter()}_final_stencil_2.svg"
+    incrementFileStepCounter()
+    
+    combineStencils(empty_stencil_1, fitted_stencil_1_classic_cuts, stencil_1)
+    combineStencils(empty_stencil_2, fitted_stencil_2_classic_cuts, stencil_2)
+    
+    final_output = f"{getFileStepCounter()}_final_output.svg"
+    incrementFileStepCounter()
+    combineStencils(stencil_1, stencil_2, final_output)
+
 
 def create_symmetric_pattern_stencils(stencil_1_pattern, width, height, size, empty_stencil_1, empty_stencil_2, side_type, pattern_type):
     
@@ -818,7 +855,7 @@ def create_symmetric_pattern_stencils(stencil_1_pattern, width, height, size, em
 
 def create_asymmetric_pattern_stencils(stencil_1_pattern, width, height, size, empty_stencil_1, empty_stencil_2, side_type, pattern_type):
     
-    cropped_size = int((500 - getDrawingSquareSize) // 2)
+    cropped_size = int((500 - getDrawingSquareSize()) // 2)
 
     prepped_pattern = f"{getFileStepCounter()}_prepped_pattern.svg"
     incrementFileStepCounter()
