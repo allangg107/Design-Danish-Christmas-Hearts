@@ -763,11 +763,11 @@ def fitClassicCuts(classic_cuts, stencil_pattern, output_name, width, height, si
 
 """Create Non-Simple stencils"""
 
-def create_classic_pattern_stencils(stencil_1_pattern, width, height, size, empty_stencil_1, empty_stencil_2, pattern_type):
+def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, pattern_type, n_lines):
     
     # 1. create the classic inner cuts
-    stencil_1_classic_cuts_paths, stencil_1_classic_cuts_attr = createClassicInnerCuts(width, height, 0, 3)
-    stencil_2_classic_cuts_paths, stencil_2_classic_cuts_attr = createClassicInnerCuts(width, height, height, 3)
+    stencil_1_classic_cuts_paths, stencil_1_classic_cuts_attr = createClassicInnerCuts(width, height, 0, n_lines)
+    stencil_2_classic_cuts_paths, stencil_2_classic_cuts_attr = createClassicInnerCuts(width, height, height, n_lines)
 
     stencil_1_classic_cuts = f"{getFileStepCounter()}_stencil_1_classic_cuts.svg"
     incrementFileStepCounter()
@@ -781,16 +781,23 @@ def create_classic_pattern_stencils(stencil_1_pattern, width, height, size, empt
     fitted_stencil_1_classic_cuts = f"{getFileStepCounter()}_fitted_stencil_1_classic_cuts.svg"
     incrementFileStepCounter()
     
-    fitClassicCuts(stencil_1_classic_cuts, stencil_1_pattern, fitted_stencil_1_classic_cuts, width, height, size)
-    fitted_stencil_1_classic_cuts = removeDuplicateLinesFromSVG(fitted_stencil_1_classic_cuts, stencil_1_pattern)
+    fitClassicCuts(stencil_1_classic_cuts, preprocessed_pattern, fitted_stencil_1_classic_cuts, width, height, size)
+    fitted_stencil_1_classic_cuts = removeDuplicateLinesFromSVG(fitted_stencil_1_classic_cuts, preprocessed_pattern)
 
     fitted_stencil_2_classic_cuts = f"{getFileStepCounter()}_fitted_stencil_2_classic_cuts.svg"
     incrementFileStepCounter()
 
-    fitClassicCuts(stencil_2_classic_cuts, stencil_1_pattern, fitted_stencil_2_classic_cuts, width, height, size)
-    fitted_stencil_2_classic_cuts = removeDuplicateLinesFromSVG(fitted_stencil_2_classic_cuts, stencil_1_pattern)
+    fitClassicCuts(stencil_2_classic_cuts, preprocessed_pattern, fitted_stencil_2_classic_cuts, width, height, size)
+    fitted_stencil_2_classic_cuts = removeDuplicateLinesFromSVG(fitted_stencil_2_classic_cuts, preprocessed_pattern)
+
+    # 3. split up the pattern into 2 sides based on where they were intersected by the classic cuts
+    stencil_1_pattern = f"{getFileStepCounter()}_stencil_1_pattern.svg"
+    incrementFileStepCounter()
+
+    stencil_2_pattern = f"{getFileStepCounter()}_stencil_2_pattern.svg"
+    incrementFileStepCounter()
     
-    # 4. combine the fitted classic cuts and pattern with the empty stencils
+    # 4. combine the fitted classic cuts and pattern halves with the empty stencils
     stencil_1 = f"{getFileStepCounter()}_final_stencil_1.svg"
     incrementFileStepCounter()
     stencil_2 = f"{getFileStepCounter()}_final_stencil_2.svg"
@@ -804,13 +811,13 @@ def create_classic_pattern_stencils(stencil_1_pattern, width, height, size, empt
     combineStencils(stencil_1, stencil_2, final_output)
 
 
-def create_symmetric_pattern_stencils(stencil_1_pattern, width, height, size, empty_stencil_1, empty_stencil_2, side_type, pattern_type):
+def create_symmetric_pattern_stencils(preprocessed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, side_type, pattern_type):
     
     cropped_size = int((500 - getDrawingSquareSize()) // 2)
 
     prepped_pattern = f"{getFileStepCounter()}_prepped_pattern.svg"
     incrementFileStepCounter()
-    cropPrep(stencil_1_pattern, prepped_pattern, cropped_size, 45)
+    cropPrep(preprocessed_pattern, prepped_pattern, cropped_size, 45)
 
     half_of_pattern = f"{getFileStepCounter()}_half_of_pattern.svg"
     incrementFileStepCounter()
@@ -853,13 +860,13 @@ def create_symmetric_pattern_stencils(stencil_1_pattern, width, height, size, em
         combinePatternAndMirrorWithStencils(combined_patt_and_mirror, combined_simple_stencil_no_patt, combined_patt_and_mirror_copy)
 
 
-def create_asymmetric_pattern_stencils(stencil_1_pattern, width, height, size, empty_stencil_1, empty_stencil_2, side_type, pattern_type):
+def create_asymmetric_pattern_stencils(preprocessed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, side_type, pattern_type):
     
     cropped_size = int((500 - getDrawingSquareSize()) // 2)
 
     prepped_pattern = f"{getFileStepCounter()}_prepped_pattern.svg"
     incrementFileStepCounter()
-    cropPrep(stencil_1_pattern, prepped_pattern, cropped_size, 45)
+    cropPrep(preprocessed_pattern, prepped_pattern, cropped_size, 45)
 
     half_of_pattern = f"{getFileStepCounter()}_half_of_pattern.svg"
     getFileStepCounter()

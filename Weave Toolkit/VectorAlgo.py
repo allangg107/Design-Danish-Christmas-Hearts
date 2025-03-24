@@ -183,7 +183,7 @@ def createFinalHeartDisplay(image):
 
     return reverse_rotated_mask
 
-def createFinalHeartCutoutPatternExport(size, side_type, pattern_type, line_color='black', background_color='white'):
+def createFinalHeartCutoutPatternExport(size, side_type, pattern_type, n_lines=1, line_color='black', background_color='white'):
     
 
     print("pattern type: ", pattern_type)
@@ -217,13 +217,13 @@ def createFinalHeartCutoutPatternExport(size, side_type, pattern_type, line_colo
     elif pattern_type == PatternType.Classic:
         print("Creating CLASSIC pattern")
         
-        create_classic_pattern_stencils(preprocessed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, pattern_type)
+        create_classic_pattern_stencils(preprocessed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, pattern_type, n_lines)
 
         # resizeSvg(final_stencil, user_decided_export_size)
 
         # return final_stencil
 
-def mainAlgorithmSvg(img, side_type, pattern_type, function='show'):
+def mainAlgorithmSvg(img, side_type, pattern_type, function='show', n_lines = 0):
 
     match function:
 
@@ -235,4 +235,4 @@ def mainAlgorithmSvg(img, side_type, pattern_type, function='show'):
             return createFinalHeartDisplay(heartCvImage)
 
         case _:
-            return createFinalHeartCutoutPatternExport(1200, side_type, pattern_type)
+            return createFinalHeartCutoutPatternExport(1200, side_type, pattern_type, n_lines)

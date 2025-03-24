@@ -670,7 +670,9 @@ class MainWindow(QMainWindow):
         action_export.triggered.connect(lambda: self.exportHeart())
         action_guide_export = QAction("Export Guide", self)
         action_guide_export.triggered.connect(lambda: self.exportGuide())
-        action_undo = QAction("Undo (shrt cut: ctrl + z)", self) # Need to implement stack to store shapes
+        action_undo = QAction("Undo (ctrl + z)", self)
+        action_undo.triggered.connect(self.undo_last_shape)
+        action_undo.setShortcut("Ctrl+Z")
 
         # Add actions to the menu
         file_menu.addAction(action_new)
@@ -719,14 +721,17 @@ class MainWindow(QMainWindow):
         self.update()
         self.update_backside_image()
     
+
     def setSideType(self, side):
         global CURRENT_SIDE
         CURRENT_SIDE = side
         self.update()
         self.update_backside_image()
 
+
     def getSideType(self, side):
         return CURRENT_SIDE
+
 
     def getPatternType(self):
         return CURRENT_PATTERN_TYPE
@@ -763,6 +768,7 @@ class MainWindow(QMainWindow):
 
         return weaving_pattern_menu
     
+
     def createSidesDropdownMenu(self):
         sides_menu = QMenu("Sides", self)
         sides_menu.setStyleSheet("""
@@ -996,6 +1002,28 @@ class MainWindow(QMainWindow):
         self.update_backside_image()
 
 
+    def keyPressEvent(self, event):
+        """Handle key press events for the main window."""
+        # Check for Ctrl+Z (undo)
+        if event.key() == Qt.Key.Key_Z and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            self.undo_last_shape()
+        else:
+            super().keyPressEvent(event)
+
+
+    def undo_last_shape(self):
+        """Remove the most recently added shape."""
+        if self.drawing_widget.shapes:
+            self.drawing_widget.shapes.pop()  # Remove the last shape
+            
+            # If using symmetrical pattern, also remove the mirrored shape
+            if CURRENT_PATTERN_TYPE == PatternType.Symmetric and self.drawing_widget.shapes:
+                self.drawing_widget.shapes.pop()
+                
+            self.drawing_widget.update()  # Redraw the canvas
+            self.update_backside_image()  # Update the mirrored image
+
+
     def save_canvas_as_png(self, filename="canvas_output.png"):
         pixmap = QPixmap(self.drawing_widget.size())  # Create pixmap of the same size
         self.drawing_widget.render(pixmap)  # Render the widget onto the pixmap
@@ -1094,7 +1122,7 @@ class MainWindow(QMainWindow):
 
     def exportSVG(self):
         svg_file_path = USER_OUTPUT_SVG_FILENAME
-        mainAlgorithmSvg(svg_file_path, CURRENT_SIDE, CURRENT_PATTERN_TYPE, function=' ')
+        mainAlgorithmSvg(svg_file_path, CURRENT_SIDE, CURRENT_PATTERN_TYPE, function=' ', n_lines=3)
 
 
     def pixmapToCvImage(self):
