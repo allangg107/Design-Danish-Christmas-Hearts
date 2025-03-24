@@ -313,14 +313,31 @@ class DrawingWidget(QWidget):
             # draw 3 dashed lines going from lower left to upper right
             pen.setStyle(Qt.PenStyle.DashLine)
             qp.setPen(pen)
-            scaling = 75
-            for i in range(2):
-                qp.drawLine( int(((x1+center_x) / 2) + i * (-scaling)), int(((center_y+y1) / 2) + i * scaling), int(((x2 + center_x) / 2) + i * (-scaling)), int(((center_y + y2) /2) + i * scaling))
-                qp.drawLine( int(((x1+center_x) / 2) - i * scaling), int(((center_y+y2) / 2) + i * (-scaling)), int(((x2 + center_x) / 2) + i * (-scaling)), int(((center_y + y1) /2) + i * (-scaling)))
+            distance = calculate_distance(inner_coords[0], inner_coords[2]) + 30
+            scaling = distance / (3 + 1)
+            offset = (math.sqrt((scaling ** 2)) / 2)
+            padding_offset = (math.sqrt((15 ** 2)) / 2)
+            line_distance = math.sqrt((distance - 30) ** 2) / 2
+            # Draw 3 parallel dashed lines going from bottom left to top right
+            for i in range(1, 4):  # Lines 1, 2, 3
+                # Calculate start and end points for each line
+                start_x_bottom = inner_coords[3][0] + (i * offset) - padding_offset
+                start_y_bottom = inner_coords[3][1] + (i * offset) - padding_offset
                 
-            for j in range(2):
-                qp.drawLine( int(((x1+center_x) / 2) - j * (-scaling)), int(((center_y+y1) / 2) - j * scaling), int(((x2 + center_x) / 2) - j * (-scaling)), int(((center_y + y2) /2) - j * scaling))            
-                qp.drawLine( int(((x1+center_x) / 2) + j * scaling), int(((center_y+y2) / 2) -j * (-scaling)), int(((x2 + center_x) / 2) -j * (-scaling)), int(((center_y + y1) /2) -j * (-scaling)))        
+                end_x_bottom = start_x_bottom + line_distance
+                end_y_bottom = start_y_bottom - line_distance
+                
+                # Draw the dashed line
+                qp.drawLine(int(start_x_bottom), int(start_y_bottom), int(end_x_bottom), int(end_y_bottom))
+
+                start_x_top = inner_coords[3][0] + (i * offset) - padding_offset
+                start_y_top = inner_coords[3][1] - (i * offset) + padding_offset
+                
+                end_x_top = start_x_top + line_distance
+                end_y_top = start_y_top + line_distance
+                
+                # Draw the dashed line
+                qp.drawLine(int(start_x_top), int(start_y_top), int(end_x_top), int(end_y_top))        
 
         brush = QBrush(SHAPE_COLOR)
         qp.setBrush(brush)
@@ -739,6 +756,7 @@ class MainWindow(QMainWindow):
 
     def createWeavingPatternDropdownMenu(self):
         weaving_pattern_menu = QMenu("Weaving Pattern", self)
+        weaving_pattern_menu.setToolTipsVisible(True)  # Enable tooltips in the menu
         weaving_pattern_menu.setStyleSheet("""
         QMenu::item {
             color: black;
@@ -749,12 +767,16 @@ class MainWindow(QMainWindow):
             color: black;
         }
         """)
-
         # Create actions
         action_simple = QAction("Simple", self)
+        action_simple.setToolTip("Simple pattern: Cuts out the pattern making minimal weaving necessary")
         action_symmetrical = QAction("Symmetrical", self)
+        action_symmetrical.setToolTip("Symmetrical pattern: Mirrors whatever is drawn on one half to the other, creating a perfectly symmetrical pattern")
         action_asymmetrical = QAction("Asymmetrical", self)
+        action_asymmetrical.setToolTip("Asymmetrical pattern: Creates an asymmetric pattern")
         action_classic = QAction("Classic", self)
+        action_classic.setToolTip("Classic pattern: Creates a traditional weaving pattern, with the possibility of adding patterns")
+        
         action_simple.triggered.connect(lambda: (self.setPatternType(PatternType.Simple)))
         action_symmetrical.triggered.connect(lambda: (self.setPatternType(PatternType.Symmetric)))
         action_asymmetrical.triggered.connect(lambda: (self.setPatternType(PatternType.Asymmetric)))

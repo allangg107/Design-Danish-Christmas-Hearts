@@ -183,7 +183,7 @@ def createFinalHeartDisplay(image):
 
     return reverse_rotated_mask
 
-def createFinalHeartCutoutPatternExport(size, side_type, pattern_type, n_lines=1, line_color='black', background_color='white'):
+def createFinalHeartCutoutPatternExport(size, side_type, pattern_type, n_lines=0, line_color='black', background_color='white'):
     
 
     print("pattern type: ", pattern_type)

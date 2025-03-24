@@ -761,6 +761,10 @@ def fitClassicCuts(classic_cuts, stencil_pattern, output_name, width, height, si
     pass
 
 
+def snapShapesToClassicCuts(classic_cuts, preprocessed_pattern, width, height, size):
+    pass
+
+
 """Create Non-Simple stencils"""
 
 def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, pattern_type, n_lines):
