@@ -89,6 +89,10 @@ from VectorAlgoUtils import (
     pre_process_user_input
 )
 
+from GuideWindow import (
+    GuideWindow
+)
+
 # Global variables for the shape mode and shape color
 SHAPE_MODE = ShapeMode.Cursor
 SHAPE_COLOR = QColor(0, 0, 0, 255)
@@ -99,9 +103,9 @@ USER_OUTPUT_SVG_FILENAME = "svg_file.svg"
 USER_PREPROCESSED_PATTERN = "preprocessed_pattern.svg"
 CURRENT_PATTERN_TYPE = PatternType.Simple
 CURRENT_SIDE = SideType.OneSided
+
 def calculate_distance(point1, point2):
         return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
-
 
 class DrawingWidget(QWidget):
     # Defining the initial state of the canvas
@@ -115,7 +119,6 @@ class DrawingWidget(QWidget):
         self.end = QPoint()
         self.drawing_mode = False
         self.show()
-        self.classic_cuts = []  # Store classic cuts for the classic pattern type
 
 
     # Draws the current canvas state
@@ -205,7 +208,7 @@ class DrawingWidget(QWidget):
             shape_type = shape[2]
             qp.setBrush(SHAPE_COLOR) # set to shape[3] if we want to change color to stored shape color instead of global color
             qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin)) # pen width should needs to be saved in the shape list
-            
+
             # if in eraser mode, removes shapes that contain the point clicked
             if SHAPE_MODE == ShapeMode.Eraser:
                 point = self.begin
@@ -214,7 +217,7 @@ class DrawingWidget(QWidget):
                     if rect.contains(point):
                         self.shapes.remove(shape)
                         # continue  # Skip drawing since it's erased
-                
+
                 elif shape_type == ShapeMode.Circle:
                     center = shape[0]
                     radius = int((abs(center.x() - shape[1].x()) + abs(center.y() - shape[1].y())) / 2)
@@ -222,42 +225,42 @@ class DrawingWidget(QWidget):
                     if distance <= radius:
                         self.shapes.remove(shape)
                         # continue  # Skip drawing since it's erased
-                
+
                 elif shape_type == ShapeMode.Heart:
                     if self.heartContainsPoint(point, shape[0], shape[1]):
                         self.shapes.remove(shape)
                         # continue  # Skip drawing since it's erased
-                
+
                 elif shape_type == ShapeMode.Line:
                     if self.lineContainsPoint(point, shape[0], shape[1]):
                         self.shapes.remove(shape)
                         # continue # Skip drawing since it's erased
-                
+
                 elif shape_type == ShapeMode.FreeForm:
                     for free_form_point in range(len(shape[4]) - 1):
                         if self.lineContainsPoint(point, shape[4][free_form_point], shape[4][free_form_point + 1]):
                             self.shapes.remove(shape)
                             break  # Skip drawing since it's erased
-            
+
             # Draw the shape if not in eraser mode
             if shape_type == ShapeMode.Square:
                 self.drawSquare(qp, shape[0], shape[1], SHAPE_COLOR, shape[5], shape[6])
-            
+
             elif shape_type == ShapeMode.Circle:
                 self.drawCircle(qp, shape[0], shape[1], SHAPE_COLOR, shape[5], shape[6])
-            
+
             elif shape_type == ShapeMode.Heart:
                 self.drawHeart(qp, shape[0], shape[1], SHAPE_COLOR, shape[5], shape[6])
-            
+
             elif shape_type == ShapeMode.Line:
                 qp.setPen(QPen(SHAPE_COLOR, shape[5], Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
                 qp.drawLine(shape[0], shape[1])
-            
+
             elif shape_type == ShapeMode.FreeForm:
                 qp.setPen(QPen(SHAPE_COLOR, shape[5], Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
                 for free_form_point in range(len(shape[4]) - 1):
                     qp.drawLine(shape[4][free_form_point], shape[4][free_form_point + 1])
-            
+
             qp.setPen(QPen(SHAPE_COLOR, PEN_WIDTH, Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
 
 
@@ -318,35 +321,35 @@ class DrawingWidget(QWidget):
             # draw 3 dashed lines going from lower left to upper right and upper left to lower right
             pen.setStyle(Qt.PenStyle.DashLine)
             qp.setPen(pen)
-            distance = calculate_distance(inner_coords[0], inner_coords[2]) + 30
+            distance = calculate_distance(inner_coords[0], inner_coords[2])
             scaling = distance / (3 + 1)
             offset = (math.sqrt((scaling ** 2)) / 2)
             padding_offset = (math.sqrt((15 ** 2)) / 2)
-            line_distance = math.sqrt((distance - 30) ** 2) / 2
+            line_distance = math.sqrt((distance) ** 2) / 2
             # Draw 3 parallel dashed lines going from bottom left to top right
             classic_cuts = []
             for i in range(1, 4):  # Lines 1, 2, 3
                 # Calculate start and end points for each line
-                start_x_bottom = inner_coords[3][0] + (i * offset) - padding_offset
-                start_y_bottom = inner_coords[3][1] + (i * offset) - padding_offset
-                
+                start_x_bottom = inner_coords[3][0] + (i * offset)
+                start_y_bottom = inner_coords[3][1] + (i * offset)
+
                 end_x_bottom = start_x_bottom + line_distance
                 end_y_bottom = start_y_bottom - line_distance
-                
+
                 # Draw the dashed line
                 qp.drawLine(int(start_x_bottom), int(start_y_bottom), int(end_x_bottom), int(end_y_bottom))
                 classic_cuts.append([start_x_bottom, start_y_bottom, end_x_bottom, end_y_bottom])
 
-                start_x_top = inner_coords[3][0] + (i * offset) - padding_offset
-                start_y_top = inner_coords[3][1] - (i * offset) + padding_offset
-                
+                start_x_top = inner_coords[3][0] + (i * offset)
+                start_y_top = inner_coords[3][1] - (i * offset)
+
                 end_x_top = start_x_top + line_distance
                 end_y_top = start_y_top + line_distance
-                
+
                 # Draw the dashed line
-                qp.drawLine(int(start_x_top), int(start_y_top), int(end_x_top), int(end_y_top))   
-                classic_cuts.append([start_x_top, start_y_top, end_x_top, end_y_top])  
-            self.classic_cuts = classic_cuts   
+                qp.drawLine(int(start_x_top), int(start_y_top), int(end_x_top), int(end_y_top))
+                classic_cuts.append([start_x_top, start_y_top, end_x_top, end_y_top])
+            self.classic_cuts = classic_cuts
 
         brush = QBrush(SHAPE_COLOR)
         qp.setBrush(brush)
@@ -357,7 +360,7 @@ class DrawingWidget(QWidget):
     def get_drawing_image(self):
         image = QImage(self.size(), QImage.Format.Format_ARGB32)
         image.fill(Qt.GlobalColor.transparent)  # Fill with transparent color
-        
+
         painter = QPainter(image)
         self.render(painter)  # Render the current drawing to the image
         return image
@@ -465,7 +468,7 @@ class DrawingWidget(QWidget):
         if self.drawing_mode:
             self.begin = event.pos()
             self.end = event.pos()
-            
+
             if SHAPE_MODE == ShapeMode.FreeForm:
                 self.free_form_points = [event.position().toPoint()]
             self.update()
@@ -474,7 +477,7 @@ class DrawingWidget(QWidget):
     def mouseMoveEvent(self, event):
         if self.drawing_mode:
             self.end = event.pos()
-            
+
             if SHAPE_MODE == ShapeMode.FreeForm:
                 self.free_form_points.append(event.position().toPoint())
             self.update()
@@ -484,7 +487,7 @@ class DrawingWidget(QWidget):
         if self.drawing_mode:
             if SHAPE_MODE == ShapeMode.FreeForm:
                 self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, list(self.free_form_points), PEN_WIDTH, False])
-            
+
             else:
                 if CURRENT_PATTERN_TYPE == PatternType.Classic:
                     self.begin, self.end = snapShapeToClassicCuts(self.classic_cuts, self.begin, self.end, self.width(), self.height())
@@ -493,7 +496,7 @@ class DrawingWidget(QWidget):
                     self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, [], PEN_WIDTH, False])
                 else:
                     self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, [], 1, FILLED])
-            
+
             if CURRENT_PATTERN_TYPE == PatternType.Symmetric:
                 self.shapes.append([QPoint(self.width() - self.begin.x(), self.begin.y()), QPoint(self.width() - self.end.x(), self.end.y()), SHAPE_MODE, SHAPE_COLOR, [], 1, FILLED])
 
@@ -507,29 +510,6 @@ class DrawingWidget(QWidget):
         self.drawing_mode = enabled
         self.update()
 
-
-class GuideWindow(QDialog):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Guide Window")
-
-        layout = QVBoxLayout()
-
-        # Add an image to the layout
-        image_label = QLabel(self)
-        pixmap = QPixmap('output_image.png')  # Replace with the path to your image file
-        pixmap.scaledToHeight(600)
-        image_label.setPixmap(pixmap)
-        image_label.setFixedSize(QSize(600, 600))
-        layout.addWidget(image_label)
-
-        # Add some text to the layout
-        text_label = QLabel("This is some text displayed in the popup window.")
-        layout.addWidget(text_label)
-
-        self.setLayout(layout)
-
-        self.setFixedSize(QSize(1200, 700))
 
 
 # Subclass QMainWindow to customize your application's main window
@@ -733,7 +713,6 @@ class MainWindow(QMainWindow):
 
         return view_menu
 
-
     def clear_canvas(self):
             self.drawing_widget.shapes = []  # Clear all shapes
             self.drawing_widget.free_form_points = []  # Clear all free form points
@@ -743,13 +722,12 @@ class MainWindow(QMainWindow):
             self.update_backside_image()  # Update the backside image
             self.setPatternType(PatternType.Simple)  # Reset pattern type to default
 
-
     def setPatternType(self, pattern):
         global CURRENT_PATTERN_TYPE
         CURRENT_PATTERN_TYPE = pattern
         self.update()
         self.update_backside_image()
-    
+
 
     def setSideType(self, side):
         global CURRENT_SIDE
@@ -764,7 +742,6 @@ class MainWindow(QMainWindow):
 
     def getPatternType(self):
         return CURRENT_PATTERN_TYPE
-
 
     def createWeavingPatternDropdownMenu(self):
         weaving_pattern_menu = QMenu("Weaving Pattern", self)
@@ -788,7 +765,7 @@ class MainWindow(QMainWindow):
         action_asymmetrical.setToolTip("Asymmetrical pattern: Creates an asymmetric pattern")
         action_classic = QAction("Classic", self)
         action_classic.setToolTip("Classic pattern: Creates a traditional weaving pattern, with the possibility of adding patterns")
-        
+
         action_simple.triggered.connect(lambda: (self.setPatternType(PatternType.Simple)))
         action_symmetrical.triggered.connect(lambda: (self.setPatternType(PatternType.Symmetric)))
         action_asymmetrical.triggered.connect(lambda: (self.setPatternType(PatternType.Asymmetric)))
@@ -801,7 +778,7 @@ class MainWindow(QMainWindow):
         weaving_pattern_menu.addAction(action_classic)
 
         return weaving_pattern_menu
-    
+
 
     def createSidesDropdownMenu(self):
         sides_menu = QMenu("Sides", self)
@@ -865,7 +842,7 @@ class MainWindow(QMainWindow):
             Qt.AspectRatioMode.KeepAspectRatio,
             Qt.TransformationMode.SmoothTransformation
             )
-        
+
         self.drawing_backside.setPixmap(scaled_pixmap)
         self.drawing_backside.setAlignment(Qt.AlignmentFlag.AlignCenter)
         #self.drawing_backside.setScaledContents(True)
@@ -931,12 +908,12 @@ class MainWindow(QMainWindow):
     def setMode(self, shape_mode):
         if shape_mode == ShapeMode.Cursor:
             self.drawing_widget.set_drawing_mode(False)
-        
+
         elif shape_mode == ShapeMode.Eraser:
             self.drawing_widget.begin = QPoint(-999, -999) # Reset the begin and end points so the most recent shape isn't erased
             self.drawing_widget.end = QPoint(-1, -1)
             self.drawing_widget.set_drawing_mode(True)
-        
+
         else:
             self.drawing_widget.set_drawing_mode(True)
 
@@ -952,7 +929,7 @@ class MainWindow(QMainWindow):
         colors_toolbar.addWidget(foreground_label)
 
         foreground_colors = [("Red", "red"), ("Green", "green"), ("Orange", "orange"), ("Blue", "blue")]
-        
+
         for color_name, color_value in foreground_colors:
             button = QPushButton(color_name, self, styleSheet=f"background-color: {color_value}")
             button.clicked.connect(partial(self.change_foreground_color, color_value))
@@ -981,7 +958,7 @@ class MainWindow(QMainWindow):
         colors_toolbar.addWidget(background_label)
 
         background_colors = [("Red", "red"), ("Green", "green"), ("Orange", "orange"), ("Blue", "blue"), ("White", "white")]
-        
+
         for color_name, color_value in background_colors:
             button = QPushButton(color_name, self, styleSheet=f"background-color: {color_value}")
             button.clicked.connect(partial(self.change_background_color, color_value))
@@ -1049,11 +1026,11 @@ class MainWindow(QMainWindow):
         """Remove the most recently added shape."""
         if self.drawing_widget.shapes:
             self.drawing_widget.shapes.pop()  # Remove the last shape
-            
+
             # If using symmetrical pattern, also remove the mirrored shape
             if CURRENT_PATTERN_TYPE == PatternType.Symmetric and self.drawing_widget.shapes:
                 self.drawing_widget.shapes.pop()
-                
+
             self.drawing_widget.update()  # Redraw the canvas
             self.update_backside_image()  # Update the mirrored image
 
@@ -1131,7 +1108,7 @@ class MainWindow(QMainWindow):
         if paths == []:
             self.setPatternType(PatternType.Classic)
             #mainAlgorithmSvg(file_name, PatternType.Classic, function= ' ')
-        
+
         else:
             if len(shape_attr_list) < len(paths):
                 missing_attrs =[{}] * (len(paths) - len(shape_attr_list)) # use empty attributes as placeholders
@@ -1150,7 +1127,7 @@ class MainWindow(QMainWindow):
 
 
     def exportGuide(self):
-        guide_window = GuideWindow()
+        guide_window = GuideWindow(CURRENT_PATTERN_TYPE)
         guide_window.exec()
 
 
