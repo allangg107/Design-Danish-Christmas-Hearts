@@ -81,6 +81,10 @@ from VectorAlgo import (
     mainAlgorithmSvg
 )
 
+from VectorAlgoStencils import (
+    snapShapeToClassicCuts
+)
+
 from VectorAlgoUtils import (
     pre_process_user_input
 )
@@ -111,6 +115,7 @@ class DrawingWidget(QWidget):
         self.end = QPoint()
         self.drawing_mode = False
         self.show()
+        self.classic_cuts = []  # Store classic cuts for the classic pattern type
 
 
     # Draws the current canvas state
@@ -310,7 +315,7 @@ class DrawingWidget(QWidget):
             qp.setPen(pen)
             qp.drawLine(int(center_x), int(y1), int(center_x), int(y2))
         elif CURRENT_PATTERN_TYPE == PatternType.Classic:
-            # draw 3 dashed lines going from lower left to upper right
+            # draw 3 dashed lines going from lower left to upper right and upper left to lower right
             pen.setStyle(Qt.PenStyle.DashLine)
             qp.setPen(pen)
             distance = calculate_distance(inner_coords[0], inner_coords[2]) + 30
@@ -319,6 +324,7 @@ class DrawingWidget(QWidget):
             padding_offset = (math.sqrt((15 ** 2)) / 2)
             line_distance = math.sqrt((distance - 30) ** 2) / 2
             # Draw 3 parallel dashed lines going from bottom left to top right
+            classic_cuts = []
             for i in range(1, 4):  # Lines 1, 2, 3
                 # Calculate start and end points for each line
                 start_x_bottom = inner_coords[3][0] + (i * offset) - padding_offset
@@ -329,6 +335,7 @@ class DrawingWidget(QWidget):
                 
                 # Draw the dashed line
                 qp.drawLine(int(start_x_bottom), int(start_y_bottom), int(end_x_bottom), int(end_y_bottom))
+                classic_cuts.append([start_x_bottom, start_y_bottom, end_x_bottom, end_y_bottom])
 
                 start_x_top = inner_coords[3][0] + (i * offset) - padding_offset
                 start_y_top = inner_coords[3][1] - (i * offset) + padding_offset
@@ -337,7 +344,9 @@ class DrawingWidget(QWidget):
                 end_y_top = start_y_top + line_distance
                 
                 # Draw the dashed line
-                qp.drawLine(int(start_x_top), int(start_y_top), int(end_x_top), int(end_y_top))        
+                qp.drawLine(int(start_x_top), int(start_y_top), int(end_x_top), int(end_y_top))   
+                classic_cuts.append([start_x_top, start_y_top, end_x_top, end_y_top])  
+            self.classic_cuts = classic_cuts   
 
         brush = QBrush(SHAPE_COLOR)
         qp.setBrush(brush)
@@ -477,6 +486,9 @@ class DrawingWidget(QWidget):
                 self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, list(self.free_form_points), PEN_WIDTH, False])
             
             else:
+                if CURRENT_PATTERN_TYPE == PatternType.Classic:
+                    self.begin, self.end = snapShapeToClassicCuts(self.classic_cuts, self.begin, self.end, self.width(), self.height())
+
                 if SHAPE_MODE == ShapeMode.Line:
                     self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, [], PEN_WIDTH, False])
                 else:
