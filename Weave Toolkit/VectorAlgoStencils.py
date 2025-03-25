@@ -764,6 +764,46 @@ def fitClassicCuts(classic_cuts, stencil_pattern, output_name, width, height, si
 def snapShapeToClassicCuts(classic_cuts, begin_point, end_point, width, height):
     print("snapShapesToClassicCuts")
     print(classic_cuts)
+
+    # Process classic_cuts as a list of [x1, y1, x2, y2] coordinates
+    lines = []
+    for line_coords in classic_cuts:
+        line = LineString([(line_coords[0], line_coords[1]), (line_coords[2], line_coords[3])])
+        lines.append(line)
+
+    # Find all intersection points
+    intersection_points = []
+
+    for i, line1 in enumerate(lines):
+        for j, line2 in enumerate(lines):
+            if i >= j:  # Skip duplicate checks and self-intersection
+                continue
+                
+            # Check for intersection
+            if line1.intersects(line2):
+                intersection = line1.intersection(line2)
+                if hasattr(intersection, 'x') and hasattr(intersection, 'y'):
+                    intersection_points.append(complex(intersection.x, intersection.y))
+    
+    print(f"Found {len(intersection_points)} intersection points")
+    
+    # Find closest intersection points to begin_point and end_point
+    if len(intersection_points) > 0:
+        # Convert QPoint to complex before comparing
+        begin_complex = complex(begin_point.x(), begin_point.y())
+        end_complex = complex(end_point.x(), end_point.y())
+        
+        # Now use the complex versions for distance calculations
+        closest_to_begin = min(intersection_points,
+                               key=lambda p: abs(p - begin_complex))
+        closest_to_end = min(intersection_points, 
+                             key=lambda p: abs(p - end_complex))
+        
+        # Convert back to QPoint for return
+        from PyQt6.QtCore import QPoint
+        return QPoint(int(closest_to_begin.real), int(closest_to_begin.imag)), \
+               QPoint(int(closest_to_end.real), int(closest_to_end.imag))
+    
     return begin_point, end_point
 
 
