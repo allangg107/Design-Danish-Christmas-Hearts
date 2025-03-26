@@ -843,6 +843,95 @@ def snapShapeToClassicCuts(classic_cuts, begin_point, end_point, width, height):
     return begin_point, end_point
 
 
+def findAllNonIntersectedShapes(pattern, classic_cuts, min_intersection_length=5.0):
+    """
+    Find all shapes in the pattern SVG that are not intersected by the horizontal classic cuts,
+    or have minimal intersection below the threshold.
+    
+    Args:
+        pattern: Path to the pattern SVG file
+        classic_cuts: Path to the classic cuts SVG file
+        min_intersection_length: Minimum length of intersection to be considered as intersected
+        
+    Returns:
+        List of non-intersected path indices from the pattern
+    """
+    # Load pattern and classic cuts
+    pattern_paths, pattern_attrs = svg2paths(pattern)
+    cuts_paths, _ = svg2paths(classic_cuts)
+    
+    # Extract all lines from classic cuts (assuming they are all horizontal)
+    horizontal_cuts = []
+    for path in cuts_paths:
+        for segment in path:
+            if isinstance(segment, Line):
+                horizontal_cuts.append(LineString([
+                    (segment.start.real, segment.start.imag),
+                    (segment.end.real, segment.end.imag)
+                ]))
+    
+    # Find non-intersected shapes
+    non_intersected_indices = []
+    
+    for i, path in enumerate(pattern_paths):
+        # Convert path to Shapely geometry
+        points = []
+        for segment in path:
+            # Sample points along the segment
+            for t in np.linspace(0, 1, 10):
+                pt = segment.point(t)
+                points.append((pt.real, pt.imag))
+        
+        # Skip paths with insufficient points
+        if len(points) < 2:
+            continue
+        
+        # Create appropriate geometry
+        shape = None
+        if path.isclosed():
+            # It's a closed shape, create polygon
+            if len(points) >= 3:
+                try:
+                    shape = Polygon(points)
+                    if not shape.is_valid:
+                        shape = shape.buffer(0)  # Fix self-intersections
+                except Exception as e:
+                    print(f"Error creating polygon: {e}")
+                    continue
+        else:
+            # It's an open shape, create linestring
+            shape = LineString(points)
+        
+        if shape is None:
+            continue
+        
+        # Check intersection with all horizontal cuts
+        is_intersected = False
+        for cut in horizontal_cuts:
+            if shape.intersects(cut):
+                intersection = shape.intersection(cut)
+                
+                # Calculate length of intersection
+                if hasattr(intersection, 'length'):
+                    intersection_length = intersection.length
+                elif hasattr(intersection, 'geoms'):
+                    # MultiLineString or GeometryCollection
+                    intersection_length = sum(geom.length for geom in intersection.geoms 
+                                            if hasattr(geom, 'length'))
+                else:
+                    # Point intersection
+                    intersection_length = 0
+                
+                if intersection_length >= min_intersection_length:
+                    is_intersected = True
+                    break
+        
+        if not is_intersected:
+            non_intersected_indices.append(i)
+    
+    return [pattern_paths[i] for i in non_intersected_indices], [pattern_attrs[i] for i in non_intersected_indices]
+
+
 """Create Non-Simple stencils"""
 
 def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, pattern_type, n_lines):
@@ -877,15 +966,42 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     y_multi = 3
 
     x_shift = MARGIN * x_multi + square_size // 2
+    x_shift = x_shift - MARGIN * 2
+    
     y_shift = (MARGIN * y_multi)
     y_shift = y_shift - MARGIN * 2
-    x_shift = x_shift - MARGIN * 2
 
     translated_user_path = f"{getFileStepCounter()}_translated_for_overlay.svg"
     incrementFileStepCounter()
     translateSVGBy(resized_pattern_name, translated_user_path, x_shift, y_shift)
 
-    combineStencils(stencil_1_classic_cuts, translated_user_path, "combined_stencil_1.svg")
+    combined_cuts = f"{getFileStepCounter()}_combined_cuts.svg"
+    incrementFileStepCounter()
+    combineStencils(stencil_1_classic_cuts, translated_user_path, combined_cuts)
+    up_shape_paths, up_shape_attr = findAllNonIntersectedShapes(translated_user_path, stencil_1_classic_cuts)
+    print(up_shape_paths)
+
+    up_shapes = f"{getFileStepCounter()}_other_shapes.svg"
+    incrementFileStepCounter()
+    wsvg(up_shape_paths, attributes=up_shape_attr, filename=up_shapes, dimensions=(width, width))
+
+    down_shapes = f"{getFileStepCounter()}_down_shapes.svg"
+    incrementFileStepCounter()
+    removeDuplicateLinesFromSVG(translated_user_path, up_shapes, down_shapes)
+
+    translated_up_shapes = f"{getFileStepCounter()}_translated_up_shapes.svg"
+    incrementFileStepCounter()
+    translateSVGBy(up_shapes, translated_up_shapes, 0, -MARGIN * 1.5)
+
+    combined_shapes = f"{getFileStepCounter()}_combined_shapes.svg"
+    incrementFileStepCounter()
+    combineStencils(translated_up_shapes, down_shapes, combined_shapes)
+
+    combined_shapes_with_cuts = f"{getFileStepCounter()}_combined_shapes_with_cuts.svg"
+    incrementFileStepCounter()
+    combineStencils(combined_shapes, stencil_1_classic_cuts, combined_shapes_with_cuts)
+
+
 
     # 2. fit the classic cuts around the pattern
     fitted_stencil_1_classic_cuts = f"{getFileStepCounter()}_fitted_stencil_1_classic_cuts.svg"
