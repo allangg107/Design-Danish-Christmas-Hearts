@@ -73,8 +73,6 @@ def overlayDrawingOnStencil(stencil_file, user_drawing_file, size, square_size, 
 
         x_shift = margin_x * x_multi + square_size // 2
         y_shift = margin_y + (margin_x * y_multi)
-        if pattern_type == PatternType.Classic:
-            y_shift = y_shift - margin_x * 2
         translateSVGBy(user_drawing_file, translated_user_path, x_shift, y_shift)
 
         paths1, attributes1 = svg2paths(stencil_file)
@@ -107,8 +105,7 @@ def overlayPatternOnStencil(pattern, stencil, size, stencil_number, pattern_type
     square_size = size // 2 // 1.5 - margin
     inner_cut_size = square_size - (margin * 2)
     resize_size = inner_cut_size
-    if pattern_type == PatternType.Classic:
-        resize_size = square_size
+
     resized_pattern_name = f"{getFileStepCounter()}_scaled_pattern.svg"
     incrementFileStepCounter()
     resizeSVG(pattern, resized_pattern_name, resize_size)
@@ -862,10 +859,35 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     wsvg(stencil_1_classic_cuts_paths, attributes=stencil_1_classic_cuts_attr, filename=stencil_1_classic_cuts, dimensions=(width, width))
     wsvg(stencil_2_classic_cuts_paths, attributes=stencil_2_classic_cuts_attr, filename=stencil_2_classic_cuts, dimensions=(width, width))
 
-    overlay_pattern_on_classic_cuts = create_and_combine_stencils_onesided(width, height, size, preprocessed_pattern, empty_stencil_1, empty_stencil_2, pattern_type, n_lines=n_lines)
+    # a. rotate -90
+    rotated_path_name = f"{getFileStepCounter()}_fixed_pattern_rotation.svg"
+    incrementFileStepCounter()
+    rotateSVG(preprocessed_pattern, rotated_path_name, -90)
+    
+    # b. re-size to square_size
+    global MARGIN
+    square_size = (height // 1.5) - MARGIN
+    resize_size = square_size
+    resized_pattern_name = f"{getFileStepCounter()}_scaled_pattern.svg"
+    incrementFileStepCounter()
+    resizeSVG(rotated_path_name, resized_pattern_name, resize_size)
+    
+    # c. translate to the classic line position
+    x_multi = 4
+    y_multi = 3
+
+    x_shift = MARGIN * x_multi + square_size // 2
+    y_shift = (MARGIN * y_multi)
+    y_shift = y_shift - MARGIN * 2
+    x_shift = x_shift - MARGIN * 2
+
+    translated_user_path = f"{getFileStepCounter()}_translated_for_overlay.svg"
+    incrementFileStepCounter()
+    translateSVGBy(resized_pattern_name, translated_user_path, x_shift, y_shift)
+
+    combineStencils(stencil_1_classic_cuts, translated_user_path, "combined_stencil_1.svg")
 
     # 2. fit the classic cuts around the pattern
-
     fitted_stencil_1_classic_cuts = f"{getFileStepCounter()}_fitted_stencil_1_classic_cuts.svg"
     incrementFileStepCounter()
 
