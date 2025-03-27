@@ -16,6 +16,7 @@ from VectorAlgoUtils import (
     crop_svg,
     mirrorSVGOverXAxis,
     mirrorSVGOverYAxis,
+    mirrorSVGOverYAxisWithX,
     getDrawingSquareSize,
     getFileStepCounter,
     incrementFileStepCounter,
@@ -794,9 +795,6 @@ def fitClassicCuts(classic_cuts, stencil_pattern, output_name, width, height, si
     wsvg(combined_paths, attributes=combined_attributes, filename=output_name, dimensions=(width, height))
 
 
-
-
-
 def snapShapeToClassicCuts(classic_cuts, begin_point, end_point, width, height):
     print("snapShapesToClassicCuts")
     print(classic_cuts)
@@ -962,11 +960,12 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     resizeSVG(rotated_path_name, resized_pattern_name, resize_size)
     
     # c. translate to the classic line position
+    offset = square_size / (n_lines + 1)
     x_multi = 4
     y_multi = 3
 
     x_shift = MARGIN * x_multi + square_size // 2
-    x_shift = x_shift - MARGIN * 2
+    x_shift = x_shift - offset
     
     y_shift = (MARGIN * y_multi)
     y_shift = y_shift - MARGIN * 2
@@ -982,33 +981,51 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     print(up_shape_paths)
 
     up_shapes = f"{getFileStepCounter()}_other_shapes.svg"
-    incrementFileStepCounter()
-    wsvg(up_shape_paths, attributes=up_shape_attr, filename=up_shapes, dimensions=(width, width))
+    if up_shape_paths:
+        incrementFileStepCounter()
+        wsvg(up_shape_paths, attributes=up_shape_attr, filename=up_shapes, dimensions=(width, width))
 
     down_shapes = f"{getFileStepCounter()}_down_shapes.svg"
-    incrementFileStepCounter()
-    removeDuplicateLinesFromSVG(translated_user_path, up_shapes, down_shapes)
+    if up_shape_paths:
+        incrementFileStepCounter()
+        removeDuplicateLinesFromSVG(translated_user_path, up_shapes, down_shapes)
+    else:
+        down_shapes = translated_user_path
+        incrementFileStepCounter()
 
     translated_up_shapes = f"{getFileStepCounter()}_translated_up_shapes.svg"
-    incrementFileStepCounter()
-    translateSVGBy(up_shapes, translated_up_shapes, 0, -MARGIN * 1.5)
+    if up_shape_paths:
+        incrementFileStepCounter()
+        translateSVGBy(up_shapes, translated_up_shapes, -MARGIN * 1.5, MARGIN * 1.5)
+
+    left_top_line_end = MARGIN + square_size // 2 + square_size
+    mirrored_up_shapes = f"{getFileStepCounter()}_mirrored_up_shapes.svg"
+    if up_shape_paths:
+        incrementFileStepCounter()
+        mirrorSVGOverYAxisWithX(translated_up_shapes, mirrored_up_shapes, width, height, left_top_line_end)
 
     combined_shapes = f"{getFileStepCounter()}_combined_shapes.svg"
-    incrementFileStepCounter()
-    combineStencils(translated_up_shapes, down_shapes, combined_shapes)
+    if up_shape_paths:
+        incrementFileStepCounter()
+        combineStencils(mirrored_up_shapes, down_shapes, combined_shapes)
 
     combined_shapes_with_cuts = f"{getFileStepCounter()}_combined_shapes_with_cuts.svg"
     incrementFileStepCounter()
-    combineStencils(combined_shapes, stencil_1_classic_cuts, combined_shapes_with_cuts)
+    if up_shape_paths:
+        combineStencils(combined_shapes, stencil_1_classic_cuts, combined_shapes_with_cuts)
+    else:
+        combineStencils(down_shapes, stencil_1_classic_cuts, combined_shapes_with_cuts)
 
-
+    combined_with_stencils = f"{getFileStepCounter()}_combined_with_stencils.svg"
+    incrementFileStepCounter()
+    combineStencils(combined_shapes_with_cuts, empty_stencil_1, combined_with_stencils)
 
     # 2. fit the classic cuts around the pattern
     fitted_stencil_1_classic_cuts = f"{getFileStepCounter()}_fitted_stencil_1_classic_cuts.svg"
     incrementFileStepCounter()
 
     fitClassicCuts(stencil_1_classic_cuts, preprocessed_pattern, fitted_stencil_1_classic_cuts, width, height, size)
-    fitted_stencil_1_classic_cuts = removeDuplicateLinesFromSVG(fitted_stencil_1_classic_cuts, preprocessed_pattern)
+    # fitted_stencil_1_classic_cuts = removeDuplicateLinesFromSVG(fitted_stencil_1_classic_cuts, preprocessed_pattern)
 
     # fitted_stencil_2_classic_cuts = f"{getFileStepCounter()}_fitted_stencil_2_classic_cuts.svg"
     # incrementFileStepCounter()

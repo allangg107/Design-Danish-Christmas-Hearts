@@ -339,6 +339,42 @@ def mirrorSVGOverYAxis(input_svg, output_svg, width, height):
     # Write the mirrored paths to the output file
     wsvg(mirrored_paths, attributes=attributes, filename=output_svg, dimensions=(width, height))
 
+def mirrorSVGOverYAxisWithX(input_svg, output_svg, width, height, x_mirror):
+    paths, attributes = svg2paths(input_svg)
+
+    # Mirror each path over the Y-axis by negating the x coordinates
+    mirrored_paths = []
+    for path in paths:
+        mirrored_segments = []
+        for segment in path:
+            if isinstance(segment, Line):
+                mirrored_segments.append(
+                    Line(
+                        complex(2*x_mirror - segment.start.real, segment.start.imag),
+                        complex(2*x_mirror - segment.end.real, segment.end.imag)
+                    )
+                )
+            elif isinstance(segment, CubicBezier):
+                mirrored_segments.append(
+                    CubicBezier(
+                        complex(2*x_mirror - segment.start.real, segment.start.imag),
+                        complex(2*x_mirror - segment.control1.real, segment.control1.imag),
+                        complex(2*x_mirror - segment.control2.real, segment.control2.imag),
+                        complex(2*x_mirror - segment.end.real, segment.end.imag)
+                    )
+                )
+            elif isinstance(segment, QuadraticBezier):
+                mirrored_segments.append(
+                    QuadraticBezier(
+                        complex(2*x_mirror - segment.start.real, segment.start.imag),
+                        complex(2*x_mirror - segment.control.real, segment.control.imag),
+                        complex(2*x_mirror - segment.end.real, segment.end.imag)
+                    )
+                )
+        mirrored_paths.append(Path(*mirrored_segments))
+
+    # Write the mirrored paths to the output file
+    wsvg(mirrored_paths, attributes=attributes, filename=output_svg, dimensions=(width, height))
 
 def mirrorSVGOverXAxis(input_svg, output_svg, width, height):
     paths, attributes = svg2paths(input_svg)
