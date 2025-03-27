@@ -1106,8 +1106,7 @@ class MainWindow(QMainWindow):
 
         print("paths: ", paths)
         if paths == []:
-            self.setPatternType(PatternType.Classic)
-            #mainAlgorithmSvg(file_name, PatternType.Classic, function= ' ')
+            pre_process_user_input(None, None, width, height, square_size)
 
         else:
             if len(shape_attr_list) < len(paths):
@@ -1119,11 +1118,7 @@ class MainWindow(QMainWindow):
                 filename=file_with_attributes,
                 dimensions=(width, height))
 
-        #print("original attributes: ", shape_attr_list)
             pre_process_user_input(file_with_attributes, shape_types, width, height, square_size)
-
-            # self.shape_attributes = shape_attr_list
-            # print("updated attributes: ", shape_attr_list)
 
 
     def exportGuide(self):

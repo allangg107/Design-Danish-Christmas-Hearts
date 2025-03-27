@@ -199,10 +199,27 @@ def createFinalHeartCutoutPatternExport(size, side_type, pattern_type, n_lines=0
 
     preprocessed_pattern = "preprocessed_pattern.svg"
 
+    # Check if the preprocessed pattern is blank
+    is_blank = False
+    try:
+        paths, _ = svg2paths(preprocessed_pattern)
+        if paths:
+            is_blank = False
+        else:
+            is_blank = True
+    except:
+        is_blank = True
+        print("Error: Preprocessed pattern is blank or not found.")
+
+    print("is blank: ", is_blank)
+
+    if pattern_type != PatternType.Classic and is_blank:
+        pattern_type = PatternType.Simple
+
     if pattern_type == PatternType.Simple:
         print("Creating SIMPLE pattern")
         
-        create_simple_pattern_stencils(preprocessed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, side_type, pattern_type)
+        create_simple_pattern_stencils(preprocessed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, side_type, pattern_type, is_blank)
     
     elif pattern_type == PatternType.Symmetric:
         print("Creating SYMMETRICAL pattern")
@@ -217,7 +234,7 @@ def createFinalHeartCutoutPatternExport(size, side_type, pattern_type, n_lines=0
     elif pattern_type == PatternType.Classic:
         print("Creating CLASSIC pattern")
         
-        create_classic_pattern_stencils(preprocessed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, pattern_type, n_lines)
+        create_classic_pattern_stencils(preprocessed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, pattern_type, n_lines, is_blank)
 
         # resizeSvg(final_stencil, user_decided_export_size)
 

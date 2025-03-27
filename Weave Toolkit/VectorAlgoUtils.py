@@ -9,6 +9,7 @@ from shapely.geometry import LineString, Polygon, MultiLineString, MultiPolygon
 import math
 import numpy as np
 import cv2 as cv
+import svgwrite
 
 FILE_STEP_COUNTER = 1
 
@@ -17,6 +18,13 @@ def pre_process_user_input(original_pattern, shape_types, width, height, square_
     global FILE_STEP_COUNTER
     global DRAWING_SQUARE_SIZE
     DRAWING_SQUARE_SIZE = square_size
+
+    if original_pattern is None:
+        # create a blank SVG file with the specified width and height
+        original_pattern = "preprocessed_pattern.svg"
+        dwg = svgwrite.Drawing(original_pattern, profile='tiny', size=(square_size, square_size))
+        dwg.save()
+        return
 
     rotated_path_name = f"{FILE_STEP_COUNTER}_rotated_pattern_step.svg"
     FILE_STEP_COUNTER += 1
@@ -483,6 +491,9 @@ def removeDuplicateLinesFromSVG(svg_with_pattern, svg_without_pattern, output_fi
         if path_str not in without_path_strings:
             pattern_paths.append(path)
             pattern_attrs.append(with_attrs[i])
+
+    if pattern_paths == []:
+        return None
     
     # Save the pattern-only paths to a new SVG
     wsvg(pattern_paths, attributes=pattern_attrs, filename=output_filename)
