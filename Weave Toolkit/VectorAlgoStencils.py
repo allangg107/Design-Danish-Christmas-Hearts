@@ -974,10 +974,22 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     incrementFileStepCounter()
     translateSVGBy(resized_pattern_name, translated_user_path, x_shift, y_shift)
 
+    # 0. set fill to none
+    paths, attrs = svg2paths(translated_user_path)
+    unfilled_paths, unfilled_attrs = set_fill_to_none(paths, attrs)
+    wsvg(unfilled_paths, attributes=unfilled_attrs, filename=translated_user_path, dimensions=(width, width))
+    pattern_paths, pattern_attrs = svg2paths(translated_user_path)
+    unfilled_pattern_paths, unfilled_pattern_attrs = set_fill_to_none(pattern_paths, pattern_attrs)
+
+    unfilled_pattern = f"{getFileStepCounter()}_unfilled_pattern.svg"
+    incrementFileStepCounter()
+    wsvg(unfilled_pattern_paths, attributes=unfilled_pattern_attrs, filename=unfilled_pattern, dimensions=(width, width))
+
     combined_cuts = f"{getFileStepCounter()}_combined_cuts.svg"
     incrementFileStepCounter()
-    combineStencils(stencil_1_classic_cuts, translated_user_path, combined_cuts)
-    up_shape_paths, up_shape_attr = findAllNonIntersectedShapes(translated_user_path, stencil_1_classic_cuts)
+    combineStencils(stencil_1_classic_cuts, unfilled_pattern, combined_cuts)
+
+    up_shape_paths, up_shape_attr = findAllNonIntersectedShapes(unfilled_pattern, stencil_1_classic_cuts)
     print(up_shape_paths)
 
     up_shapes = f"{getFileStepCounter()}_other_shapes.svg"
