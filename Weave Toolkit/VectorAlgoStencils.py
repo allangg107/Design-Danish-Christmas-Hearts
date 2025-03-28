@@ -736,7 +736,6 @@ def combinePatternAndMirrorWithStencils(pattern_w_extended_lines, combined_simpl
     if output_name is None:
         output_name = f"{getFileStepCounter()}_final_output.svg"
         incrementFileStepCounter()
-        
     combineStencils(combined_mirrored_lines, combined_simple_stencil_no_patt, output_name)
 
     print("saved final stencil")
@@ -1308,6 +1307,14 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
         if down_shapes_paths is None:
             combined_shapes = mirrored_up_shapes
         else:
+            rotated_path_name = f"{getFileStepCounter()}_rotated_path_name.svg"
+            incrementFileStepCounter()
+            rotateSVG(mirrored_up_shapes, rotated_path_name, 90, left_top_line_end + square_size / 2, -MARGIN / 2 + square_size / 2)
+
+            translated_path_name = f"{getFileStepCounter()}_translated_path_name.svg"
+            incrementFileStepCounter()
+            translateSVGBy(rotated_path_name, translated_path_name, offset, 0)
+            
             combineStencils(mirrored_up_shapes, down_shapes, combined_shapes)
 
         top_halves = f"{getFileStepCounter()}_top_halves.svg"
@@ -1316,6 +1323,9 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
         incrementFileStepCounter()
 
         splitShapesInHalf(combined_shapes, stencil_1_classic_cuts, top_halves, bottom_halves)
+
+        combineStencils(combined_shapes, stencil_1_classic_cuts, combined_shapes)
+        combineStencils(combined_shapes, empty_stencil_1, combined_shapes)
         
 
 
