@@ -224,8 +224,8 @@ def createClassicInnerCuts(width, height, starting_y, n_lines, margin_x=MARGIN, 
     attributes = []
 
     new_paths = [Line(
-        start=complex(left_top_line_start[0], left_top_line_start[1] + offset * (i + 1)),
-        end=complex(right_top_line_end[0], left_top_line_start[1] + offset * (i + 1))
+        start=complex(left_top_line_start[0] - 20, left_top_line_start[1] + offset * (i + 1)),
+        end=complex(right_top_line_end[0] + 20, left_top_line_start[1] + offset * (i + 1))
     ) for i in range(n_lines)]
     new_attributes = [{'stroke': line_color, 'stroke-width': 3, 'fill': 'none'} for _ in range(n_lines)]
     paths.extend(new_paths)
