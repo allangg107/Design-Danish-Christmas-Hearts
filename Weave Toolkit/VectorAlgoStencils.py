@@ -1314,8 +1314,8 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
             translated_path_name = f"{getFileStepCounter()}_translated_path_name.svg"
             incrementFileStepCounter()
             translateSVGBy(rotated_path_name, translated_path_name, offset, 0)
-            
-            combineStencils(mirrored_up_shapes, down_shapes, combined_shapes)
+
+            combineStencils(translated_path_name, down_shapes, combined_shapes)
 
         top_halves = f"{getFileStepCounter()}_top_halves.svg"
         incrementFileStepCounter()
