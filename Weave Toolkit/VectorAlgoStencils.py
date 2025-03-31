@@ -164,18 +164,26 @@ def drawEmptyStencil(width, height, starting_y, margin_x=MARGIN, line_color='bla
     dwg.add(dwg.path(d=right_arc_path, stroke="yellow", fill="none", stroke_width=3))
 
     # draw small cross in lower left corner
-    cross_start = (left_bottom_line_start[0] - 7, left_bottom_line_start[1] + 7 - 15)
-    cross_end = (left_bottom_line_start[0] + 7, left_bottom_line_start[1] - 7 - 15)
-    dwg.add(dwg.line(start=cross_start, end=cross_end, stroke="black", stroke_width=1))
-    cross_start = (left_bottom_line_start[0] + 7, left_bottom_line_start[1] + 7 - 15)
-    cross_end = (left_bottom_line_start[0] - 7, left_bottom_line_start[1] - 7 - 15)
-    dwg.add(dwg.line(start=cross_start, end=cross_end, stroke="black", stroke_width=1))
-
-    # draw a circle around the cross
     if starting_y == 0:
-        circle_center = (left_bottom_line_start[0], left_bottom_line_start[1] - 15)
+        cross_start = (left_bottom_line_start[0], left_bottom_line_start[1] + 7 - 15)
+        cross_end = (left_bottom_line_start[0] + 14, left_bottom_line_start[1] - 7 - 15)
+        dwg.add(dwg.line(start=cross_start, end=cross_end, stroke="black", stroke_width=1))
+        cross_start = (left_bottom_line_start[0] + 14, left_bottom_line_start[1] + 7 - 15)
+        cross_end = (left_bottom_line_start[0], left_bottom_line_start[1] - 7 - 15)
+        dwg.add(dwg.line(start=cross_start, end=cross_end, stroke="black", stroke_width=1))
+
+        # draw a circle around the cross
+        circle_center = (left_bottom_line_start[0] + 7, left_bottom_line_start[1] - 15)
         circle_radius = 10
         dwg.add(dwg.circle(center=circle_center, r=circle_radius, stroke="black", fill="none", stroke_width=1))
+    
+    else:
+        cross_start = (right_bottom_line_end[0] - 14, right_bottom_line_end[1] + 7 - 15)
+        cross_end = (right_bottom_line_end[0], right_bottom_line_end[1] - 7 - 15)
+        dwg.add(dwg.line(start=cross_start, end=cross_end, stroke="black", stroke_width=1))
+        cross_start = (right_bottom_line_end[0], right_bottom_line_end[1] + 7 - 15)
+        cross_end = (right_bottom_line_end[0] - 14, right_bottom_line_end[1] - 7 - 15)
+        dwg.add(dwg.line(start=cross_start, end=cross_end, stroke="black", stroke_width=1))
 
     dwg.save()
 
