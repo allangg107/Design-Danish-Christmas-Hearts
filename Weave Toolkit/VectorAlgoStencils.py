@@ -163,6 +163,20 @@ def drawEmptyStencil(width, height, starting_y, margin_x=MARGIN, line_color='bla
 
     dwg.add(dwg.path(d=right_arc_path, stroke="yellow", fill="none", stroke_width=3))
 
+    # draw small cross in lower left corner
+    cross_start = (left_bottom_line_start[0] - 7, left_bottom_line_start[1] + 7 - 15)
+    cross_end = (left_bottom_line_start[0] + 7, left_bottom_line_start[1] - 7 - 15)
+    dwg.add(dwg.line(start=cross_start, end=cross_end, stroke="black", stroke_width=1))
+    cross_start = (left_bottom_line_start[0] + 7, left_bottom_line_start[1] + 7 - 15)
+    cross_end = (left_bottom_line_start[0] - 7, left_bottom_line_start[1] - 7 - 15)
+    dwg.add(dwg.line(start=cross_start, end=cross_end, stroke="black", stroke_width=1))
+
+    # draw a circle around the cross
+    if starting_y == 0:
+        circle_center = (left_bottom_line_start[0], left_bottom_line_start[1] - 15)
+        circle_radius = 10
+        dwg.add(dwg.circle(center=circle_center, r=circle_radius, stroke="black", fill="none", stroke_width=1))
+
     dwg.save()
 
     return file_name
@@ -934,10 +948,6 @@ def splitShapesInHalf(shapes, classic_cuts, top_halves_output_name, bottom_halve
         top_halves_output_name: Output path for the top halves
         bottom_halves_output_name: Output path for the bottom halves
     """
-
-    combined_stencils = f"{getFileStepCounter()}_PATTERN_WITH_STENCIL_CHECKPOINT.svg"
-    incrementFileStepCounter()
-    combineStencils(shapes, classic_cuts, combined_stencils)
     
     # Load shapes and classic cuts from SVG files
     shape_paths, shape_attrs = svg2paths(shapes)
@@ -1278,6 +1288,11 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     bottom_halves = "does not exist yet"
 
     if up_shape_paths == []:
+        combined_stencils_checkpoint = f"{getFileStepCounter()}_PATTERN_WITH_STENCIL_CHECKPOINT.svg"
+        incrementFileStepCounter()
+        combineStencils(unfilled_pattern, stencil_1_classic_cuts, combined_stencils_checkpoint)
+        combineStencils(combined_stencils_checkpoint, empty_stencil_1, combined_stencils_checkpoint)
+
         top_halves = f"{getFileStepCounter()}_top_halves.svg"
         incrementFileStepCounter()
         bottom_halves = f"{getFileStepCounter()}_bottom_halves.svg"
@@ -1302,30 +1317,33 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
         incrementFileStepCounter()
         mirrorSVGOverYAxisWithX(translated_up_shapes, mirrored_up_shapes, width, height, left_top_line_end)
 
+        rotated_path_name = f"{getFileStepCounter()}_rotated_path_name.svg"
+        incrementFileStepCounter()
+        rotateSVG(mirrored_up_shapes, rotated_path_name, 90, left_top_line_end + square_size / 2, -MARGIN / 2 + square_size / 2)
+
+        translated_path_name = f"{getFileStepCounter()}_translated_path_name.svg"
+        incrementFileStepCounter()
+        translateSVGBy(rotated_path_name, translated_path_name, offset, 0)
+
         combined_shapes = f"{getFileStepCounter()}_combined_shapes.svg"
         incrementFileStepCounter()
         if down_shapes_paths is None:
-            combined_shapes = mirrored_up_shapes
+            
+            combined_shapes = translated_path_name
         else:
-            rotated_path_name = f"{getFileStepCounter()}_rotated_path_name.svg"
-            incrementFileStepCounter()
-            rotateSVG(mirrored_up_shapes, rotated_path_name, 90, left_top_line_end + square_size / 2, -MARGIN / 2 + square_size / 2)
-
-            translated_path_name = f"{getFileStepCounter()}_translated_path_name.svg"
-            incrementFileStepCounter()
-            translateSVGBy(rotated_path_name, translated_path_name, offset, 0)
-
             combineStencils(translated_path_name, down_shapes, combined_shapes)
 
+        combined_stencils_checkpoint = f"{getFileStepCounter()}_PATTERN_WITH_STENCIL_CHECKPOINT.svg"
+        incrementFileStepCounter()
+        combineStencils(combined_shapes, stencil_1_classic_cuts, combined_stencils_checkpoint)
+        combineStencils(combined_stencils_checkpoint, empty_stencil_1, combined_stencils_checkpoint
+                        )
         top_halves = f"{getFileStepCounter()}_top_halves.svg"
         incrementFileStepCounter()
         bottom_halves = f"{getFileStepCounter()}_bottom_halves.svg"
         incrementFileStepCounter()
 
         splitShapesInHalf(combined_shapes, stencil_1_classic_cuts, top_halves, bottom_halves)
-
-        combineStencils(combined_shapes, stencil_1_classic_cuts, combined_shapes)
-        combineStencils(combined_shapes, empty_stencil_1, combined_shapes)
         
 
 
