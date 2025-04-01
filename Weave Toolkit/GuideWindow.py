@@ -49,14 +49,15 @@ class GuideWindow(QDialog):
         <img src="step4.svg" width="300">
         <br>
         <p> You then continue the weaving with the same strip in your dominant hand and weave it {} the next strip in your non-dominant hand
-         you then continue doing step 3 and step 4  until the strip in your dominant hand has been woven all the way through.
+         you then continue doing step 3 and step 4  until the strip in your dominant hand has been woven all the way through.</p>
         </div>
 
         <h2>Step 5</h2>
         <div>
         <img src="step5.svg" width="300">
         <br>
-        <p> You then take the next strip from the stencil closest to your non-dominant hand
+        <p> You then take the next strip from the stencil closest to your non-dominant hand and weave it {} the next strip in your non-dominant hand.
+            You then weave it {} the next strip in your non-dominant hand. You then continue to do step 3 through 5 until the heart is fully woven.</p>
         </div>
         """
         self.third_step_text = ""
@@ -88,7 +89,7 @@ class GuideWindow(QDialog):
             self.update_step( "in between", "over")
     def update_text_edit(self):
         """Updates the text edit with the current third step text."""
-        self.text_edit.setHtml(self.guide_content.format(self.third_step_text, self.fourth_step_text))
+        self.text_edit.setHtml(self.guide_content.format(self.third_step_text, self.fourth_step_text, self.fourth_step_text, self.third_step_text))
 
 
     def update_step(self, step_text1, step_text2):
