@@ -322,10 +322,9 @@ class DrawingWidget(QWidget):
             pen.setStyle(Qt.PenStyle.DashLine)
             qp.setPen(pen)
             distance = calculate_distance(inner_coords[0], inner_coords[2])
-            scaling = distance / (3 + 1)
-            offset = (math.sqrt((scaling ** 2)) / 2)
+            offset = distance / (3 + 1) / 2
             padding_offset = (math.sqrt((15 ** 2)) / 2)
-            line_distance = math.sqrt((distance) ** 2) / 2
+            line_distance = distance / 2
             # Draw 3 parallel dashed lines going from bottom left to top right
             classic_cuts = []
             for i in range(1, 4):  # Lines 1, 2, 3
@@ -490,7 +489,7 @@ class DrawingWidget(QWidget):
 
             else:
                 if CURRENT_PATTERN_TYPE == PatternType.Classic:
-                    self.begin, self.end = snapShapeToClassicCuts(self.classic_cuts, self.begin, self.end, self.width(), self.height())
+                    self.begin, self.end = snapShapeToClassicCuts(self.classic_cuts, SHAPE_MODE, self.begin, self.end, self.width(), self.height())
 
                 if SHAPE_MODE == ShapeMode.Line:
                     self.shapes.append([self.begin, self.end, SHAPE_MODE, SHAPE_COLOR, [], PEN_WIDTH, False])

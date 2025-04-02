@@ -33,6 +33,10 @@ from SideType import (
     SideType
 )
 
+from ShapeMode import (
+    ShapeMode
+)
+
 MARGIN = 31
 
 """Get and set MARGIN"""
@@ -811,7 +815,7 @@ def fitClassicCuts(classic_cuts, stencil_pattern, output_name, width, height, si
     wsvg(combined_paths, attributes=combined_attributes, filename=output_name, dimensions=(width, height))
 
 
-def snapShapeToClassicCuts(classic_cuts, begin_point, end_point, width, height):
+def snapShapeToClassicCuts(classic_cuts, shape_type, begin_point, end_point, width, height):
     print("snapShapesToClassicCuts")
     print(classic_cuts)
 
@@ -820,7 +824,18 @@ def snapShapeToClassicCuts(classic_cuts, begin_point, end_point, width, height):
     for line_coords in classic_cuts:
         line = LineString([(line_coords[0], line_coords[1]), (line_coords[2], line_coords[3])])
         lines.append(line)
+    print("original", lines)
 
+    # Add edge box lines (bounding box edges)
+    border_lines = [
+        LineString([(width // 2, 0), (width, height // 2)]),  # Top-right edge
+        LineString([(width, height // 2), (width // 2, height)]),  # Bottom-right edge
+        LineString([(width // 2, height), (0, height // 2)]),  # Bottom-left edge
+        LineString([(0, height // 2), (width // 2, 0)])  # Top-left edge
+    ]
+    lines.extend(border_lines)
+    print("borders", lines)
+    
     # Find all intersection points
     intersection_points = []
 
@@ -832,21 +847,106 @@ def snapShapeToClassicCuts(classic_cuts, begin_point, end_point, width, height):
             # Check for intersection
             if line1.intersects(line2):
                 intersection = line1.intersection(line2)
+                if intersection.is_empty:
+                    continue
                 if hasattr(intersection, 'x') and hasattr(intersection, 'y'):
                     intersection_points.append(complex(intersection.x, intersection.y))
 
-    print(f"Found {len(intersection_points)} intersection points")
+    snap_points = intersection_points.copy()
 
-    # Find closest intersection points to begin_point and end_point
-    if len(intersection_points) > 0:
+    # find the center point of each square formed by intersection points that are within close proximity
+    center_points = []
+    if shape_type == ShapeMode.Circle:
+        for i in range(len(intersection_points)):
+            for j in range(i + 1, len(intersection_points)):
+                # Calculate distance between points
+                dist = abs(intersection_points[i] - intersection_points[j])
+                # Check if points are within a spacing equivalent to the spacing between classic cuts
+                # if dist <= 89:
+                    # Calculate the center point between two intersection points
+                center_x = (intersection_points[i].real + intersection_points[j].real) / 2
+                center_y = (intersection_points[i].imag + intersection_points[j].imag) / 2
+                center_points.append(complex(center_x, center_y))
+
+    # Find the midpoint between each intersection point on line segments that have a 45 degree angle
+    up_midpoints = []
+    all_midpoints = []
+    # Process each line to find midpoints between intersections
+    for line in lines:
+        # Get the line coordinates
+        line_coords = list(line.coords)
+        if len(line_coords) < 2:
+            continue
+            
+        # Calculate the slope
+        dx = line_coords[1][0] - line_coords[0][0]
+        dy = line_coords[1][1] - line_coords[0][1]
+        
+        # Find all intersections of this line with other lines
+        line_intersections = []
+        for other_line in lines:
+            if line != other_line and line.intersects(other_line):
+                intersection = line.intersection(other_line)
+                if hasattr(intersection, 'x') and hasattr(intersection, 'y'):
+                    line_intersections.append((intersection.x, intersection.y))
+        
+        # Sort intersections along the line
+        if len(line_intersections) >= 2:
+            # Sort by distance from start point
+            start_point = line_coords[0]
+            line_intersections.sort(key=lambda p: ((p[0] - start_point[0])**2 + (p[1] - start_point[1])**2)**0.5)
+            
+            # Calculate midpoints between consecutive intersections
+            for i in range(len(line_intersections) - 1):
+                mid_x = (line_intersections[i][0] + line_intersections[i+1][0]) / 2
+                mid_y = (line_intersections[i][1] + line_intersections[i+1][1]) / 2
+
+                current_line = LineString([(line_intersections[i][0], line_intersections[i][1]), 
+                                          (line_intersections[i+1][0], line_intersections[i+1][1])])
+
+                def isPartofBorder(current_line, border_lines, tolerance=1e-6):
+                    for border in border_lines:
+                        # Check if the lines share an endpoint
+                        if current_line.intersects(border):
+                            intersection = current_line.intersection(border)
+                            
+                            # If they overlap significantly or share endpoints
+                            if (hasattr(intersection, 'length') and intersection.length > tolerance) or \
+                               (current_line.distance(border) < tolerance):
+                                return True
+                                
+                        # Check if the lines are parallel and close to each other
+                        if current_line.distance(border) < tolerance:
+                            return True
+                            
+                    return False
+                
+                is_part_of_border = isPartofBorder(current_line, border_lines)
+                
+                if (shape_type == ShapeMode.Square or shape_type == ShapeMode.Heart) and ((abs(dx) > 1e-6 and abs(dy) == abs(dx) and dy < 0) or (is_part_of_border)):
+                    up_midpoints.append(complex(mid_x, mid_y))
+                elif shape_type == ShapeMode.Circle:
+                    all_midpoints.append(complex(mid_x, mid_y))
+    
+    if shape_type == ShapeMode.Square or shape_type == ShapeMode.Heart:
+        snap_points = up_midpoints.copy()
+    if shape_type == ShapeMode.Circle:
+        snap_points = all_midpoints.copy()
+
+    # Find closest snap points to begin_point and end_point
+    if len(snap_points) > 0:
         # Convert QPoint to complex before comparing
         begin_complex = complex(begin_point.x(), begin_point.y())
         end_complex = complex(end_point.x(), end_point.y())
 
-        # Now use the complex versions for distance calculations
-        closest_to_begin = min(intersection_points,
-                               key=lambda p: abs(p - begin_complex))
-        closest_to_end = min(intersection_points,
+        # Now use the complex versions for distance 
+        if shape_type == ShapeMode.Circle:
+            closest_to_begin = min(center_points,
+                                key=lambda p: abs(p - begin_complex))
+        else:
+            closest_to_begin = min(snap_points,
+                                key=lambda p: abs(p - begin_complex))
+        closest_to_end = min(snap_points,
                              key=lambda p: abs(p - end_complex))
 
         # Convert back to QPoint for return
