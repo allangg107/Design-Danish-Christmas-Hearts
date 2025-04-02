@@ -97,7 +97,7 @@ from GuideWindow import (
 SHAPE_MODE = ShapeMode.Cursor
 SHAPE_COLOR = QColor(0, 0, 0, 255)
 BACKGROUND_COLOR = QColor(255, 255, 255, 255)
-PEN_WIDTH = 3
+PEN_WIDTH = 1
 FILLED = True
 USER_OUTPUT_SVG_FILENAME = "svg_file.svg"
 USER_PREPROCESSED_PATTERN = "preprocessed_pattern.svg"
@@ -972,7 +972,7 @@ class MainWindow(QMainWindow):
         self.stroke_width_layout = QVBoxLayout()
 
         # Create a label to show the current stroke width
-        initial_stroke_width = 3
+        initial_stroke_width = 1
         self.stroke_width_label = QLabel(f'Stroke Width: {initial_stroke_width}', self)
         self.stroke_width_label.setStyleSheet("color: black;")
         self.stroke_width_layout.addWidget(self.stroke_width_label)

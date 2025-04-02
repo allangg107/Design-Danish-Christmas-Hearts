@@ -56,6 +56,10 @@ from PatternType import (
 from SideType import (
     SideType
 )
+from GuideWindow import (
+    getHasImage,
+    setHasImage
+)
 
 # VectorAlgo will be used when the user presses the "Update SVG" button
 
@@ -207,6 +211,7 @@ def createFinalHeartCutoutPatternExport(size, side_type, pattern_type, n_lines=0
             is_blank = False
         else:
             is_blank = True
+            setHasImage(False)
     except:
         is_blank = True
         print("Error: Preprocessed pattern is blank or not found.")

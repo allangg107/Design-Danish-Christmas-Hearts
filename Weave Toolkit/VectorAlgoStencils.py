@@ -36,7 +36,6 @@ from SideType import (
 from ShapeMode import (
     ShapeMode
 )
-
 MARGIN = 31
 
 """Get and set MARGIN"""
@@ -139,8 +138,8 @@ def drawEmptyStencil(width, height, starting_y, margin_x=MARGIN, line_color='bla
     left_bottom_line_start = (left_top_line_start[0], left_top_line_start[1] + square_size)
     left_bottom_line_end = (left_bottom_line_start[0] + square_size, left_bottom_line_start[1])
 
-    dwg.add(dwg.line(start=(left_top_line_start), end=(left_top_line_end), stroke="red", stroke_width=3))
-    dwg.add(dwg.line(start=(left_bottom_line_start), end=(left_bottom_line_end), stroke="red", stroke_width=3))
+    dwg.add(dwg.line(start=(left_top_line_start), end=(left_top_line_end), stroke="red", stroke_width=1))
+    dwg.add(dwg.line(start=(left_bottom_line_start), end=(left_bottom_line_end), stroke="red", stroke_width=1))
 
     # draw the left arc
     radius_x = square_size / 2
@@ -149,7 +148,7 @@ def drawEmptyStencil(width, height, starting_y, margin_x=MARGIN, line_color='bla
     arc_end = (left_top_line_start[0], left_top_line_start[1])
     left_arc_path = f"M {arc_start[0]},{arc_start[1]} A {radius_x},{radius_y} 0 0,1 {arc_end[0]},{arc_end[1]}"
 
-    dwg.add(dwg.path(d=left_arc_path, stroke="purple", fill="none", stroke_width=3))
+    dwg.add(dwg.path(d=left_arc_path, stroke="purple", fill="none", stroke_width=1))
 
     # draw the right square
     right_top_line_start = left_top_line_end
@@ -157,15 +156,15 @@ def drawEmptyStencil(width, height, starting_y, margin_x=MARGIN, line_color='bla
     right_bottom_line_start = left_bottom_line_end
     right_bottom_line_end = (right_bottom_line_start[0] + square_size, right_bottom_line_start[1])
 
-    dwg.add(dwg.line(start=(right_top_line_start), end=(right_top_line_end), stroke="blue", stroke_width=3))
-    dwg.add(dwg.line(start=(right_bottom_line_start), end=(right_bottom_line_end), stroke="blue", stroke_width=3))
+    dwg.add(dwg.line(start=(right_top_line_start), end=(right_top_line_end), stroke="blue", stroke_width=1))
+    dwg.add(dwg.line(start=(right_bottom_line_start), end=(right_bottom_line_end), stroke="blue", stroke_width=1))
 
     # draw the right arc
     arc_start = (right_top_line_end[0], right_top_line_end[1])
     arc_end = (right_bottom_line_end[0], right_bottom_line_end[1])
     right_arc_path = f"M {arc_start[0]},{arc_start[1]} A {radius_x},{radius_y} 0 0,1 {arc_end[0]},{arc_end[1]}"
 
-    dwg.add(dwg.path(d=right_arc_path, stroke="yellow", fill="none", stroke_width=3))
+    dwg.add(dwg.path(d=right_arc_path, stroke="yellow", fill="none", stroke_width=1))
 
     # draw small cross in lower left corner
     if starting_y == 0:
@@ -217,11 +216,11 @@ def drawInnerCutLines(width, height, starting_y, margin_x=MARGIN, line_color='bl
     # Draw the inner line cuts with extended length
     dwg.add(dwg.line(start=(left_top_line_start[0] - extension, left_top_line_start[1] + margin_x),
                             end=(right_top_line_end[0] + extension, right_top_line_end[1] + margin_x),
-                            stroke="brown", stroke_width=3))
+                            stroke="brown", stroke_width=1))
 
     dwg.add(dwg.line(start=(left_bottom_line_start[0] - extension, left_bottom_line_start[1] - margin_x),
                             end=(right_bottom_line_end[0] + extension, right_bottom_line_end[1] - margin_x),
-                            stroke="brown", stroke_width=3))
+                            stroke="brown", stroke_width=1))
 
     dwg.save()
 
@@ -253,7 +252,7 @@ def createClassicInnerCuts(width, height, starting_y, n_lines, margin_x=MARGIN, 
         start=complex(left_top_line_start[0] - 20, left_top_line_start[1] + offset * (i + 1)),
         end=complex(right_top_line_end[0] + 20, left_top_line_start[1] + offset * (i + 1))
     ) for i in range(n_lines)]
-    new_attributes = [{'stroke': line_color, 'stroke-width': 3, 'fill': 'none'} for _ in range(n_lines)]
+    new_attributes = [{'stroke': line_color, 'stroke-width': 1, 'fill': 'none'} for _ in range(n_lines)]
     paths.extend(new_paths)
     attributes.extend(new_attributes)
 
@@ -1046,248 +1045,19 @@ def findAllNonIntersectedShapes(pattern, classic_cuts, min_intersection_length=5
     return [pattern_paths[i] for i in non_intersected_indices], [pattern_attrs[i] for i in non_intersected_indices]
 
 
-def splitShapesInHalf(shapes, classic_cuts, top_halves_output_name, bottom_halves_output_name):
-    """
-    Split shapes in half based on classic cuts.
-    
-    Args:
-        shapes: Path to the shapes SVG file
-        classic_cuts: Path to the classic cuts SVG file
-        top_halves_output_name: Output path for the top halves
-        bottom_halves_output_name: Output path for the bottom halves
-    """
-    
-    # Load shapes and classic cuts from SVG files
-    shape_paths, shape_attrs = svg2paths(shapes)
-    cut_paths, _ = svg2paths(classic_cuts)
+def splitShapesIntoQuarters(shapes_file, classic_cuts, top_bottom, middle_half):
+    # for each shape in the pattern:
+        # 1. locate the square the shape is in
+            # square = locateSquare(shape, classic_cuts)
+        # 2. call crop_svg to crop the top quarter
+            # top_quarter = crop_svg(shape, square_start.x, square_start.y, square.width, square.height / 4) 
+        # 3. call crop_svg to crop the middle half
+        # 4. call crop_svg to crop the bottom quarter
+        # 5. rotate the middle half 90 degrees
+        # 6. crop the middle half in 2
 
-    # Assume classic_cuts contains exactly 3 horizontal lines
-    horizontal_cuts = [segment.start.imag for path in cut_paths for segment in path if isinstance(segment, Line)]
+    pass
 
-    # Sort the horizontal cuts by their y-coordinate
-    horizontal_cuts = sorted(horizontal_cuts)
-
-    top_half_paths = []
-    top_half_attrs = []
-    bottom_half_paths = []
-    bottom_half_attrs = []
-
-    # Process each shape
-    for i, path in enumerate(shape_paths):
-        top_segments = []
-        bottom_segments = []
-
-        for segment in path:
-            if isinstance(segment, Line):
-                start_y = segment.start.imag
-                end_y = segment.end.imag
-
-                # Check if the segment crosses any horizontal cut
-                for cut_y in horizontal_cuts:
-                    if (start_y < cut_y and end_y > cut_y) or (start_y > cut_y and end_y < cut_y):
-                        # Calculate the intersection point
-                        t = (cut_y - segment.start.imag) / (segment.end.imag - segment.start.imag)
-                        intersection_x = segment.start.real + t * (segment.end.real - segment.start.real)
-                        intersection = complex(intersection_x, cut_y)
-
-                        # Split the segment into two parts
-                        if start_y < cut_y:
-                            top_segments.append(Line(segment.start, intersection))
-                            bottom_segments.append(Line(intersection, segment.end))
-                        else:
-                            bottom_segments.append(Line(segment.start, intersection))
-                            top_segments.append(Line(intersection, segment.end))
-                        break
-                else:
-                    # If no intersection, add the segment to the appropriate half
-                    if start_y < min(horizontal_cuts) and end_y < min(horizontal_cuts):
-                        top_segments.append(segment)
-                    elif start_y > max(horizontal_cuts) and end_y > max(horizontal_cuts):
-                        bottom_segments.append(segment)
-
-        # Add the split segments to the respective paths
-        if top_segments:
-            top_half_paths.append(Path(*top_segments))
-            top_half_attrs.append(shape_attrs[i])
-        if bottom_segments:
-            bottom_half_paths.append(Path(*bottom_segments))
-            bottom_half_attrs.append(shape_attrs[i])
-
-    # Save the top halves to the output file
-    wsvg(top_half_paths, attributes=top_half_attrs, filename=top_halves_output_name)
-
-    # Save the bottom halves to the output file
-    wsvg(bottom_half_paths, attributes=bottom_half_attrs, filename=bottom_halves_output_name)
-    
-    # # Load shapes and cuts from SVG files
-    # shape_paths, shape_attrs = svg2paths(shapes)
-    # cut_paths, _ = svg2paths(classic_cuts)
-    
-    # # Extract horizontal cut lines from classic cuts
-    # horizontal_cuts = []
-    # for path in cut_paths:
-    #     for segment in path:
-    #         if isinstance(segment, Line):
-    #             # Check if the line is horizontal (same y-coordinate at start and end)
-    #             if abs(segment.start.imag - segment.end.imag) < 1e-6:
-    #                 horizontal_cuts.append(LineString([
-    #                     (segment.start.real, segment.start.imag),
-    #                     (segment.end.real, segment.end.imag)
-    #                 ]))
-    
-    # top_half_paths = []
-    # top_half_attrs = []
-    # bottom_half_paths = []
-    # bottom_half_attrs = []
-    
-    # # Process each shape
-    # for i, path in enumerate(shape_paths):
-    #     # Convert path to Shapely geometry
-    #     points = []
-    #     for segment in path:
-    #         # Sample points along the segment
-    #         for t in np.linspace(0, 1, 20):  # Sample 20 points per segment
-    #             pt = segment.point(t)
-    #             points.append((pt.real, pt.imag))
-        
-    #     # Skip paths with insufficient points
-    #     if len(points) < 3:
-    #         continue
-        
-    #     # Create a polygon from the points
-    #     try:
-    #         if path.isclosed():
-    #             shape = Polygon(points)
-    #             if not shape.is_valid:
-    #                 shape = shape.buffer(0)  # Fix self-intersections
-    #         else:
-    #             shape = LineString(points)
-    #     except Exception as e:
-    #         print(f"Error creating geometry: {e}")
-    #         continue
-            
-    #     # Check for intersections with each horizontal cut
-    #     shape_processed = False
-        
-    #     for cut in horizontal_cuts:
-    #         if shape.intersects(cut):
-    #             cut_y = cut.coords[0][1]  # Y-coordinate of the cut line
-                
-    #             try:
-    #                 # Split the shape by the cut line
-    #                 # Create boxes that extend from the cut line to far above/below
-    #                 minx, miny, maxx, maxy = shape.bounds
-                    
-    #                 # Box for top half (extends up from the cut line)
-    #                 top_box = Polygon([
-    #                     (minx - 10, cut_y), (maxx + 10, cut_y),
-    #                     (maxx + 10, miny - 100), (minx - 10, miny - 100)
-    #                 ])
-                    
-    #                 # Box for bottom half (extends down from the cut line)
-    #                 bottom_box = Polygon([
-    #                     (minx - 10, cut_y), (maxx + 10, cut_y),
-    #                     (maxx + 10, maxy + 100), (minx - 10, maxy + 100)
-    #                 ])
-                    
-    #                 # Get the top and bottom parts by intersection
-    #                 top_part = shape.intersection(bottom_box)  # Top part is below the cut line
-    #                 bottom_part = shape.intersection(top_box)  # Bottom part is above the cut line
-                    
-    #                 # Convert results to paths and add to respective lists
-    #                 if not top_part.is_empty:
-    #                     top_segments = []
-                        
-    #                     if isinstance(top_part, Polygon):
-    #                         # Get exterior coordinates
-    #                         coords = list(top_part.exterior.coords)
-    #                         for i in range(len(coords) - 1):
-    #                             start = complex(coords[i][0], coords[i][1])
-    #                             end = complex(coords[i+1][0], coords[i+1][1])
-    #                             top_segments.append(Line(start, end))
-                                
-    #                     elif isinstance(top_part, LineString):
-    #                         coords = list(top_part.coords)
-    #                         for i in range(len(coords) - 1):
-    #                             start = complex(coords[i][0], coords[i][1])
-    #                             end = complex(coords[i+1][0], coords[i+1][1])
-    #                             top_segments.append(Line(start, end))
-                                
-    #                     elif hasattr(top_part, 'geoms'):
-    #                         # Handle MultiPolygon or GeometryCollection
-    #                         for geom in top_part.geoms:
-    #                             if isinstance(geom, Polygon):
-    #                                 coords = list(geom.exterior.coords)
-    #                                 for i in range(len(coords) - 1):
-    #                                     start = complex(coords[i][0], coords[i][1])
-    #                                     end = complex(coords[i+1][0], coords[i+1][1])
-    #                                     top_segments.append(Line(start, end))
-    #                             elif isinstance(geom, LineString):
-    #                                 coords = list(geom.coords)
-    #                                 for i in range(len(coords) - 1):
-    #                                     start = complex(coords[i][0], coords[i][1])
-    #                                     end = complex(coords[i+1][0], coords[i+1][1])
-    #                                     top_segments.append(Line(start, end))
-                        
-    #                     if top_segments:
-    #                         top_half_paths.append(Path(*top_segments))
-    #                         top_half_attrs.append(shape_attrs[i])
-                    
-    #                 if not bottom_part.is_empty:
-    #                     bottom_segments = []
-                        
-    #                     if isinstance(bottom_part, Polygon):
-    #                         coords = list(bottom_part.exterior.coords)
-    #                         for i in range(len(coords) - 1):
-    #                             start = complex(coords[i][0], coords[i][1])
-    #                             end = complex(coords[i+1][0], coords[i+1][1])
-    #                             bottom_segments.append(Line(start, end))
-                                
-    #                     elif isinstance(bottom_part, LineString):
-    #                         coords = list(bottom_part.coords)
-    #                         for i in range(len(coords) - 1):
-    #                             start = complex(coords[i][0], coords[i][1])
-    #                             end = complex(coords[i+1][0], coords[i+1][1])
-    #                             bottom_segments.append(Line(start, end))
-                                
-    #                     elif hasattr(bottom_part, 'geoms'):
-    #                         for geom in bottom_part.geoms:
-    #                             if isinstance(geom, Polygon):
-    #                                 coords = list(geom.exterior.coords)
-    #                                 for i in range(len(coords) - 1):
-    #                                     start = complex(coords[i][0], coords[i][1])
-    #                                     end = complex(coords[i+1][0], coords[i+1][1])
-    #                                     bottom_segments.append(Line(start, end))
-    #                             elif isinstance(geom, LineString):
-    #                                 coords = list(geom.coords)
-    #                                 for i in range(len(coords) - 1):
-    #                                     start = complex(coords[i][0], coords[i][1])
-    #                                     end = complex(coords[i+1][0], coords[i+1][1])
-    #                                     bottom_segments.append(Line(start, end))
-                        
-    #                     if bottom_segments:
-    #                         bottom_half_paths.append(Path(*bottom_segments))
-    #                         bottom_half_attrs.append(shape_attrs[i])
-                    
-    #                 shape_processed = True
-    #                 break
-                    
-    #             except Exception as e:
-    #                 print(f"Error splitting shape: {e}")
-    #                 continue
-        
-    #     # If no intersection found, add the shape to both top and bottom halves
-    #     if not shape_processed:
-    #         top_half_paths.append(path)
-    #         top_half_attrs.append(shape_attrs[i])
-    #         bottom_half_paths.append(path)
-    #         bottom_half_attrs.append(shape_attrs[i])
-    
-    # # Save the top halves to the output file
-    # wsvg(top_half_paths, attributes=top_half_attrs, filename=top_halves_output_name)
-    
-    # # Save the bottom halves to the output file
-    # wsvg(bottom_half_paths, attributes=bottom_half_attrs, filename=bottom_halves_output_name)
 
 
 def removeIntersectingPortions(paths, classic_cuts):
@@ -1389,105 +1159,22 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     incrementFileStepCounter()
     wsvg(unfilled_pattern_paths, attributes=unfilled_pattern_attrs, filename=unfilled_pattern, dimensions=(width, width))
 
-    up_shape_paths, up_shape_attr = findAllNonIntersectedShapes(unfilled_pattern, stencil_1_classic_cuts)
-    print(up_shape_paths)
+    combineStencils(stencil_1_classic_cuts, unfilled_pattern, "checkpoint.svg")
+    combineStencils("checkpoint.svg", empty_stencil_1, "checkpoint_2.svg")
 
-    top_halves = "does not exist yet"
-    bottom_halves = "does not exist yet"
-
-    if up_shape_paths == []:
-        combined_stencils_checkpoint = f"{getFileStepCounter()}_PATTERN_WITH_STENCIL_CHECKPOINT.svg"
-        incrementFileStepCounter()
-        combineStencils(unfilled_pattern, stencil_1_classic_cuts, combined_stencils_checkpoint)
-        combineStencils(combined_stencils_checkpoint, empty_stencil_1, combined_stencils_checkpoint)
-
-        top_halves = f"{getFileStepCounter()}_top_halves.svg"
-        incrementFileStepCounter()
-        bottom_halves = f"{getFileStepCounter()}_bottom_halves.svg"
-        incrementFileStepCounter()
-        splitShapesInHalf(unfilled_pattern, stencil_1_classic_cuts, top_halves, bottom_halves)
-
-    elif up_shape_paths:
-        up_shapes = f"{getFileStepCounter()}_up_shapes.svg"
-        incrementFileStepCounter()
-        wsvg(up_shape_paths, attributes=up_shape_attr, filename=up_shapes, dimensions=(width, width))
-
-        down_shapes = f"{getFileStepCounter()}_down_shapes.svg"
-        incrementFileStepCounter()
-        down_shapes_paths = removeDuplicateLinesFromSVG(unfilled_pattern, up_shapes, down_shapes)
-
-        translated_up_shapes = f"{getFileStepCounter()}_translated_up_shapes.svg"
-        incrementFileStepCounter()
-        translateSVGBy(up_shapes, translated_up_shapes, -MARGIN * 1.5, MARGIN * 1.5)
-
-        left_top_line_end = MARGIN + square_size // 2 + square_size
-        mirrored_up_shapes = f"{getFileStepCounter()}_mirrored_up_shapes.svg"
-        incrementFileStepCounter()
-        mirrorSVGOverYAxisWithX(translated_up_shapes, mirrored_up_shapes, width, height, left_top_line_end)
-
-        rotated_path_name = f"{getFileStepCounter()}_rotated_path_name.svg"
-        incrementFileStepCounter()
-        rotateSVG(mirrored_up_shapes, rotated_path_name, 90, left_top_line_end + square_size / 2, -MARGIN / 2 + square_size / 2)
-
-        translated_path_name = f"{getFileStepCounter()}_translated_path_name.svg"
-        incrementFileStepCounter()
-        translateSVGBy(rotated_path_name, translated_path_name, offset, 0)
-
-        combined_shapes = f"{getFileStepCounter()}_combined_shapes.svg"
-        incrementFileStepCounter()
-        if down_shapes_paths is None:
-            
-            combined_shapes = translated_path_name
-        else:
-            combineStencils(translated_path_name, down_shapes, combined_shapes)
-
-        combined_stencils_checkpoint = f"{getFileStepCounter()}_PATTERN_WITH_STENCIL_CHECKPOINT.svg"
-        incrementFileStepCounter()
-        combineStencils(combined_shapes, stencil_1_classic_cuts, combined_stencils_checkpoint)
-        combineStencils(combined_stencils_checkpoint, empty_stencil_1, combined_stencils_checkpoint
-                        )
-        top_halves = f"{getFileStepCounter()}_top_halves.svg"
-        incrementFileStepCounter()
-        bottom_halves = f"{getFileStepCounter()}_bottom_halves.svg"
-        incrementFileStepCounter()
-
-        splitShapesInHalf(combined_shapes, stencil_1_classic_cuts, top_halves, bottom_halves)
-        
-
-
-
-
-    # top_halves_with_cuts = f"{getFileStepCounter()}_top_halves_with_cuts.svg"
-    # incrementFileStepCounter()
-    # combineStencils(top_halves, stencil_1_classic_cuts, top_halves_with_cuts)
-
-    # # mirror top_halves across y_axis
-    # mirrored_bottom_halves = f"{getFileStepCounter()}_mirrored_bottom_halves.svg"
-    # incrementFileStepCounter()
-    # mirrorSVGOverYAxisWithX(bottom_halves, mirrored_bottom_halves, width, height, left_top_line_end)
-
-    # translated_bottom_halves = f"{getFileStepCounter()}_translated_bottom_halves.svg"
-    # incrementFileStepCounter()
-    # translateSVGBy(mirrored_bottom_halves, translated_bottom_halves, 0, height)
+    # split each shape into a top quarter, middle half, and bottom quarter
+    top_and_bottom_quarters = f"{getFileStepCounter()}_top_bottom_quarters.svg"
+    incrementFileStepCounter()
+    middle_half = f"{getFileStepCounter()}_middle_half_pattern.svg"
+    incrementFileStepCounter()
+    splitShapesIntoQuarters(unfilled_pattern, top_and_bottom_quarters, middle_half)
     
-    # bottom_halves_with_cuts = f"{getFileStepCounter()}_top_halves_with_cuts.svg"
-    # incrementFileStepCounter()
-    # combineStencils(translated_bottom_halves, stencil_2_classic_cuts, bottom_halves_with_cuts)
+    # rotate and translate the middle half to the bottom of the stencil
+    # 
+    # cut the middle half into 2 pieces
 
+    #  attach a 45 degree line from each end of the quarters to their closest classic cut line/stencil line
 
-
-
-    # top_with_removed_intersections = f"{getFileStepCounter()}_top_with_removed_intersections.svg"
-    # incrementFileStepCounter()
-    # removeIntersectingPortions(top_halves_with_cuts, top_with_removed_intersections)
-
-    # bottom_with_removed_intersections = f"{getFileStepCounter()}_bottom_with_removed_intersections.svg"
-    # incrementFileStepCounter()
-    # removeIntersectingPortions(bottom_halves_with_cuts, bottom_with_removed_intersections)
-
-    # final_output = f"{getFileStepCounter()}_final_output.svg"
-    # incrementFileStepCounter()
-    # combineStencils(top_with_removed_intersections, bottom_with_removed_intersections, final_output)
 
 
 def create_symmetric_pattern_stencils(preprocessed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, side_type, pattern_type):
