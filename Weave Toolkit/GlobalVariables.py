@@ -56,7 +56,7 @@ def getFilled():
     return FILLED
 
 def getUserOutputSVGFileName():
-        return USER_OUTPUT_SVG_FILENAME
+    return USER_OUTPUT_SVG_FILENAME
 
 def getUserPreprocessedPattern():
     return USER_PREPROCESSED_PATTERN

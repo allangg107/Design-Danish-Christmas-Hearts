@@ -1163,7 +1163,7 @@ def removeIntersectingPortions(paths, classic_cuts):
 
 
 def createSquareGrid(square_size, n_lines, offset):
-    grid_start = (MARGIN + square_size // 2, MARGIN)
+    grid_start = (getMargin() + square_size // 2, getMargin())
     horizontal_lines = []
     vertical_lines = []
     attributes = []
