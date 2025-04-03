@@ -46,12 +46,14 @@ def pre_process_user_input(original_pattern, shape_types, width, height, square_
 
     # print(f"Original path ({len(paths)} segments):", paths)
     clipped_paths = crop_svg(paths, 0, 0, square_size, square_size)
+    clipped_paths = crop_svg(paths, 0, 0, square_size, square_size)
     # print(f"Original path ({len(paths)} segments):", paths)
 
     print(f"Number of paths after translation: {len(paths)}")
     for i, path in enumerate(paths):
         print(f"Path {i} has {len(path)} segments")
 
+    clipped_paths = crop_svg(paths, 0, 0, square_size, square_size)
     clipped_paths = crop_svg(paths, 0, 0, square_size, square_size)
 
     # Print the number of clipped paths and segments
@@ -63,6 +65,8 @@ def pre_process_user_input(original_pattern, shape_types, width, height, square_
         attributes = attributes * len(clipped_paths)
 
     wsvg(clipped_paths, attributes=attributes, filename=final_output_path_name, dimensions=(square_size, square_size))
+
+    print("finished pre-processing")
 
 """Utility functions for rotating an SVG file"""
 
@@ -202,12 +206,12 @@ def resizeSVG(input_svg, output_svg, target_width):
     wsvg(paths,
          attributes=attributes,
          filename=output_svg,
-         dimensions=(int(target_width), int(target_height)),
-         svg_attributes={'viewBox': f'0 0 {int(target_width)} {int(target_height)}'})
+         dimensions=(target_width, target_height),
+         svg_attributes={'viewBox': f'0 0 {target_width} {target_height}'})
 
 
 """Moves SVG files by a specific values"""
-    
+
 def translateSVGBy(input_svg, output_svg, x_shift, y_shift):
     """
     Translates an SVG file by a set amount depending on the values of the x_shift and y_shift
@@ -248,7 +252,7 @@ def translateSVGBy(input_svg, output_svg, x_shift, y_shift):
          attributes=attributes,
          filename=output_svg,
          dimensions=(height, width))
-    
+
 def translateSVGTo(input_svg, output_svg, target_x, target_y):
     """
     Translates an SVG to a specific target position (target_x, target_y).
@@ -259,7 +263,7 @@ def translateSVGTo(input_svg, output_svg, target_x, target_y):
     # Get the current position of the top-left corner
     min_x = float('inf')
     min_y = float('inf')
-    
+
     for path in paths:
         for segment in path:
             # Sample points to find the minimum x and y coordinates
@@ -267,11 +271,11 @@ def translateSVGTo(input_svg, output_svg, target_x, target_y):
                 pt = segment.point(t)
                 min_x = min(min_x, pt.real)
                 min_y = min(min_y, pt.imag)
-    
+
     # Calculate the translation needed to move to target position
     x_shift = target_x - min_x
     y_shift = target_y - min_y
-    
+
     # Apply the translation
     translation = complex(x_shift, y_shift)
 
@@ -387,7 +391,7 @@ def mirrorSVGOverYAxisWithX(input_svg, output_svg, width, height, x_mirror):
 
 def mirrorSVGOverXAxis(input_svg, output_svg, width, height):
     paths, attributes = svg2paths(input_svg)
-    
+
     # Mirror each path over the X-axis by negating the y-coordinates
     mirrored_paths = []
     for path in paths:
@@ -418,13 +422,13 @@ def mirrorSVGOverXAxis(input_svg, output_svg, width, height):
                     )
                 )
         mirrored_paths.append(Path(*mirrored_segments))
-    
+
     # Write the mirrored paths to the output file
     wsvg(mirrored_paths, attributes=attributes, filename=output_svg, dimensions=(width, height))
 
 def mirrorSVGOverXAxisWithY(input_svg, output_svg, width, height, y_mirror):
     paths, attributes = svg2paths(input_svg)
-    
+
     # Mirror each path over the X-axis by negating the y-coordinates
     mirrored_paths = []
     for path in paths:
@@ -455,7 +459,7 @@ def mirrorSVGOverXAxisWithY(input_svg, output_svg, width, height, y_mirror):
                     )
                 )
         mirrored_paths.append(Path(*mirrored_segments))
-    
+
     # Write the mirrored paths to the output file
     wsvg(mirrored_paths, attributes=attributes, filename=output_svg, dimensions=(width, height))
 
@@ -475,18 +479,18 @@ def removeDuplicateLinesFromSVG(svg_with_pattern, svg_without_pattern, output_fi
     if output_filename is None:
         output_filename = f"{getFileStepCounter()}_pattern_only.svg"
         incrementFileStepCounter()
-    
+
     # Extract paths from both SVGs
     with_paths, with_attrs = svg2paths(svg_with_pattern)
     without_paths, without_attrs = svg2paths(svg_without_pattern)
-    
+
     # Convert paths to strings for comparison
     without_path_strings = [path.d() for path in without_paths]
-    
+
     # Find paths that are in with_paths but not in without_paths
     pattern_paths = []
     pattern_attrs = []
-    
+
     for i, path in enumerate(with_paths):
         path_str = path.d()
         if path_str not in without_path_strings:
@@ -495,21 +499,33 @@ def removeDuplicateLinesFromSVG(svg_with_pattern, svg_without_pattern, output_fi
 
     if pattern_paths == []:
         return None
-    
+
     # Save the pattern-only paths to a new SVG
     wsvg(pattern_paths, attributes=pattern_attrs, filename=output_filename)
-    
+
     return output_filename
 
 
 """Cropping of SVG files"""
 
-def clip_path_to_boundary(path, boundary, width, height, num_samples_line=1, num_samples_bezier=20):
+def clip_path_to_boundary(path, boundary, width, height, close_path, num_samples_line=1, num_samples_bezier=20):
     """
     Clips a given path to the boundary using Shapely geometric operations.
-    Samples each segment to better approximate curves, then closes the resulting
+    Samples each segment to better approximate curves, then optionally closes the resulting
     path by connecting the entry and exit points along the boundary, including any
     missing corner points.
+    
+    Args:
+        path: The path to clip
+        boundary: The boundary to clip against
+        width: The width of the boundary
+        height: The height of the boundary
+        close_path: If True, the path will be closed; if False, no additional segments will be added to close it
+        num_samples_line: Number of samples to take for line segments
+        num_samples_bezier: Number of samples to take for bezier curves
+        
+    Returns:
+        A new Path object representing the clipped path
     """
     try:
         # Sample points along each segment.
@@ -541,10 +557,15 @@ def clip_path_to_boundary(path, boundary, width, height, num_samples_line=1, num
         # Process a single LineString result.
         if isinstance(clipped_shape, LineString):
             coords = list(clipped_shape.coords)
-            new_path = Path(
-                *[Line(complex(x, y), complex(x2, y2))
-                  for (x, y), (x2, y2) in zip(coords[:-1], coords[1:])]
-            )
+
+            # Create line segments between consecutive points
+            segments = []
+            for i in range(len(coords) - 1):
+                start = complex(coords[i][0], coords[i][1])
+                end = complex(coords[i+1][0], coords[i+1][1])
+                segments.append(Line(start, end))
+
+            new_path = Path(*segments)
             return new_path
 
         # Process MultiLineString by merging segments.
@@ -556,15 +577,32 @@ def clip_path_to_boundary(path, boundary, width, height, num_samples_line=1, num
                     all_coords.extend(line_coords)
                 else:
                     # If the end of the last segment isn't the start of the next,
-                    # insert a connecting segment.
+                    # and close_path is True, insert a connecting segment.
+                    # Otherwise, keep the segments disconnected.
                     if (abs(all_coords[-1][0] - line_coords[0][0]) > 1e-6 or
                         abs(all_coords[-1][1] - line_coords[0][1]) > 1e-6):
-                        all_coords.append(line_coords[0])
+                        if close_path:
+                            all_coords.append(line_coords[0])
+                            print("Adding connecting segment")
+                        else:
+                            # Start a new segment without connecting
+                            print("Keeping segments disconnected")
+                            # Force break by adding None as a marker (will be filtered out later)
+                            all_coords.append(None)
                     all_coords.extend(line_coords)
-            new_path = Path(
-                *[Line(complex(x, y), complex(x2, y2))
-                  for (x, y), (x2, y2) in zip(all_coords[:-1], all_coords[1:])]
-            )
+
+            # Create segments from coordinates, handling disconnected parts
+            segments = []
+            for i in range(len(all_coords) - 1):
+                # Skip if current or next coordinate is None (disconnection marker)
+                if all_coords[i] is None or all_coords[i+1] is None:
+                    continue
+
+                start = complex(all_coords[i][0], all_coords[i][1])
+                end = complex(all_coords[i+1][0], all_coords[i+1][1])
+                segments.append(Line(start, end))
+
+            new_path = Path(*segments)
             return new_path
 
         print("Warning: Unexpected geometry type from intersection:", type(clipped_shape))
@@ -573,19 +611,20 @@ def clip_path_to_boundary(path, boundary, width, height, num_samples_line=1, num
     except Exception as e:
         print("Error while clipping path:", e)
         return None
-    
-def crop_svg(paths, starting_x, starting_y, width, height):
+
+
+def crop_svg(paths, starting_x, starting_y, width, height, close_path=True):
     """
     Crops all paths to fit within the given square_size.
     """
-    boundary = Polygon([(starting_x, starting_y), (starting_x + width, starting_y), (starting_x + width, starting_y + height), (starting_x, starting_y + height)])
-
+    #boundary = Polygon([(0, 0), (width, 0), (width,height), (0, height)])
+    boundary = Polygon([(starting_x, starting_y), (starting_x + width, starting_y), (starting_x+ width, starting_y + height), (starting_x, starting_y + height)])
     #print("\nBoundary Polygon:", boundary)
     #print("Total Paths Received for Clipping:", len(paths))
 
     clipped_paths = []
     for path in paths:
-        clipped = clip_path_to_boundary(path, boundary, width, height)
+        clipped = clip_path_to_boundary(path, boundary, width, height, close_path)
         if clipped:
             if isinstance(clipped, list):  # Handle MultiLineString cases
                 clipped_paths.extend(clipped)
@@ -595,6 +634,7 @@ def crop_svg(paths, starting_x, starting_y, width, height):
     #print("Final Clipped Paths:", clipped_paths)
 
     return clipped_paths
+
 
 def cropPrep(pattern, output_name, cropped_size, angle):
 

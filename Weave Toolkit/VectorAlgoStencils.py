@@ -35,7 +35,7 @@ from ShapeMode import (
 from GlobalVariables import (
     getMargin,
     setMargin,
-    setDrawingSquareSize, 
+    setDrawingSquareSize,
     getDrawingSquareSize,
     incrementFileStepCounter,
     getFileStepCounter
@@ -173,7 +173,7 @@ def drawEmptyStencil(width, height, starting_y, margin_x=getMargin(), line_color
         circle_center = (left_bottom_line_start[0] + 7, left_bottom_line_start[1] - 15)
         circle_radius = 10
         dwg.add(dwg.circle(center=circle_center, r=circle_radius, stroke="black", fill="none", stroke_width=1))
-    
+
     else:
         cross_start = (right_bottom_line_end[0] - 14, right_bottom_line_end[1] + 7 - 15)
         cross_end = (right_bottom_line_end[0], right_bottom_line_end[1] - 7 - 15)
@@ -264,17 +264,17 @@ def create_and_combine_stencils_onesided(width, height, size, stencil_1_pattern,
     stencil_1_combined = f"{getFileStepCounter()}stencil_1_combined.svg"
     incrementFileStepCounter()
     combineStencils(empty_stencil_1, stencil_1_inner_cuts, stencil_1_combined)
-    
+
     stencil_2_combined = f"{getFileStepCounter()}stencil_2_combined.svg"
     incrementFileStepCounter()
     combineStencils(empty_stencil_2, stencil_2_inner_cuts, stencil_2_combined)
-    
+
     if is_blank:
         final_output = f"{getFileStepCounter()}_final_output.svg"
         incrementFileStepCounter()
         combineStencils(stencil_1_combined, stencil_2_combined, final_output)
         return final_output, final_output
-    
+
     combined_stencils = f"{getFileStepCounter()}_combined_stencils.svg"
     incrementFileStepCounter()
     combineStencils(stencil_1_combined, stencil_2_combined, combined_stencils)
@@ -743,7 +743,7 @@ def mirrorLines(pattern_w_extended_lines, output_name, width, height, pattern_ty
 
 
 def combinePatternAndMirrorWithStencils(pattern_w_extended_lines, combined_simple_stencil_no_patt, translated_mirrored_lines, output_name=None):
-    
+
     # combine the mirrored lines with the original mirrored pattern
     combined_mirrored_lines = f"{getFileStepCounter()}_combined_mirrored_lines.svg"
     incrementFileStepCounter()
@@ -826,7 +826,7 @@ def snapShapeToClassicCuts(classic_cuts, shape_type, begin_point, end_point, wid
     ]
     lines.extend(border_lines)
     print("borders", lines)
-    
+
     # Find all intersection points
     intersection_points = []
 
@@ -868,11 +868,11 @@ def snapShapeToClassicCuts(classic_cuts, shape_type, begin_point, end_point, wid
         line_coords = list(line.coords)
         if len(line_coords) < 2:
             continue
-            
+
         # Calculate the slope
         dx = line_coords[1][0] - line_coords[0][0]
         dy = line_coords[1][1] - line_coords[0][1]
-        
+
         # Find all intersections of this line with other lines
         line_intersections = []
         for other_line in lines:
@@ -880,19 +880,19 @@ def snapShapeToClassicCuts(classic_cuts, shape_type, begin_point, end_point, wid
                 intersection = line.intersection(other_line)
                 if hasattr(intersection, 'x') and hasattr(intersection, 'y'):
                     line_intersections.append((intersection.x, intersection.y))
-        
+
         # Sort intersections along the line
         if len(line_intersections) >= 2:
             # Sort by distance from start point
             start_point = line_coords[0]
             line_intersections.sort(key=lambda p: ((p[0] - start_point[0])**2 + (p[1] - start_point[1])**2)**0.5)
-            
+
             # Calculate midpoints between consecutive intersections
             for i in range(len(line_intersections) - 1):
                 mid_x = (line_intersections[i][0] + line_intersections[i+1][0]) / 2
                 mid_y = (line_intersections[i][1] + line_intersections[i+1][1]) / 2
 
-                current_line = LineString([(line_intersections[i][0], line_intersections[i][1]), 
+                current_line = LineString([(line_intersections[i][0], line_intersections[i][1]),
                                           (line_intersections[i+1][0], line_intersections[i+1][1])])
 
                 def isPartofBorder(current_line, border_lines, tolerance=1e-6):
@@ -900,25 +900,25 @@ def snapShapeToClassicCuts(classic_cuts, shape_type, begin_point, end_point, wid
                         # Check if the lines share an endpoint
                         if current_line.intersects(border):
                             intersection = current_line.intersection(border)
-                            
+
                             # If they overlap significantly or share endpoints
                             if (hasattr(intersection, 'length') and intersection.length > tolerance) or \
                                (current_line.distance(border) < tolerance):
                                 return True
-                                
+
                         # Check if the lines are parallel and close to each other
                         if current_line.distance(border) < tolerance:
                             return True
-                            
+
                     return False
-                
+
                 is_part_of_border = isPartofBorder(current_line, border_lines)
-                
+
                 if (shape_type == ShapeMode.Square or shape_type == ShapeMode.Heart) and ((abs(dx) > 1e-6 and abs(dy) == abs(dx) and dy < 0) or (is_part_of_border)):
                     up_midpoints.append(complex(mid_x, mid_y))
                 elif shape_type == ShapeMode.Circle:
                     all_midpoints.append(complex(mid_x, mid_y))
-    
+
     if shape_type == ShapeMode.Square or shape_type == ShapeMode.Heart:
         snap_points = up_midpoints.copy()
     if shape_type == ShapeMode.Circle:
@@ -930,7 +930,7 @@ def snapShapeToClassicCuts(classic_cuts, shape_type, begin_point, end_point, wid
         begin_complex = complex(begin_point.x(), begin_point.y())
         end_complex = complex(end_point.x(), end_point.y())
 
-        # Now use the complex versions for distance 
+        # Now use the complex versions for distance
         if shape_type == ShapeMode.Circle:
             closest_to_begin = min(center_points,
                                 key=lambda p: abs(p - begin_complex))
@@ -964,7 +964,7 @@ def findAllNonIntersectedShapes(pattern, classic_cuts, min_intersection_length=5
     # Load pattern and classic cuts
     pattern_paths, pattern_attrs = svg2paths(pattern)
     cuts_paths, _ = svg2paths(classic_cuts)
-    
+
     # Extract all lines from classic cuts (assuming they are all horizontal)
     horizontal_cuts = []
     for path in cuts_paths:
@@ -974,10 +974,10 @@ def findAllNonIntersectedShapes(pattern, classic_cuts, min_intersection_length=5
                     (segment.start.real, segment.start.imag),
                     (segment.end.real, segment.end.imag)
                 ]))
-    
+
     # Find non-intersected shapes
     non_intersected_indices = []
-    
+
     for i, path in enumerate(pattern_paths):
         # Convert path to Shapely geometry
         points = []
@@ -986,11 +986,11 @@ def findAllNonIntersectedShapes(pattern, classic_cuts, min_intersection_length=5
             for t in np.linspace(0, 1, 10):
                 pt = segment.point(t)
                 points.append((pt.real, pt.imag))
-        
+
         # Skip paths with insufficient points
         if len(points) < 2:
             continue
-        
+
         # Create appropriate geometry
         shape = None
         if path.isclosed():
@@ -1006,50 +1006,124 @@ def findAllNonIntersectedShapes(pattern, classic_cuts, min_intersection_length=5
         else:
             # It's an open shape, create linestring
             shape = LineString(points)
-        
+
         if shape is None:
             continue
-        
+
         # Check intersection with all horizontal cuts
         is_intersected = False
         for cut in horizontal_cuts:
             if shape.intersects(cut):
                 intersection = shape.intersection(cut)
-                
+
                 # Calculate length of intersection
                 if hasattr(intersection, 'length'):
                     intersection_length = intersection.length
                 elif hasattr(intersection, 'geoms'):
                     # MultiLineString or GeometryCollection
-                    intersection_length = sum(geom.length for geom in intersection.geoms 
+                    intersection_length = sum(geom.length for geom in intersection.geoms
                                             if hasattr(geom, 'length'))
                 else:
                     # Point intersection
                     intersection_length = 0
-                
+
                 if intersection_length >= min_intersection_length:
                     is_intersected = True
                     break
-        
+
         if not is_intersected:
             non_intersected_indices.append(i)
-    
+
     return [pattern_paths[i] for i in non_intersected_indices], [pattern_attrs[i] for i in non_intersected_indices]
 
 
-def splitShapesIntoQuarters(shapes_file, classic_cuts, top_bottom, middle_half):
+def splitShapesIntoQuarters(shapes_file, horizontal_lines, vertical_lines, top_bottom, middle_half):
+    shapes, attrs = svg2paths(shapes_file)
     # for each shape in the pattern:
         # 1. locate the square the shape is in
-            # square = locateSquare(shape, classic_cuts)
+    for shape in shapes:
+        print("Shape:", shape)
+        square_start, square_width, square_height = locateSquare(shape, horizontal_lines, vertical_lines)
+        wsvg(shape, attributes=attrs, filename="shape.svg", dimensions=(square_width, square_height), viewbox=(square_start[0], square_start[1], square_width, square_height))
+        shape_paths, attributes = svg2paths("shape.svg")
         # 2. call crop_svg to crop the top quarter
-            # top_quarter = crop_svg(shape, square_start.x, square_start.y, square.width, square.height / 4) 
+        top_quarter = crop_svg(shape_paths, square_start[0], square_start[1], square_width, square_height / 4, False)
+        wsvg(top_quarter, attributes=attrs, filename=f"{getFileStepCounter()}_top_quarter.svg", dimensions=(square_width, square_height / 4), viewbox=(square_start[0], square_start[1], square_width, square_height / 4))
+        incrementFileStepCounter()
         # 3. call crop_svg to crop the middle half
+        middle_half_paths = crop_svg(shape_paths, square_start[0] - 2, square_start[1] + square_height / 4, square_width + 4, square_height / 2, False)
+        middle_half = f"{getFileStepCounter()}_middle_half.svg"
+        wsvg(middle_half_paths, attributes=attrs, filename=middle_half, dimensions=(square_width, square_height / 2), viewbox=(square_start[0] - 2, square_start[1] + square_height / 4, square_width + 4, square_height / 2))
+        incrementFileStepCounter()
         # 4. call crop_svg to crop the bottom quarter
+        bottom_quarter = crop_svg(shape_paths, square_start[0], square_start[1] + square_height * 3 / 4, square_width, square_height / 4, False)
+        wsvg(bottom_quarter, attributes=attrs, filename=f"{getFileStepCounter()}_bottom_quarter.svg", dimensions=(square_width, square_height / 4), viewbox=(square_start[0], square_start[1] + square_height * 3 / 4, square_width, square_height / 4))
+        incrementFileStepCounter()
         # 5. rotate the middle half 90 degrees
+        rotated_middle_half = f"{getFileStepCounter()}_rotated_middle_half.svg"
+        incrementFileStepCounter()
+        rotateSVG(middle_half, rotated_middle_half, 90, square_start[0] + square_width / 2, square_start[1] + square_height / 2)
+        rotated_middle_half_paths, _ = svg2paths(rotated_middle_half)
         # 6. crop the middle half in 2
+        middle_top_half_paths = crop_svg(rotated_middle_half_paths, square_start[0] + square_width / 4, square_start[1], square_width / 2, square_height / 2, False)
+        middle_half = f"{getFileStepCounter()}_middle_top_half.svg"
+        incrementFileStepCounter()
+        wsvg(middle_top_half_paths, attributes=attrs, filename=middle_half, dimensions=(square_width / 2, square_height / 2), viewbox=(square_start[0] + square_width / 4, square_start[1], square_width / 2, square_height / 2))
 
-    pass
+        middle_bottom_half_paths = crop_svg(rotated_middle_half_paths, square_start[0] + square_width / 4, square_start[1] + square_height / 2, square_width / 2, square_height / 2, False)
+        middle_half = f"{getFileStepCounter()}_middle_bottom_half.svg"
+        incrementFileStepCounter()
+        wsvg(middle_bottom_half_paths, attributes=attrs, filename=middle_half, dimensions=(square_width / 2, square_height / 2), viewbox=(square_start[0] + square_width / 4, square_start[1] + square_height / 2, square_width / 2, square_height / 2))
 
+
+def locateSquare(shape, horizontal_cuts, vertical_cuts):
+    """
+    Locate the square in which the given shape resides based on the classic cuts.
+
+    Args:
+        shape: The shape whose position needs to be located.
+        classic_cuts: A list of classic cut lines (both horizontal and vertical).
+
+    Returns:
+        A tuple representing the square coordinates (x, y, width, height).
+    """
+
+    # Step 1: Find the topmost point of the shape
+    topmost_point = min((segment.point(t) for segment in shape for t in np.linspace(0, 1, 20)),
+                        key=lambda pt: pt.imag)
+
+    # Step 2: Locate the nearest horizontal classic cut line to the topmost point
+    nearest_horizontal_cut = min(
+        (cut for cut in horizontal_cuts),  # Horizontal lines
+        key=lambda cut: abs(cut.start.imag - topmost_point.imag)
+    )
+
+    # Step 3: Find the leftmost point of the shape
+    leftmost_point = min((segment.point(t) for segment in shape for t in np.linspace(0, 1, 20)),
+                         key=lambda pt: pt.real)
+
+    # Step 4: Locate the nearest vertical classic cut line to the leftmost point
+    nearest_vertical_cut = min(
+        (cut for cut in vertical_cuts),  # Vertical lines
+        key=lambda cut: abs(cut.start.real - leftmost_point.real)
+    )
+
+    # Step 5: Determine the square coordinates based on the intersection of the nearest horizontal and vertical cuts
+    intersection_point = (
+        nearest_vertical_cut.start.real,  # x-coordinate from vertical line
+        nearest_horizontal_cut.start.imag  # y-coordinate from horizontal line
+    )
+
+    vertical_line_index = vertical_cuts.index(nearest_vertical_cut)
+    horizontal_line_index = horizontal_cuts.index(nearest_horizontal_cut)
+
+    square_width = abs(vertical_cuts[vertical_line_index].start.real - vertical_cuts[vertical_line_index + 1].start.real)
+    square_height = abs(horizontal_cuts[horizontal_line_index].start.imag - horizontal_cuts[horizontal_line_index + 1].start.imag)
+
+    # print the vertical line and horitzontal line numbers
+    print(f"Vertical line index: {vertical_line_index}, Horizontal line index: {horizontal_line_index}")
+
+    return intersection_point, square_width, square_height
 
 
 def removeIntersectingPortions(paths, classic_cuts):
@@ -1088,6 +1162,27 @@ def removeIntersectingPortions(paths, classic_cuts):
     return new_paths
 
 
+def createSquareGrid(square_size, n_lines, offset):
+    grid_start = (MARGIN + square_size // 2, MARGIN)
+    horizontal_lines = []
+    vertical_lines = []
+    attributes = []
+    for i in range(0, n_lines + 1 + 1):
+        # Horizontal lines
+        horizontal_lines.append(Path(Line(complex(grid_start[0], grid_start[1] + i * offset), complex(grid_start[0] + square_size, grid_start[1] + i * offset))))
+        # Vertical lines
+        vertical_lines.append(Path(Line(complex(grid_start[0] + i * offset, grid_start[1]), complex(grid_start[0] + i * offset, grid_start[1] + square_size))))
+
+        attributes.append({'stroke': 'black', 'stroke-width': 1, 'fill': 'none'})
+
+    # wsvg(horizontal_lines, attributes=attributes, filename="horizontal_lines.svg", dimensions=(square_size, square_size))
+    # wsvg(vertical_lines, attributes=attributes, filename="vertical_lines.svg", dimensions=(square_size, square_size))
+
+    # combineStencils("horizontal_lines.svg", "vertical_lines.svg", "grid_lines.svg")
+
+    return horizontal_lines, vertical_lines
+
+
 """Create Non-Simple stencils"""
 
 def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, pattern_type, n_lines, is_blank):
@@ -1116,22 +1211,22 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     rotated_path_name = f"{getFileStepCounter()}_fixed_pattern_rotation.svg"
     incrementFileStepCounter()
     rotateSVG(preprocessed_pattern, rotated_path_name, -90)
-    
+
     # b. re-size to square_size
     square_size = (height // 1.5) - getMargin()
     resize_size = square_size
     resized_pattern_name = f"{getFileStepCounter()}_scaled_pattern.svg"
     incrementFileStepCounter()
     resizeSVG(rotated_path_name, resized_pattern_name, resize_size)
-    
-    # c. translate to the classic line position
+
+    # c. translate drawing to the classic line position
     offset = square_size / (n_lines + 1)
     x_multi = 4
     y_multi = 3
 
     x_shift = getMargin() * x_multi + square_size // 2
-    x_shift = x_shift - offset
-    
+    x_shift = x_shift - offset - 1
+
     y_shift = (getMargin() * y_multi)
     y_shift = y_shift - getMargin() * 2
 
@@ -1158,13 +1253,16 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     incrementFileStepCounter()
     middle_half = f"{getFileStepCounter()}_middle_half_pattern.svg"
     incrementFileStepCounter()
-    splitShapesIntoQuarters(unfilled_pattern, top_and_bottom_quarters, middle_half)
-    
+    horizontal_lines, vertical_lines = createSquareGrid(square_size, n_lines, offset)
+    splitShapesIntoQuarters(unfilled_pattern, horizontal_lines, vertical_lines, top_and_bottom_quarters, middle_half)
+
     # rotate and translate the middle half to the bottom of the stencil
-    # 
+    #
     # cut the middle half into 2 pieces
 
     #  attach a 45 degree line from each end of the quarters to their closest classic cut line/stencil line
+
+    # remove the portion of the classic line between the 45 degree lines
 
 
 
