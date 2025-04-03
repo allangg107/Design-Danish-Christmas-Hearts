@@ -85,13 +85,15 @@ def setHasImage(value):
     global HAS_IMAGE
     if isinstance(value, bool):
         HAS_IMAGE = value
-    
     else:
         print("Error: ", value, "is not an instance of a boolean value")
 
 def setShapeMode(value):
     global SHAPE_MODE
-    SHAPE_MODE = value
+    if isinstance(value, ShapeMode):
+        SHAPE_MODE = value
+    else:
+        print("Error: ", value, "is not an instance of ", ShapeMode)
 
 def setShapeColor(color):
     global SHAPE_COLOR
@@ -130,8 +132,15 @@ def setUserPreprocessedPattern(name):
 
 def setCurrentPatternType(pattern):
     global CURRENT_PATTERN_TYPE
-    CURRENT_PATTERN_TYPE = pattern
+    if isinstance(pattern, PatternType):
+        CURRENT_PATTERN_TYPE = pattern
+    else:
+        print("Error: ", pattern, "is not an instance of ", PatternType)
+    
 
 def setCurrentSideType(side):
     global CURRENT_SIDE
-    CURRENT_SIDE = side
+    if isinstance(side, SideType):
+        CURRENT_SIDE = side
+    else:
+        print("Error: ", side, "is not an instance of ", SideType)
