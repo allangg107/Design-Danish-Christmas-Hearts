@@ -28,10 +28,7 @@ from VectorAlgoUtils import (
     savePixmapToCvImage,
     saveSvgFileAsPixmap,
     rotateImage,
-    getFileStepCounter,
-    incrementFileStepCounter,
-    getDrawingSquareSize,
-    setDrawingSquareSize
+    
 )
 
 from VectorAlgoStencils import (
@@ -56,7 +53,11 @@ from PatternType import (
 from SideType import (
     SideType
 )
-from GuideWindow import (
+from GlobalVariables import(
+    getFileStepCounter,
+    incrementFileStepCounter,
+    getDrawingSquareSize,
+    setDrawingSquareSize,
     getHasImage,
     setHasImage
 )

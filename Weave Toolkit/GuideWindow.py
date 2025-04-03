@@ -2,23 +2,23 @@ from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QTextEdit, QWidget, QA
 from PyQt6.QtGui import QPalette, QColor
 from PyQt6.QtCore import QSize
 from PatternType import PatternType
+from GlobalVariables import(
+    setHasImage,
+    getHasImage,
+    getUserOutputSVGFileName
+)
 
-# Global variable for if stencil has a drawn image only matters for 
-# the classic case currently
-HAS_IMAGE = True
 
 class GuideWindow(QDialog):
     def __init__(self, pattern_type):
         super().__init__()
         self.setWindowTitle("Guide Window")
-        self.steps = ["step 1: some text.", "some picture here"]
-        self.current_step = 0
         self.guide_content = """
         <h1 style="color: red;">Danish Christmas Hearts Weaving Guide</h1>
 
         <h2>Step 1 </h2>
         <div>
-            <img src="5_final_output.svg" width="300">
+            <img src={} width="300">
             <br>
             <p>Place your 2 stencils down side by side in front of each hand, such that the stencil with the circle with a cross within
                 is in front of your left hand and the stencil with just a cross within is placed in front of your right hand
@@ -87,14 +87,14 @@ class GuideWindow(QDialog):
         
         # Checks for pattern type and if an image was drawn to make the guide
         #  fit the users need on the first step of the weaving
-        if pattern_type == PatternType.Classic and not(HAS_IMAGE):
+        if pattern_type == PatternType.Classic and not(getHasImage()):
             self.update_step("over", "in between")
         
         else:
             self.update_step( "in between", "over")
     def update_text_edit(self):
         """Updates the text edit with the current third step text."""
-        self.text_edit.setHtml(self.guide_content.format(self.third_step_text, self.fourth_step_text, self.fourth_step_text, self.third_step_text))
+        self.text_edit.setHtml(self.guide_content.format(getUserOutputSVGFileName(),self.third_step_text, self.fourth_step_text, self.fourth_step_text, self.third_step_text))
 
 
     def update_step(self, step_text1, step_text2):
@@ -103,14 +103,3 @@ class GuideWindow(QDialog):
         self.fourth_step_text = step_text2
 
         self.update_text_edit()
-
-def getHasImage():
-    return HAS_IMAGE
-
-def setHasImage(value):
-    global HAS_IMAGE
-    if isinstance(value, bool):
-        HAS_IMAGE = value
-    
-    else:
-        print("Error occurred")

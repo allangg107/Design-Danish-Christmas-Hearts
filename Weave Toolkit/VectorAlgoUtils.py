@@ -10,15 +10,16 @@ import math
 import numpy as np
 import cv2 as cv
 import svgwrite
-
-FILE_STEP_COUNTER = 1
+from GlobalVariables import(
+    getFileStepCounter,
+    getDrawingSquareSize,
+    incrementFileStepCounter,
+    setDrawingSquareSize
+)
 
 """Preprocessing"""
 def pre_process_user_input(original_pattern, shape_types, width, height, square_size):
-    global FILE_STEP_COUNTER
-    global DRAWING_SQUARE_SIZE
-    DRAWING_SQUARE_SIZE = square_size
-
+    setDrawingSquareSize(square_size)
     if original_pattern is None:
         # create a blank SVG file with the specified width and height
         original_pattern = "preprocessed_pattern.svg"
@@ -26,14 +27,14 @@ def pre_process_user_input(original_pattern, shape_types, width, height, square_
         dwg.save()
         return
 
-    rotated_path_name = f"{FILE_STEP_COUNTER}_rotated_pattern_step.svg"
-    FILE_STEP_COUNTER += 1
+    rotated_path_name = f"{getFileStepCounter()}_rotated_pattern_step.svg"
+    incrementFileStepCounter()
     rotateSVG(original_pattern, rotated_path_name, 45)
 
     # crop to the designated drawing space
     cropped_size = int((width - square_size) // 2)
-    translated_path_name = f"{FILE_STEP_COUNTER}_translated_pattern_step.svg"
-    FILE_STEP_COUNTER += 1
+    translated_path_name = f"{getFileStepCounter()}_translated_pattern_step.svg"
+    incrementFileStepCounter()
     translateSVGBy(rotated_path_name, translated_path_name, -cropped_size, -cropped_size)
 
     paths, attributes = svg2paths(translated_path_name)
@@ -44,14 +45,14 @@ def pre_process_user_input(original_pattern, shape_types, width, height, square_
     # print("pre-processed attributes: ", attributes)
 
     # print(f"Original path ({len(paths)} segments):", paths)
-    clipped_paths = crop_svg(paths, square_size, square_size)
+    clipped_paths = crop_svg(paths, 0, 0, square_size, square_size)
     # print(f"Original path ({len(paths)} segments):", paths)
 
     print(f"Number of paths after translation: {len(paths)}")
     for i, path in enumerate(paths):
         print(f"Path {i} has {len(path)} segments")
 
-    clipped_paths = crop_svg(paths, square_size, square_size)
+    clipped_paths = crop_svg(paths, 0, 0, square_size, square_size)
 
     # Print the number of clipped paths and segments
     print(f"Number of clipped paths: {len(clipped_paths)}")
@@ -573,11 +574,11 @@ def clip_path_to_boundary(path, boundary, width, height, num_samples_line=1, num
         print("Error while clipping path:", e)
         return None
     
-def crop_svg(paths, width, height):
+def crop_svg(paths, starting_x, starting_y, width, height):
     """
     Crops all paths to fit within the given square_size.
     """
-    boundary = Polygon([(0, 0), (width, 0), (width,height), (0, height)])
+    boundary = Polygon([(starting_x, starting_y), (starting_x + width, starting_y), (starting_x + width, starting_y + height), (starting_x, starting_y + height)])
 
     #print("\nBoundary Polygon:", boundary)
     #print("Total Paths Received for Clipping:", len(paths))
@@ -596,11 +597,10 @@ def crop_svg(paths, width, height):
     return clipped_paths
 
 def cropPrep(pattern, output_name, cropped_size, angle):
-    global FILE_STEP_COUNTER
 
     # Step 1: Rotate the pattern 45 degrees clockwise
-    rotated_path_name = f"{FILE_STEP_COUNTER}_rotated_pattern_step.svg"
-    FILE_STEP_COUNTER += 1
+    rotated_path_name = f"{getFileStepCounter()}_rotated_pattern_step.svg"
+    incrementFileStepCounter()
     rotateSVG(pattern, rotated_path_name, angle)
 
     # Step 2: Translate to correct position after rotation
@@ -610,7 +610,7 @@ def cropPrep(pattern, output_name, cropped_size, angle):
 def cropToTopHalf(input_svg, output_svg):
     # Crop to only the top half of the SVG
         paths, attributes = svg2paths(input_svg)
-        stencil_1_clipped_paths = crop_svg(paths, 500, 500 // 2)
+        stencil_1_clipped_paths = crop_svg(paths, 0, 0, 500, 500 // 2)
 
         # Adjust attributes if needed
         if len(stencil_1_clipped_paths) > len(attributes):
@@ -618,7 +618,7 @@ def cropToTopHalf(input_svg, output_svg):
 
         # Save the cropped half
         wsvg(stencil_1_clipped_paths, attributes=attributes, filename=output_svg,
-                dimensions=(DRAWING_SQUARE_SIZE, DRAWING_SQUARE_SIZE))
+                dimensions=(getDrawingSquareSize(), getDrawingSquareSize()))
 
 
 """Conversion of SVG files into different formats"""
@@ -671,21 +671,3 @@ def savePixmapToCvImage(pixmap):
     cv_image = cv.cvtColor(img_array, cv.COLOR_BGRA2BGR)
 
     return cv_image
-
-"""Functions to get the global values"""
-
-def getFileStepCounter():
-    return FILE_STEP_COUNTER
-
-def getDrawingSquareSize():
-    return DRAWING_SQUARE_SIZE
-
-"""Functions to set global values"""
-
-def incrementFileStepCounter():
-    global FILE_STEP_COUNTER
-    FILE_STEP_COUNTER += 1
-
-def setDrawingSquareSize(value):
-    global DRAWING_SQUARE_SIZE
-    DRAWING_SQUARE_SIZE = value

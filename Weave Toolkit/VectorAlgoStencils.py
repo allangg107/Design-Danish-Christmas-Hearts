@@ -17,10 +17,6 @@ from VectorAlgoUtils import (
     mirrorSVGOverXAxis,
     mirrorSVGOverYAxis,
     mirrorSVGOverYAxisWithX,
-    getDrawingSquareSize,
-    getFileStepCounter,
-    incrementFileStepCounter,
-    setDrawingSquareSize,
     removeDuplicateLinesFromSVG
 
 )
@@ -36,16 +32,14 @@ from SideType import (
 from ShapeMode import (
     ShapeMode
 )
-MARGIN = 31
-
-"""Get and set MARGIN"""
-
-def getMargin():
-    return MARGIN
-
-def setMargin(value):
-    global MARGIN
-    MARGIN = value
+from GlobalVariables import (
+    getMargin,
+    setMargin,
+    setDrawingSquareSize, 
+    getDrawingSquareSize,
+    incrementFileStepCounter,
+    getFileStepCounter
+)
 
 
 def combineStencils(first_stencil, second_stencil, filename='combined.svg'):
@@ -61,7 +55,7 @@ def combineStencils(first_stencil, second_stencil, filename='combined.svg'):
 
 """Overlaying of SVG files"""
 
-def overlayDrawingOnStencil(stencil_file, user_drawing_file, size, square_size, pattern_type, margin_x=MARGIN, margin_y=0, filename='combined_output.svg'):
+def overlayDrawingOnStencil(stencil_file, user_drawing_file, size, square_size, pattern_type, margin_x=getMargin(), margin_y=0, filename='combined_output.svg'):
 
         translated_user_path = f"{getFileStepCounter()}_translated_for_overlay.svg"
         incrementFileStepCounter()
@@ -104,7 +98,7 @@ def overlayDrawingOnStencil(stencil_file, user_drawing_file, size, square_size, 
         return filename
 
 
-def overlayPatternOnStencil(pattern, stencil, size, stencil_number, pattern_type, margin=MARGIN):
+def overlayPatternOnStencil(pattern, stencil, size, stencil_number, pattern_type, margin=getMargin()):
     # scale the pattern
     square_size = size // 2 // 1.5 - margin
     inner_cut_size = square_size - (margin * 2)
@@ -125,7 +119,7 @@ def overlayPatternOnStencil(pattern, stencil, size, stencil_number, pattern_type
 
 """Stencils"""
 
-def drawEmptyStencil(width, height, starting_y, margin_x=MARGIN, line_color='black', file_name="allan is a miracle.svg"):
+def drawEmptyStencil(width, height, starting_y, margin_x=getMargin(), line_color='black', file_name="allan is a miracle.svg"):
     dwg = svgwrite.Drawing(file_name, size=(width,height+starting_y))
 
     # define the square size
@@ -193,7 +187,7 @@ def drawEmptyStencil(width, height, starting_y, margin_x=MARGIN, line_color='bla
     return file_name
 
 
-def drawInnerCutLines(width, height, starting_y, margin_x=MARGIN, line_color='black', file_name="allans_test.svg"):
+def drawInnerCutLines(width, height, starting_y, margin_x=getMargin(), line_color='black', file_name="allans_test.svg"):
     dwg = svgwrite.Drawing(file_name, size=(width, height + starting_y))
 
     # Define the square size
@@ -227,7 +221,7 @@ def drawInnerCutLines(width, height, starting_y, margin_x=MARGIN, line_color='bl
     return file_name
 
 
-def createClassicInnerCuts(width, height, starting_y, n_lines, margin_x=MARGIN, line_color='black'):
+def createClassicInnerCuts(width, height, starting_y, n_lines, margin_x=getMargin(), line_color='black'):
     #define the square size
     square_size = (height // 1.5) - margin_x
     margin_y = margin_x + starting_y
@@ -643,7 +637,7 @@ def rotatePoint(point, angle, center=None):
     return result
 
 
-def drawExtensionLines(combined_stencil, stencil_pattern, output_name, side_type, width, height, starting_y, margin_x=MARGIN):
+def drawExtensionLines(combined_stencil, stencil_pattern, output_name, side_type, width, height, starting_y, margin_x=getMargin()):
 
     square_size = (height // 1.5) - margin_x
     margin_y = margin_x + starting_y
@@ -727,8 +721,6 @@ def drawExtensionLines(combined_stencil, stencil_pattern, output_name, side_type
 
 def mirrorLines(pattern_w_extended_lines, output_name, width, height, pattern_type):
 
-    global MARGIN
-
     # mirror the lines over the y-axis
     mirrored_lines = f"{getFileStepCounter()}_mirrored_lines.svg"
     incrementFileStepCounter()
@@ -747,7 +739,7 @@ def mirrorLines(pattern_w_extended_lines, output_name, width, height, pattern_ty
     translateSVGBy(mirrored_lines, fixed_rounding_mirrored_lines, -distance_between, 0)
 
     # translate the mirrored lines to the correct position
-    translateSVGBy(fixed_rounding_mirrored_lines, output_name, distance_between - MARGIN, height)
+    translateSVGBy(fixed_rounding_mirrored_lines, output_name, distance_between - getMargin(), height)
 
 
 def combinePatternAndMirrorWithStencils(pattern_w_extended_lines, combined_simple_stencil_no_patt, translated_mirrored_lines, output_name=None):
@@ -1126,8 +1118,7 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     rotateSVG(preprocessed_pattern, rotated_path_name, -90)
     
     # b. re-size to square_size
-    global MARGIN
-    square_size = (height // 1.5) - MARGIN
+    square_size = (height // 1.5) - getMargin()
     resize_size = square_size
     resized_pattern_name = f"{getFileStepCounter()}_scaled_pattern.svg"
     incrementFileStepCounter()
@@ -1138,11 +1129,11 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     x_multi = 4
     y_multi = 3
 
-    x_shift = MARGIN * x_multi + square_size // 2
+    x_shift = getMargin() * x_multi + square_size // 2
     x_shift = x_shift - offset
     
-    y_shift = (MARGIN * y_multi)
-    y_shift = y_shift - MARGIN * 2
+    y_shift = (getMargin() * y_multi)
+    y_shift = y_shift - getMargin() * 2
 
     translated_user_path = f"{getFileStepCounter()}_translated_for_overlay.svg"
     incrementFileStepCounter()
