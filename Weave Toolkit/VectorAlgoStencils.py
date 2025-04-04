@@ -44,12 +44,38 @@ from GlobalVariables import (
 
 def combineStencils(first_stencil, second_stencil, filename='combined.svg'):
     """Combines two SVG files together into one"""
-    paths1, attributes1 = svg2paths(first_stencil)
-    paths2, attributes2 = svg2paths(second_stencil)
+    # Initialize empty paths and attributes
+    paths1, attributes1 = [], []
+    paths2, attributes2 = [], []
 
+    # Try to read the first stencil
+    try:
+        paths1, attributes1 = svg2paths(first_stencil)
+    except Exception as e:
+        print(f"Could not read {first_stencil}: {e}")
+
+    # Try to read the second stencil
+    try:
+        paths2, attributes2 = svg2paths(second_stencil)
+    except Exception as e:
+        print(f"Could not read {second_stencil}: {e}")
+
+    # Check if both files are empty or non-existent
+    if not paths1 and not paths2:
+        print("Both SVG files are empty or non-existent.")
+        return
+
+    # If only one file has content, use that one
+    if not paths1:
+        wsvg(paths2, attributes=attributes2, filename=filename)
+        return
+    if not paths2:
+        wsvg(paths1, attributes=attributes1, filename=filename)
+        return
+
+    # If both files have content, combine them
     combined_paths = paths1 + paths2
     combined_attributes = attributes1 + attributes2
-
     wsvg(combined_paths, attributes=combined_attributes, filename=filename)
 
 
@@ -1037,43 +1063,75 @@ def findAllNonIntersectedShapes(pattern, classic_cuts, min_intersection_length=5
     return [pattern_paths[i] for i in non_intersected_indices], [pattern_attrs[i] for i in non_intersected_indices]
 
 
-def splitShapesIntoQuarters(shapes_file, horizontal_lines, vertical_lines, top_bottom, middle_half):
+def getLineGroup(path_file, file_name, sq_height, sq_width, sq_start, direction):
+    paths, attrs = svg2paths(path_file)
+    # group the lines based on which side of the y-axis they are on
+    line_group = []
+    for path in paths:
+        for line in path:
+            if isinstance(line, Line):
+                # Check the direction of the line relative to the y-axis
+                if direction == 'left' and line.start.real < sq_start[0] + sq_width / 2:
+                    line_group.append(line)
+                elif direction == 'right' and line.start.real >= sq_start[0] + sq_width / 2:
+                    line_group.append(line)
+
+    # Convert the list of Line objects into a Path object
+    path_group = [Path(*line_group)] if line_group else []
+
+    wsvg(path_group, attributes=attrs, filename=file_name, dimensions=(sq_width, sq_height), viewbox=(sq_start[0], sq_start[1], sq_width, sq_height))
+
+def splitShapesIntoQuarters(shapes_file, horizontal_lines, vertical_lines, all_top_and_bottom_quarters, all_middle_halves):
     shapes, attrs = svg2paths(shapes_file)
-    # for each shape in the pattern:
-        # 1. locate the square the shape is in
+
+    combined_middle_halves = "combined_middle_halves.svg"
+    combined_top_and_bottom_quarters = "combined_top_and_bottom_quarters.svg"
     for shape in shapes:
         print("Shape:", shape)
         square_start, square_width, square_height = locateSquare(shape, horizontal_lines, vertical_lines)
         wsvg(shape, attributes=attrs, filename="shape.svg", dimensions=(square_width, square_height), viewbox=(square_start[0], square_start[1], square_width, square_height))
         shape_paths, attributes = svg2paths("shape.svg")
+
         # 2. call crop_svg to crop the top quarter
-        top_quarter = crop_svg(shape_paths, square_start[0], square_start[1], square_width, square_height / 4, False)
-        wsvg(top_quarter, attributes=attrs, filename=f"{getFileStepCounter()}_top_quarter.svg", dimensions=(square_width, square_height / 4), viewbox=(square_start[0], square_start[1], square_width, square_height / 4))
+        top_quarter_paths = crop_svg(shape_paths, square_start[0], square_start[1] - 2, square_width, square_height / 4 + 4, False)
+        top_quarter = f"{getFileStepCounter()}_top_quarter.svg"
         incrementFileStepCounter()
+        wsvg(top_quarter_paths, attributes=attrs, filename=top_quarter, dimensions=(square_width, square_height / 4), viewbox=(square_start[0], square_start[1], square_width, square_height / 4))
+
+        # 6. call crop_svg to crop the bottom quarter
+        bottom_quarter_paths = crop_svg(shape_paths, square_start[0], square_start[1] + square_height * 3 / 4, square_width, square_height / 4 + 2, False)
+        bottom_quarter = f"{getFileStepCounter()}_bottom_quarter.svg"
+        incrementFileStepCounter()
+        wsvg(bottom_quarter_paths, attributes=attrs, filename=bottom_quarter, dimensions=(square_width, square_height / 4), viewbox=(square_start[0], square_start[1] + square_height * 3 / 4, square_width, square_height / 4))
+
+        # Combine top and bottom quarters into a single SVG file
+        top_and_bottom_quarter = f"{getFileStepCounter()}_top_and_bottom_quarter.svg"
+        incrementFileStepCounter()
+        combineStencils(top_quarter, bottom_quarter, top_and_bottom_quarter)
+
+        # Combine all top and bottom quarters
+        combineStencils(combined_top_and_bottom_quarters, top_and_bottom_quarter, combined_top_and_bottom_quarters)
+
         # 3. call crop_svg to crop the middle half
         middle_half_paths = crop_svg(shape_paths, square_start[0] - 2, square_start[1] + square_height / 4, square_width + 4, square_height / 2, False)
         middle_half = f"{getFileStepCounter()}_middle_half.svg"
         wsvg(middle_half_paths, attributes=attrs, filename=middle_half, dimensions=(square_width, square_height / 2), viewbox=(square_start[0] - 2, square_start[1] + square_height / 4, square_width + 4, square_height / 2))
         incrementFileStepCounter()
-        # 4. call crop_svg to crop the bottom quarter
-        bottom_quarter = crop_svg(shape_paths, square_start[0], square_start[1] + square_height * 3 / 4, square_width, square_height / 4, False)
-        wsvg(bottom_quarter, attributes=attrs, filename=f"{getFileStepCounter()}_bottom_quarter.svg", dimensions=(square_width, square_height / 4), viewbox=(square_start[0], square_start[1] + square_height * 3 / 4, square_width, square_height / 4))
-        incrementFileStepCounter()
-        # 5. rotate the middle half 90 degrees
+
+        # Rotate and translate the middle half to the bottom of the stencil
         rotated_middle_half = f"{getFileStepCounter()}_rotated_middle_half.svg"
         incrementFileStepCounter()
         rotateSVG(middle_half, rotated_middle_half, 90, square_start[0] + square_width / 2, square_start[1] + square_height / 2)
-        rotated_middle_half_paths, _ = svg2paths(rotated_middle_half)
-        # 6. crop the middle half in 2
-        middle_top_half_paths = crop_svg(rotated_middle_half_paths, square_start[0] + square_width / 4, square_start[1], square_width / 2, square_height / 2, False)
-        middle_half = f"{getFileStepCounter()}_middle_top_half.svg"
-        incrementFileStepCounter()
-        wsvg(middle_top_half_paths, attributes=attrs, filename=middle_half, dimensions=(square_width / 2, square_height / 2), viewbox=(square_start[0] + square_width / 4, square_start[1], square_width / 2, square_height / 2))
 
-        middle_bottom_half_paths = crop_svg(rotated_middle_half_paths, square_start[0] + square_width / 4, square_start[1] + square_height / 2, square_width / 2, square_height / 2, False)
-        middle_half = f"{getFileStepCounter()}_middle_bottom_half.svg"
-        incrementFileStepCounter()
-        wsvg(middle_bottom_half_paths, attributes=attrs, filename=middle_half, dimensions=(square_width / 2, square_height / 2), viewbox=(square_start[0] + square_width / 4, square_start[1] + square_height / 2, square_width / 2, square_height / 2))
+        # Combine all middle halves
+        combineStencils(combined_middle_halves, rotated_middle_half, combined_middle_halves)
+
+    quarter_paths, quarter_attrs = svg2paths(combined_top_and_bottom_quarters)
+    half_paths, half_attrs = svg2paths(combined_middle_halves)
+
+    # Save the final combined SVG files
+    wsvg(quarter_paths, attributes=quarter_attrs, filename=all_top_and_bottom_quarters)
+    wsvg(half_paths, attributes=half_attrs, filename=all_middle_halves)
 
 
 def locateSquare(shape, horizontal_cuts, vertical_cuts):
@@ -1183,6 +1241,10 @@ def createSquareGrid(square_size, n_lines, offset):
     return horizontal_lines, vertical_lines
 
 
+def attach45DegreeLinesAndRemoveInbetween():
+    pass
+
+
 """Create Non-Simple stencils"""
 
 def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, pattern_type, n_lines, is_blank):
@@ -1249,20 +1311,28 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     combineStencils("checkpoint.svg", empty_stencil_1, "checkpoint_2.svg")
 
     # split each shape into a top quarter, middle half, and bottom quarter
-    top_and_bottom_quarters = f"{getFileStepCounter()}_top_bottom_quarters.svg"
+    top_and_bottom_quarters_of_shapes = f"{getFileStepCounter()}_top_bottom_quarters.svg"
     incrementFileStepCounter()
-    middle_half = f"{getFileStepCounter()}_middle_half_pattern.svg"
+    middle_halves = f"{getFileStepCounter()}_middle_half_pattern.svg"
     incrementFileStepCounter()
     horizontal_lines, vertical_lines = createSquareGrid(square_size, n_lines, offset)
-    splitShapesIntoQuarters(unfilled_pattern, horizontal_lines, vertical_lines, top_and_bottom_quarters, middle_half)
-
-    # rotate and translate the middle half to the bottom of the stencil
-    #
-    # cut the middle half into 2 pieces
+    splitShapesIntoQuarters(unfilled_pattern, horizontal_lines, vertical_lines, top_and_bottom_quarters_of_shapes, middle_halves)
 
     #  attach a 45 degree line from each end of the quarters to their closest classic cut line/stencil line
+    top_and_bottom_quarters_of_shapes_w_lines = f"{getFileStepCounter()}_top_and_bottom_quarters_of_shapes_w_lines.svg"
+    incrementFileStepCounter()
+    updated_classic_cuts = f"{getFileStepCounter()}_updated_classic_cuts.svg"
+    incrementFileStepCounter()
+    classic_paths, classic_attrs = svg2paths(stencil_1_classic_cuts)
+    wsvg(classic_paths, attributes=classic_attrs, filename=updated_classic_cuts)
 
-    # remove the portion of the classic line between the 45 degree lines
+    for top_and_bottom_quarters_of_shape in top_and_bottom_quarters_of_shapes:
+        top_and_bottom_quarters_of_shape_w_lines = f"{getFileStepCounter()}_top_and_bottom_quarters_of_shape_w_lines.svg"
+        incrementFileStepCounter()
+        attach45DegreeLinesAndRemoveInbetween(top_and_bottom_quarters_of_shape, updated_classic_cuts, top_and_bottom_quarters_of_shape_w_lines)
+        combineStencils(top_and_bottom_quarters_of_shape_w_lines, top_and_bottom_quarters_of_shape_w_lines, top_and_bottom_quarters_of_shapes_w_lines)
+
+    # repeat above with middle_halves and stencil_2_classic_cuts
 
 
 
