@@ -17,6 +17,7 @@ from VectorAlgoUtils import (
     mirrorSVGOverXAxis,
     mirrorSVGOverYAxis,
     mirrorSVGOverYAxisWithX,
+    mirrorSVGOverXAxisWithY,
     removeDuplicateLinesFromSVG
 
 )
@@ -1081,7 +1082,7 @@ def getLineGroup(path_file, file_name, sq_height, sq_width, sq_start, direction)
 
     wsvg(path_group, attributes=attrs, filename=file_name, dimensions=(sq_width, sq_height), viewbox=(sq_start[0], sq_start[1], sq_width, sq_height))
 
-def splitShapesIntoQuarters(shapes_file, horizontal_lines, vertical_lines, all_top_and_bottom_quarters, all_middle_halves):
+def splitShapesIntoQuarters(shapes_file, horizontal_lines, vertical_lines, all_top_and_bottom_quarters, all_middle_halves, width, height, square_size):
     shapes, attrs = svg2paths(shapes_file)
 
     combined_middle_halves = "combined_middle_halves.svg"
@@ -1123,8 +1124,22 @@ def splitShapesIntoQuarters(shapes_file, horizontal_lines, vertical_lines, all_t
         incrementFileStepCounter()
         rotateSVG(middle_half, rotated_middle_half, 90, square_start[0] + square_width / 2, square_start[1] + square_height / 2)
 
+        # mirror over x-axis
+        mirrored_middle_half = f"{getFileStepCounter()}_mirrored_middle_half.svg"
+        incrementFileStepCounter()
+        mirrorSVGOverXAxisWithY(rotated_middle_half, mirrored_middle_half, width, getMargin() * 2 + square_size, getMargin() + square_size / 2)
+
+        translated_middle_half = f"{getFileStepCounter()}_translated_middle_half.svg"
+        incrementFileStepCounter()
+        translateSVGBy(mirrored_middle_half, translated_middle_half, square_size, 0)
+
+        mirror_to_other_stencil = f"{getFileStepCounter()}_mirror_to_other_stencil.svg"
+        incrementFileStepCounter()
+        mirrorSVGOverXAxisWithY(translated_middle_half, mirror_to_other_stencil, width, (getMargin() * 2 + square_size) * 2, getMargin() * 4.75 + square_size)
+
         # Combine all middle halves
-        combineStencils(combined_middle_halves, rotated_middle_half, combined_middle_halves)
+        # combineStencils(combined_middle_halves, translated_middle_half, combined_middle_halves)
+        combineStencils(combined_middle_halves, mirror_to_other_stencil, combined_middle_halves)
 
     quarter_paths, quarter_attrs = svg2paths(combined_top_and_bottom_quarters)
     half_paths, half_attrs = svg2paths(combined_middle_halves)
@@ -1241,8 +1256,112 @@ def createSquareGrid(square_size, n_lines, offset):
     return horizontal_lines, vertical_lines
 
 
-def attach45DegreeLinesAndRemoveInbetween():
-    pass
+def attach45DegreeLinesAndRemoveInbetween(quarters, classic_cuts, output_name):
+    # load in the svg file of one instance of a single drawing
+    # each drawing should have a top and bottom quarter disconnected from each other
+    # ie. it should be correctly oriented when loaded in
+    paths, attrs = svg2paths(quarters)
+    classic_cut_paths, classic_cut_attrs = svg2paths(classic_cuts)
+
+    paths_copy = copy.deepcopy(paths)
+    attributes_copy = copy.deepcopy(attrs)
+
+    print("quarter paths", paths)
+    
+    for path in paths:
+        # find the left- and right-most point of each path
+        # Find the leftmost and rightmost points with their associated y-coordinates
+        left_most_point = None
+        right_most_point = None
+        min_x = float('inf')
+        max_x = float('-inf')
+
+        for segment in path:
+            # Sample points along the segment
+            for t in np.linspace(0, 1, 10):  # Sample 10 points per segment
+                point = segment.point(t)
+                x, y = point.real, point.imag
+                
+                if x < min_x:
+                    min_x = x
+                    left_most_point = (x, y)
+                
+                if x > max_x:
+                    max_x = x
+                    right_most_point = (x, y)
+
+        # find the closest classic cut line to the left and right-most point of each path
+        closest_classic_line = None
+        min_left_distance = float('inf')
+        min_right_distance = float('inf')
+        for classic_cut in classic_cut_paths:
+            for segment in classic_cut:
+                if isinstance(segment, Line):
+                    line = LineString([(segment.start.real, segment.start.imag), (segment.end.real, segment.end.imag)])
+                    # Get the y-coordinate from the first point of the line
+                    distance = abs(line.coords[0][1] - left_most_point[1])
+                    if distance < min_left_distance:
+                        min_left_distance = distance
+                        min_right_distance = abs(line.coords[0][1] - right_most_point[1])
+                        closest_classic_line = line
+
+        # Draw a 45-degree line from the leftmost point to the closest classic cut line
+        if closest_classic_line is not None:
+            classic_line_y = closest_classic_line.coords[0][1]
+            
+            # Calculate intersection point
+            left_intersection_x = left_most_point[0] - (abs(left_most_point[1] - classic_line_y))
+            intersection_y = classic_line_y
+            
+            left_diagonal = Line(complex(left_most_point[0], left_most_point[1]),
+                                complex(left_intersection_x, intersection_y))
+            
+            paths_copy.append(Path(left_diagonal))
+            attributes_copy.append({'stroke': 'red', 'stroke-width': 1, 'fill': 'none'})
+
+        # Draw a 45-degree line from the rightmost point to the closest classic cut line
+        if closest_classic_line is not None:
+            classic_line_y = closest_classic_line.coords[0][1]
+            
+            # Calculate intersection point
+            right_intersection_x = right_most_point[0] + (abs(right_most_point[1] - classic_line_y))
+            intersection_y = classic_line_y
+            
+            right_diagonal = Line(complex(right_most_point[0], right_most_point[1]),
+                                complex(right_intersection_x, intersection_y))
+            
+            paths_copy.append(Path(right_diagonal))
+            attributes_copy.append({'stroke': 'blue', 'stroke-width': 1, 'fill': 'none'})
+
+        # remove the portion of the classic line in between the end points of the 45 degree lines
+        classic_cut_paths = [line for line in classic_cut_paths if (line.start.real, line.start.imag) != closest_classic_line.coords[0]]
+
+        print("number of classic cut lines", len(classic_cut_paths))
+        
+        # Find the original classic cut line we're modifying
+        if closest_classic_line is not None:
+            # Get start and end points of the original line
+            orig_start_x, orig_start_y = closest_classic_line.coords[0]
+            orig_end_x, orig_end_y = closest_classic_line.coords[-1]
+            
+            # Create two line segments: one from the original start to left intersection,
+            # and another from right intersection to the original end
+            left_segment = Line(complex(orig_start_x, orig_start_y), 
+                       complex(left_intersection_x, intersection_y))
+            right_segment = Line(complex(right_intersection_x, intersection_y),
+                    complex(orig_end_x, orig_end_y))
+            
+            # Add these segments to the paths instead of the original line
+            classic_cut_paths.append(Path(left_segment))
+            classic_cut_paths.append(Path(right_segment))
+            classic_cut_attrs = [{'stroke': 'yellow', 'stroke-width': 1, 'fill': 'none'}] * len(classic_cut_paths)
+            wsvg(classic_cut_paths, attributes=classic_cut_attrs, filename=classic_cuts)
+
+        # overwrite classic_cuts using the new classic cut lines
+
+    # save the output_name file
+   
+    wsvg(paths_copy, attributes=attributes_copy, filename=output_name)
 
 
 """Create Non-Simple stencils"""
@@ -1308,7 +1427,7 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     wsvg(unfilled_pattern_paths, attributes=unfilled_pattern_attrs, filename=unfilled_pattern, dimensions=(width, width))
 
     combineStencils(stencil_1_classic_cuts, unfilled_pattern, "checkpoint.svg")
-    combineStencils("checkpoint.svg", empty_stencil_1, "checkpoint_2.svg")
+    combineStencils("checkpoint.svg", empty_stencil_1, "checkpoint.svg")
 
     # split each shape into a top quarter, middle half, and bottom quarter
     top_and_bottom_quarters_of_shapes = f"{getFileStepCounter()}_top_bottom_quarters.svg"
@@ -1316,7 +1435,13 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     middle_halves = f"{getFileStepCounter()}_middle_half_pattern.svg"
     incrementFileStepCounter()
     horizontal_lines, vertical_lines = createSquareGrid(square_size, n_lines, offset)
-    splitShapesIntoQuarters(unfilled_pattern, horizontal_lines, vertical_lines, top_and_bottom_quarters_of_shapes, middle_halves)
+    splitShapesIntoQuarters(unfilled_pattern, horizontal_lines, vertical_lines, top_and_bottom_quarters_of_shapes, middle_halves, width, height, square_size)
+
+    combineStencils(stencil_1_classic_cuts, stencil_2_classic_cuts, "checkpoint_2.svg")
+    combineStencils("checkpoint_2.svg", empty_stencil_1, "checkpoint_2.svg")
+    combineStencils("checkpoint_2.svg", empty_stencil_2, "checkpoint_2.svg")
+    combineStencils("checkpoint_2.svg", top_and_bottom_quarters_of_shapes, "checkpoint_2.svg")
+    combineStencils("checkpoint_2.svg", middle_halves, "checkpoint_2.svg")
 
     #  attach a 45 degree line from each end of the quarters to their closest classic cut line/stencil line
     top_and_bottom_quarters_of_shapes_w_lines = f"{getFileStepCounter()}_top_and_bottom_quarters_of_shapes_w_lines.svg"
@@ -1326,14 +1451,27 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     classic_paths, classic_attrs = svg2paths(stencil_1_classic_cuts)
     wsvg(classic_paths, attributes=classic_attrs, filename=updated_classic_cuts)
 
-    for top_and_bottom_quarters_of_shape in top_and_bottom_quarters_of_shapes:
-        top_and_bottom_quarters_of_shape_w_lines = f"{getFileStepCounter()}_top_and_bottom_quarters_of_shape_w_lines.svg"
-        incrementFileStepCounter()
-        attach45DegreeLinesAndRemoveInbetween(top_and_bottom_quarters_of_shape, updated_classic_cuts, top_and_bottom_quarters_of_shape_w_lines)
-        combineStencils(top_and_bottom_quarters_of_shape_w_lines, top_and_bottom_quarters_of_shape_w_lines, top_and_bottom_quarters_of_shapes_w_lines)
+    top_and_bottom_quarters_of_shapes_w_lines = f"{getFileStepCounter()}_top_and_bottom_quarters_of_shapes_w_lines.svg"
+    incrementFileStepCounter()
+    attach45DegreeLinesAndRemoveInbetween(top_and_bottom_quarters_of_shapes, updated_classic_cuts, top_and_bottom_quarters_of_shapes_w_lines)
 
     # repeat above with middle_halves and stencil_2_classic_cuts
+    middle_halves_w_lines = f"{getFileStepCounter()}_middle_halves_w_lines.svg"
+    incrementFileStepCounter()
+    updated_classic_cuts_2 = f"{getFileStepCounter()}_updated_classic_cuts_2.svg"
+    incrementFileStepCounter()
+    classic_paths_2, classic_attrs_2 = svg2paths(stencil_2_classic_cuts)
+    wsvg(classic_paths_2, attributes=classic_attrs_2, filename=updated_classic_cuts_2)
+    
+    middle_halves_w_lines = f"{getFileStepCounter()}_middle_halves_w_lines.svg"
+    incrementFileStepCounter()
+    attach45DegreeLinesAndRemoveInbetween(middle_halves, updated_classic_cuts_2, middle_halves_w_lines)
 
+    combineStencils(updated_classic_cuts, updated_classic_cuts_2, "checkpoint_3.svg")
+    combineStencils("checkpoint_3.svg", empty_stencil_1, "checkpoint_3.svg")
+    combineStencils("checkpoint_3.svg", empty_stencil_2, "checkpoint_3.svg")
+    combineStencils("checkpoint_3.svg", top_and_bottom_quarters_of_shapes_w_lines, "checkpoint_3.svg")
+    combineStencils("checkpoint_3.svg", middle_halves_w_lines, "checkpoint_3.svg")
 
 
 def create_symmetric_pattern_stencils(preprocessed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, side_type, pattern_type):
