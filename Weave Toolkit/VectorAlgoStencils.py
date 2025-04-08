@@ -39,7 +39,8 @@ from GlobalVariables import (
     setDrawingSquareSize,
     getDrawingSquareSize,
     incrementFileStepCounter,
-    getFileStepCounter
+    getFileStepCounter,
+    getShapeColor
 )
 
 
@@ -103,12 +104,8 @@ def overlayDrawingOnStencil(stencil_file, user_drawing_file, size, square_size, 
         paths1, attributes1 = svg2paths(stencil_file)
         paths2, attributes2 = svg2paths(translated_user_path)
 
-        # print("overlay user attributes: ", attributes2)
-
         combined_paths = paths1 + paths2
         combined_attributes = attributes1 + attributes2
-
-        # print("overlay user attributes 2: ", combined_attributes)
 
         dwg = svgwrite.Drawing(filename, size=(size, size))
 
@@ -333,7 +330,6 @@ def combine_overlapping_paths(paths, attrs, tolerance=1e-6):
     if not paths:
         return [], []
 
-    # Print the number of input paths and segments
     print(f"Number of input paths: {len(paths)}")
     for i, path in enumerate(paths):
         print(f"Input path {i} has {len(path)} segments")
@@ -493,7 +489,6 @@ def combine_overlapping_paths(paths, attrs, tolerance=1e-6):
         except Exception as e:
             print(f"Error converting polygon to path: {e}")
 
-    # Print the number of output paths and segments
     print(f"Number of output paths: {len(combined_paths)}")
     for i, path in enumerate(combined_paths):
         print(f"Output path {i} has {len(path)} segments")
@@ -543,6 +538,48 @@ def grabRightMostPointOfPaths(paths):
                 pt = segment.point(t)
                 if pt.real > max_x:
                     max_x = pt.real
+                    max_point = pt
+
+    return max_point
+
+
+def grabTopMostPointOfPaths(paths):
+    """Grab the top most point from a path or a list of paths"""
+    min_y = float('inf')  # Using min_y since in SVG coordinate system, lower y values are higher up
+    min_point = None
+
+    # Convert single path to a list for consistent processing
+    if not isinstance(paths, list):
+        paths = [paths]
+
+    for path in paths:
+        for segment in path:
+            # Sample points along the segment
+            for t in np.linspace(0, 1, 20):  # Sample 20 points per segment
+                pt = segment.point(t)
+                if pt.imag < min_y:
+                    min_y = pt.imag
+                    min_point = pt
+
+    return min_point
+
+
+def grabBottomMostPointOfPaths(paths):
+    """Grab the bottom most point from a path or a list of paths"""
+    max_y = float('-inf')  # Using max_y since in SVG coordinate system, higher y values are lower down
+    max_point = None
+
+    # Convert single path to a list for consistent processing
+    if not isinstance(paths, list):
+        paths = [paths]
+
+    for path in paths:
+        for segment in path:
+            # Sample points along the segment
+            for t in np.linspace(0, 1, 20):  # Sample 20 points per segment
+                pt = segment.point(t)
+                if pt.imag > max_y:
+                    max_y = pt.imag
                     max_point = pt
 
     return max_point
@@ -834,15 +871,10 @@ def fitClassicCuts(classic_cuts, stencil_pattern, output_name, width, height, si
 
 
 def snapShapeToClassicCuts(classic_cuts, shape_type, begin_point, end_point, width, height):
-    print("snapShapesToClassicCuts")
-    print(classic_cuts)
-
-    # Process classic_cuts as a list of [x1, y1, x2, y2] coordinates
     lines = []
     for line_coords in classic_cuts:
         line = LineString([(line_coords[0], line_coords[1]), (line_coords[2], line_coords[3])])
         lines.append(line)
-    print("original", lines)
 
     # Add edge box lines (bounding box edges)
     border_lines = [
@@ -852,7 +884,6 @@ def snapShapeToClassicCuts(classic_cuts, shape_type, begin_point, end_point, wid
         LineString([(0, height // 2), (width // 2, 0)])  # Top-left edge
     ]
     lines.extend(border_lines)
-    print("borders", lines)
 
     # Find all intersection points
     intersection_points = []
@@ -1064,23 +1095,40 @@ def findAllNonIntersectedShapes(pattern, classic_cuts, min_intersection_length=5
     return [pattern_paths[i] for i in non_intersected_indices], [pattern_attrs[i] for i in non_intersected_indices]
 
 
-def getLineGroup(path_file, file_name, sq_height, sq_width, sq_start, direction):
+def getLineGroup(path_file, file_name):
     paths, attrs = svg2paths(path_file)
     # group the lines based on which side of the y-axis they are on
-    line_group = []
+
+    # find the topmost and bottommost points in paths
+    topmost_point = float('-inf')
+    bottommost_point = float('inf')
+    for path in paths:
+        for line in path:
+            if isinstance(line, Line):
+                topmost_point = max(topmost_point, line.start.imag, line.end.imag)
+                bottommost_point = min(bottommost_point, line.start.imag, line.end.imag)
+    
+    midpoint = (topmost_point + bottommost_point) / 2
+
+    top_line_group = []
+    bottom_line_group = []
     for path in paths:
         for line in path:
             if isinstance(line, Line):
                 # Check the direction of the line relative to the y-axis
-                if direction == 'left' and line.start.real < sq_start[0] + sq_width / 2:
-                    line_group.append(line)
-                elif direction == 'right' and line.start.real >= sq_start[0] + sq_width / 2:
-                    line_group.append(line)
+                if line.start.imag > midpoint:
+                    top_line_group.append(line)
+                elif line.start.imag <= midpoint:
+                    bottom_line_group.append(line)
 
     # Convert the list of Line objects into a Path object
-    path_group = [Path(*line_group)] if line_group else []
+    top_path_group = [Path(*top_line_group)] if top_line_group else []
+    bottom_path_group = [Path(*bottom_line_group)] if bottom_line_group else []
 
-    wsvg(path_group, attributes=attrs, filename=file_name, dimensions=(sq_width, sq_height), viewbox=(sq_start[0], sq_start[1], sq_width, sq_height))
+    path_group = top_path_group + bottom_path_group
+    attrs = [{'stroke': getShapeColor().name(), 'stroke-width': 1, 'fill': 'none'}] * len(path_group)
+
+    wsvg(path_group, attributes=attrs, filename=file_name)
 
 def splitShapesIntoQuarters(shapes_file, horizontal_lines, vertical_lines, all_top_and_bottom_quarters, all_middle_halves, width, height, square_size):
     shapes, attrs = svg2paths(shapes_file)
@@ -1094,7 +1142,7 @@ def splitShapesIntoQuarters(shapes_file, horizontal_lines, vertical_lines, all_t
         shape_paths, attributes = svg2paths("shape.svg")
 
         # 2. call crop_svg to crop the top quarter
-        top_quarter_paths = crop_svg(shape_paths, square_start[0], square_start[1] - 2, square_width, square_height / 4 + 4, False)
+        top_quarter_paths = crop_svg(shape_paths, square_start[0], square_start[1] - 2, square_width, square_height / 4 + 2, False)
         top_quarter = f"{getFileStepCounter()}_top_quarter.svg"
         incrementFileStepCounter()
         wsvg(top_quarter_paths, attributes=attrs, filename=top_quarter, dimensions=(square_width, square_height / 4), viewbox=(square_start[0], square_start[1], square_width, square_height / 4))
@@ -1125,21 +1173,38 @@ def splitShapesIntoQuarters(shapes_file, horizontal_lines, vertical_lines, all_t
         rotateSVG(middle_half, rotated_middle_half, 90, square_start[0] + square_width / 2, square_start[1] + square_height / 2)
 
         # mirror over x-axis
-        mirrored_middle_half = f"{getFileStepCounter()}_mirrored_middle_half.svg"
-        incrementFileStepCounter()
-        mirrorSVGOverXAxisWithY(rotated_middle_half, mirrored_middle_half, width, getMargin() * 2 + square_size, getMargin() + square_size / 2)
+        # mirrored_middle_half = f"{getFileStepCounter()}_mirrored_middle_half.svg"
+        # incrementFileStepCounter()
+        # mirrorSVGOverXAxisWithY(rotated_middle_half, mirrored_middle_half, width, getMargin() * 2 + square_size, getMargin() + square_size / 2)
 
         translated_middle_half = f"{getFileStepCounter()}_translated_middle_half.svg"
         incrementFileStepCounter()
-        translateSVGBy(mirrored_middle_half, translated_middle_half, square_size, 0)
+        translateSVGBy(rotated_middle_half, translated_middle_half, square_size, 0)
 
         mirror_to_other_stencil = f"{getFileStepCounter()}_mirror_to_other_stencil.svg"
         incrementFileStepCounter()
         mirrorSVGOverXAxisWithY(translated_middle_half, mirror_to_other_stencil, width, (getMargin() * 2 + square_size) * 2, getMargin() * 4.75 + square_size)
 
+        mirrored_paths, _ = svg2paths(mirror_to_other_stencil)
+        topmost_point = grabTopMostPointOfPaths(mirrored_paths)
+        bottommost_point = grabBottomMostPointOfPaths(mirrored_paths)
+        middle_of_self = (topmost_point.imag + bottommost_point.imag) / 2
+
+        mirror_over_self = f"{getFileStepCounter()}_mirror_over_self.svg"
+        incrementFileStepCounter()
+        mirrorSVGOverXAxisWithY(mirror_to_other_stencil, mirror_over_self, width, (getMargin() * 2 + square_size) * 2, middle_of_self)
+
+        translated_mirror_over_self = f"{getFileStepCounter()}_translated_mirror_over_self.svg"
+        incrementFileStepCounter()
+        translateSVGBy(mirror_over_self, translated_mirror_over_self, 0, -1.5)
+
+        split_halves = f"{getFileStepCounter()}_split_halves.svg"
+        incrementFileStepCounter()
+        getLineGroup(translated_mirror_over_self, split_halves)
+
         # Combine all middle halves
         # combineStencils(combined_middle_halves, translated_middle_half, combined_middle_halves)
-        combineStencils(combined_middle_halves, mirror_to_other_stencil, combined_middle_halves)
+        combineStencils(combined_middle_halves, split_halves, combined_middle_halves)
 
     quarter_paths, quarter_attrs = svg2paths(combined_top_and_bottom_quarters)
     half_paths, half_attrs = svg2paths(combined_middle_halves)
@@ -1193,7 +1258,6 @@ def locateSquare(shape, horizontal_cuts, vertical_cuts):
     square_width = abs(vertical_cuts[vertical_line_index].start.real - vertical_cuts[vertical_line_index + 1].start.real)
     square_height = abs(horizontal_cuts[horizontal_line_index].start.imag - horizontal_cuts[horizontal_line_index + 1].start.imag)
 
-    # print the vertical line and horitzontal line numbers
     print(f"Vertical line index: {vertical_line_index}, Horizontal line index: {horizontal_line_index}")
 
     return intersection_point, square_width, square_height
@@ -1259,18 +1323,17 @@ def createSquareGrid(square_size, n_lines, offset):
 def attach45DegreeLinesAndRemoveInbetween(quarters, classic_cuts, output_name):
     # load in the svg file of one instance of a single drawing
     # each drawing should have a top and bottom quarter disconnected from each other
-    # ie. it should be correctly oriented when loaded in
     paths, attrs = svg2paths(quarters)
     classic_cut_paths, classic_cut_attrs = svg2paths(classic_cuts)
 
     paths_copy = copy.deepcopy(paths)
     attributes_copy = copy.deepcopy(attrs)
-
-    print("quarter paths", paths)
+    
+    # Store modified classic cut lines in a dictionary keyed by y-coordinate
+    modified_classic_lines = {}
     
     for path in paths:
         # find the left- and right-most point of each path
-        # Find the leftmost and rightmost points with their associated y-coordinates
         left_most_point = None
         right_most_point = None
         min_x = float('inf')
@@ -1293,8 +1356,8 @@ def attach45DegreeLinesAndRemoveInbetween(quarters, classic_cuts, output_name):
         # find the closest classic cut line to the left and right-most point of each path
         closest_classic_line = None
         min_left_distance = float('inf')
-        min_right_distance = float('inf')
-        for classic_cut in classic_cut_paths:
+        
+        for i, classic_cut in enumerate(classic_cut_paths):
             for segment in classic_cut:
                 if isinstance(segment, Line):
                     line = LineString([(segment.start.real, segment.start.imag), (segment.end.real, segment.end.imag)])
@@ -1302,65 +1365,102 @@ def attach45DegreeLinesAndRemoveInbetween(quarters, classic_cuts, output_name):
                     distance = abs(line.coords[0][1] - left_most_point[1])
                     if distance < min_left_distance:
                         min_left_distance = distance
-                        min_right_distance = abs(line.coords[0][1] - right_most_point[1])
                         closest_classic_line = line
 
         # Draw a 45-degree line from the leftmost point to the closest classic cut line
         if closest_classic_line is not None:
             classic_line_y = closest_classic_line.coords[0][1]
             
-            # Calculate intersection point
-            left_intersection_x = left_most_point[0] - (abs(left_most_point[1] - classic_line_y))
+            # Calculate intersection point for left side
+            left_intersection_x = left_most_point[0] - abs(left_most_point[1] - classic_line_y)
+            
+            # Calculate intersection point for right side
+            right_intersection_x = right_most_point[0] + abs(right_most_point[1] - classic_line_y)
+            
             intersection_y = classic_line_y
             
+            # Draw left diagonal
             left_diagonal = Line(complex(left_most_point[0], left_most_point[1]),
                                 complex(left_intersection_x, intersection_y))
-            
             paths_copy.append(Path(left_diagonal))
             attributes_copy.append({'stroke': 'red', 'stroke-width': 1, 'fill': 'none'})
-
-        # Draw a 45-degree line from the rightmost point to the closest classic cut line
-        if closest_classic_line is not None:
-            classic_line_y = closest_classic_line.coords[0][1]
             
-            # Calculate intersection point
-            right_intersection_x = right_most_point[0] + (abs(right_most_point[1] - classic_line_y))
-            intersection_y = classic_line_y
-            
+            # Draw right diagonal
             right_diagonal = Line(complex(right_most_point[0], right_most_point[1]),
                                 complex(right_intersection_x, intersection_y))
-            
             paths_copy.append(Path(right_diagonal))
             attributes_copy.append({'stroke': 'blue', 'stroke-width': 1, 'fill': 'none'})
-
-        # remove the portion of the classic line in between the end points of the 45 degree lines
-        classic_cut_paths = [line for line in classic_cut_paths if (line.start.real, line.start.imag) != closest_classic_line.coords[0]]
-
-        print("number of classic cut lines", len(classic_cut_paths))
-        
-        # Find the original classic cut line we're modifying
-        if closest_classic_line is not None:
-            # Get start and end points of the original line
+            
+            # Get the original line coordinates
             orig_start_x, orig_start_y = closest_classic_line.coords[0]
             orig_end_x, orig_end_y = closest_classic_line.coords[-1]
             
-            # Create two line segments: one from the original start to left intersection,
-            # and another from right intersection to the original end
-            left_segment = Line(complex(orig_start_x, orig_start_y), 
-                       complex(left_intersection_x, intersection_y))
-            right_segment = Line(complex(right_intersection_x, intersection_y),
-                    complex(orig_end_x, orig_end_y))
-            
-            # Add these segments to the paths instead of the original line
-            classic_cut_paths.append(Path(left_segment))
-            classic_cut_paths.append(Path(right_segment))
-            classic_cut_attrs = [{'stroke': 'yellow', 'stroke-width': 1, 'fill': 'none'}] * len(classic_cut_paths)
-            wsvg(classic_cut_paths, attributes=classic_cut_attrs, filename=classic_cuts)
-
-        # overwrite classic_cuts using the new classic cut lines
-
-    # save the output_name file
-   
+            # Check if this classic line is already in our modified dictionary
+            if classic_line_y in modified_classic_lines:
+                # The line has already been modified, update the segments
+                segments = modified_classic_lines[classic_line_y]
+                new_segments = []
+                
+                for segment in segments:
+                    seg_start_x, seg_start_y = segment[0]
+                    seg_end_x, seg_end_y = segment[1]
+                    
+                    # Check if this segment overlaps with our current removal
+                    if (seg_start_x <= left_intersection_x and seg_end_x >= left_intersection_x) or \
+                       (seg_start_x <= right_intersection_x and seg_end_x >= right_intersection_x) or \
+                       (seg_start_x >= left_intersection_x and seg_end_x <= right_intersection_x):
+                        
+                        # This segment overlaps with our removal area
+                        if seg_start_x < left_intersection_x:
+                            # Keep part to the left of our removal
+                            new_segments.append([(seg_start_x, seg_start_y), (left_intersection_x, intersection_y)])
+                        
+                        if seg_end_x > right_intersection_x:
+                            # Keep part to the right of our removal
+                            new_segments.append([(right_intersection_x, intersection_y), (seg_end_x, seg_end_y)])
+                    else:
+                        # This segment doesn't overlap with our removal area
+                        new_segments.append(segment)
+                
+                modified_classic_lines[classic_line_y] = new_segments
+            else:
+                # First modification to this line
+                segments = []
+                
+                # Add left segment if it exists
+                if orig_start_x < left_intersection_x:
+                    segments.append([(orig_start_x, orig_start_y), (left_intersection_x, intersection_y)])
+                
+                # Add right segment if it exists
+                if orig_end_x > right_intersection_x:
+                    segments.append([(right_intersection_x, intersection_y), (orig_end_x, orig_end_y)])
+                
+                modified_classic_lines[classic_line_y] = segments
+    
+    # Create new classic cut paths from the modified segments
+    new_classic_cut_paths = []
+    for y_coord, segments in modified_classic_lines.items():
+        for segment in segments:
+            start_x, start_y = segment[0]
+            end_x, end_y = segment[1]
+            line = Line(complex(start_x, start_y), complex(end_x, end_y))
+            new_classic_cut_paths.append(Path(line))
+    
+    # Keep any classic cut paths that weren't modified
+    for path in classic_cut_paths:
+        for segment in path:
+            if isinstance(segment, Line):
+                line_y = segment.start.imag
+                if line_y not in modified_classic_lines:
+                    new_classic_cut_paths.append(Path(segment))
+    
+    # Update classic cut attributes
+    new_classic_cut_attrs = [{'stroke': 'yellow', 'stroke-width': 1, 'fill': 'none'}] * len(new_classic_cut_paths)
+    
+    # Save the modified classic cuts
+    wsvg(new_classic_cut_paths, attributes=new_classic_cut_attrs, filename=classic_cuts)
+    
+    # Save the output with the diagonal lines
     wsvg(paths_copy, attributes=attributes_copy, filename=output_name)
 
 
@@ -1456,6 +1556,8 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     attach45DegreeLinesAndRemoveInbetween(top_and_bottom_quarters_of_shapes, updated_classic_cuts, top_and_bottom_quarters_of_shapes_w_lines)
 
     # repeat above with middle_halves and stencil_2_classic_cuts
+    # check amount of paths in middle halves with lines
+    # we assume there is one path rn, if that is the case, use splitlinegroup to get each path group for top and bottom
     middle_halves_w_lines = f"{getFileStepCounter()}_middle_halves_w_lines.svg"
     incrementFileStepCounter()
     updated_classic_cuts_2 = f"{getFileStepCounter()}_updated_classic_cuts_2.svg"
