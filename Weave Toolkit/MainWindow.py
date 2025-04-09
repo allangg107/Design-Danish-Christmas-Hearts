@@ -112,7 +112,9 @@ from GlobalVariables import(
     getCurrentPatternType,
     setCurrentPatternType,
     setCurrentSideType,
-    getCurrentSideType
+    getCurrentSideType,
+    getNumClassicLines,
+    setNumClassicLines
 )
 
 def calculate_distance(point1, point2):
@@ -358,7 +360,7 @@ class DrawingWidget(QWidget):
             qp.setPen(pen)
             qp.drawLine(int(center_x), int(y1), int(center_x), int(y2))
         elif getCurrentPatternType() == PatternType.Classic:
-            num_classic_lines = 2
+            num_classic_lines = getNumClassicLines()
             # draw 3 dashed lines going from lower left to upper right and upper left to lower right
             pen.setStyle(Qt.PenStyle.DashLine)
             qp.setPen(pen)
@@ -837,6 +839,7 @@ class MainWindow(QMainWindow):
 
         return view_menu
 
+
     def clear_canvas(self):
             self.drawing_widget.shapes = []  # Clear all shapes
             self.drawing_widget.free_form_points = []  # Clear all free form points
@@ -846,16 +849,28 @@ class MainWindow(QMainWindow):
             self.update_backside_image()  # Update the backside image
             self.setPatternType(PatternType.Simple)  # Reset pattern type to default
 
+
     def setPatternType(self, pattern):
         setCurrentPatternType(pattern)
+
+        self.classic_lines_container.setVisible(pattern == PatternType.Classic)
+        if pattern == PatternType.Classic:
+            self.classic_lines_container.adjustSize()
+            shapes_toolbar = self.findChild(QToolBar, "Shapes toolbar")
+        if shapes_toolbar:
+            shapes_toolbar.adjustSize()
+        
         self.update()
         self.update_backside_image()
+
+        QApplication.processEvents()
 
 
     def setSideType(self, side):
         setCurrentSideType(side)
         self.update()
         self.update_backside_image()
+    
     
     def createWeavingPatternDropdownMenu(self):
         weaving_pattern_menu = QMenu("Weaving Pattern", self)
@@ -959,7 +974,6 @@ class MainWindow(QMainWindow):
 
         self.drawing_backside.setPixmap(scaled_pixmap)
         self.drawing_backside.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        #self.drawing_backside.setScaledContents(True)
 
 
     def editDisplay(self):
@@ -1012,6 +1026,15 @@ class MainWindow(QMainWindow):
         # Semicircle Button
         MainWindow.semicircle_button = self.createShapeButton("icons/semicircle.png", "Semicircle", ShapeMode.Semicircle)
         shapes_toolbar.addAction(MainWindow.semicircle_button)
+
+        classic_container_widget = QWidget()
+        container_layout = QVBoxLayout(classic_container_widget)
+        
+        self.classic_lines_container = self.createClassicLinesWidget()
+        container_layout.addWidget(self.classic_lines_container)
+        
+        shapes_toolbar.addWidget(classic_container_widget)
+
         return shapes_toolbar
 
 
@@ -1088,13 +1111,11 @@ class MainWindow(QMainWindow):
     def createStrokeWidthWidget(self):
         self.stroke_width_layout = QVBoxLayout()
 
-        # Create a label to show the current stroke width
         initial_stroke_width = 1
         self.stroke_width_label = QLabel(f'Stroke Width: {initial_stroke_width}', self)
         self.stroke_width_label.setStyleSheet("color: black;")
         self.stroke_width_layout.addWidget(self.stroke_width_label)
 
-        # Create a slider for selecting stroke width
         self.stroke_width_slider = QSlider(Qt.Orientation.Horizontal, self)
         self.stroke_width_slider.setMinimum(1)
         self.stroke_width_slider.setMaximum(20)
@@ -1112,6 +1133,38 @@ class MainWindow(QMainWindow):
     def updateStrokeWidth(self, value):
         self.stroke_width_label.setText(f'Stroke Width: {value}')
         setPenWidth(value)
+
+
+    def createClassicLinesWidget(self):
+        classic_lines_container = QWidget()
+        classic_lines_container.setObjectName("ClassicLinesContainer")
+        classic_lines_container.setFixedHeight(28)
+                                          
+        self.classic_lines_layout = QHBoxLayout(classic_lines_container)
+
+        initial_num_lines = getNumClassicLines()
+        self.classic_lines_label = QLabel(f'Classic Lines: {initial_num_lines}', self)
+        self.classic_lines_label.setStyleSheet("color: black;")
+        self.classic_lines_layout.addWidget(self.classic_lines_label)
+
+        self.num_classic_lines_slider = QSlider(Qt.Orientation.Horizontal, self)
+        self.num_classic_lines_slider.setMinimum(1)
+        self.num_classic_lines_slider.setMaximum(9)
+        self.num_classic_lines_slider.setValue(initial_num_lines)
+        self.num_classic_lines_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.num_classic_lines_slider.setTickInterval(1)
+        self.num_classic_lines_slider.valueChanged.connect(self.updateClassicLines)
+        self.classic_lines_layout.addWidget(self.num_classic_lines_slider)
+
+        classic_lines_container.setVisible(getCurrentPatternType() == PatternType.Classic)
+        
+        return classic_lines_container
+    
+    def updateClassicLines(self, value):
+        """Update the classic lines count when slider changes"""
+        self.classic_lines_label.setText(f'Classic Lines: {value}')
+        setNumClassicLines(value)
+        self.drawing_widget.update()  # Refresh the drawing
 
 
     def change_foreground_color(self, color):

@@ -25,6 +25,7 @@ USER_OUTPUT_SVG_FILENAME = "svg_file.svg"
 USER_PREPROCESSED_PATTERN = "preprocessed_pattern.svg"
 CURRENT_PATTERN_TYPE = PatternType.Simple
 CURRENT_SIDE = SideType.OneSided
+NUM_CLASSIC_LINES = 3 # Number of lines for the classic pattern, only used in the classic case
 
 """Functions to get the global values"""
 
@@ -65,7 +66,10 @@ def getCurrentPatternType():
     return CURRENT_PATTERN_TYPE
 
 def getCurrentSideType():
-    return CURRENT_SIDE    
+    return CURRENT_SIDE
+
+def getNumClassicLines():
+    return NUM_CLASSIC_LINES
 
 """Functions to set global values"""
 
@@ -144,3 +148,10 @@ def setCurrentSideType(side):
         CURRENT_SIDE = side
     else:
         print("Error: ", side, "is not an instance of ", SideType)
+
+def setNumClassicLines(num):
+    global NUM_CLASSIC_LINES
+    if isinstance(num, int) and num > 0 and num < 10:
+        NUM_CLASSIC_LINES = num
+    else:
+        print("Error: ", num, "is not a positive integer between 0 and 10")
