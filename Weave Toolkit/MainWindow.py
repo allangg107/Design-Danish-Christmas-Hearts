@@ -54,7 +54,9 @@ from PyQt6.QtWidgets import  (
     QGraphicsProxyWidget,
     QSlider,
     QCheckBox,
-    QDialog
+    QDialog,
+    QFileDialog, 
+    QGraphicsPixmapItem
 )
 
 from PyQt6.QtGui import (
@@ -697,11 +699,6 @@ class MainWindow(QMainWindow):
         view_button.setMenu(view_button_menu)
         menu_toolbar.addWidget(view_button)
 
-        update_button = QPushButton("Update", self)
-        update_button.setStyleSheet("background-color: lightgray; color: black;")
-        update_button.clicked.connect(lambda: self.updateDisplay())
-        menu_toolbar.addWidget(update_button)
-
         update_button_svg = QPushButton("Update SVG", self)
         update_button_svg.setStyleSheet("background-color: lightgray; color: black;")
         update_button_svg.clicked.connect(lambda: self.save_as_svg(getUserOutputSVGFileName(), self.drawing_widget.size()))
@@ -745,12 +742,11 @@ class MainWindow(QMainWindow):
         action_new = QAction("New", self)
         action_new.triggered.connect(lambda: self.clear_canvas())
         action_open = QAction("Open", self)
+        action_open.triggered.connect(lambda: self.open_png())
         action_save = QAction("Save", self)
         action_save.triggered.connect(lambda: self.save_canvas_as_png())
         action_save_svg = QAction("Export SVG", self)
         action_save_svg.triggered.connect(lambda: self.exportSVG())
-        action_export = QAction("Export", self)
-        action_export.triggered.connect(lambda: self.exportHeart())
         action_guide_export = QAction("Export Guide", self)
         action_guide_export.triggered.connect(lambda: self.exportGuide())
         action_undo = QAction("Undo (ctrl + z)", self)
@@ -762,7 +758,6 @@ class MainWindow(QMainWindow):
         file_menu.addAction(action_open)
         file_menu.addAction(action_save)
         file_menu.addAction(action_save_svg)
-        file_menu.addAction(action_export)
         file_menu.addAction(action_guide_export)
         file_menu.addAction(action_undo)
 
@@ -776,13 +771,11 @@ class MainWindow(QMainWindow):
         action_fullscreen = QAction("Fullscreen", self)
         action_gridlines = QAction("Toggle Gridlines", self)
         action_show_backside = QAction("Show/Hide Backside", self)
-        action_background_color = QAction("Change Background Color", self)
         action_print_size = QAction("Change Print Size", self)
         view_menu.addAction(action_zoom)
         view_menu.addAction(action_fullscreen)
         view_menu.addAction(action_gridlines)
         view_menu.addAction(action_show_backside)
-        view_menu.addAction(action_background_color)
         view_menu.addAction(action_print_size)
 
         return view_menu
@@ -997,7 +990,7 @@ class MainWindow(QMainWindow):
         foreground_colors = [("Red", "red"), ("Green", "green"), ("Orange", "orange"), ("Blue", "blue")]
 
         for color_name, color_value in foreground_colors:
-            button = QPushButton(color_name, self, styleSheet=f"background-color: {color_value}")
+            button = QPushButton(color_name, self, styleSheet=f"background-color: {color_value}; color: black;")
             button.clicked.connect(partial(self.change_foreground_color, color_value))
             colors_toolbar.addWidget(button)
 
@@ -1026,7 +1019,7 @@ class MainWindow(QMainWindow):
         background_colors = [("Red", "red"), ("Green", "green"), ("Orange", "orange"), ("Blue", "blue"), ("White", "white")]
 
         for color_name, color_value in background_colors:
-            button = QPushButton(color_name, self, styleSheet=f"background-color: {color_value}")
+            button = QPushButton(color_name, self, styleSheet=f"background-color: {color_value}; color: black;")
             button.clicked.connect(partial(self.change_background_color, color_value))
             colors_toolbar.addWidget(button)
 
@@ -1223,6 +1216,22 @@ class MainWindow(QMainWindow):
         q_image = QImage(cv_img_rgb.data, width, height, bytes_per_line, QImage.Format.Format_RGB888)
         return QPixmap.fromImage(q_image)
 
+    def open_png(self):
+        options = QFileDialog.Option.ReadOnly
+        file_name, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open PNG Image",
+            "",
+            "PNG Files (*.png);;All Files(*))",
+            options=options
+        )
+        if file_name:
+            pixmap = QPixmap(file_name)
+            if not pixmap.isNull():
+                item = QGraphicsPixmapItem(pixmap)
+                self.scene.addItem(item)
+            else:
+                print("Failed to load image")
 
 import subprocess
 
