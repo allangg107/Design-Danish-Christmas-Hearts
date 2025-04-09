@@ -158,6 +158,9 @@ class DrawingWidget(QWidget):
             elif getShapeMode() == ShapeMode.FreeForm:
                 for free_form_point in range(len(self.free_form_points) - 1):
                     qp.drawLine(self.free_form_points[free_form_point], self.free_form_points[free_form_point + 1])
+            elif getShapeMode() == ShapeMode.Semicircle:
+                angle = self.calculateAngle(self.begin, self.end)
+                self.drawSemicircle(qp, self.begin, self.end, getShapeColor(), 1 , getFilled(), rotation_angle=angle)
 
         self.redrawBorder(qp)
 
@@ -244,6 +247,28 @@ class DrawingWidget(QWidget):
                     if self.lineContainsPoint(point, shape[0], shape[1]):
                         self.shapes.remove(shape)
                         # continue # Skip drawing since it's erased
+                
+                elif shape_type == ShapeMode.Semicircle:
+                    start = shape[0]
+                    end = shape[1]
+
+                    # Calculate the distance (size of the semicircle)
+                    dx, dy, distance = self.calculateSemiDistance(start, end)
+                    radius = distance / 2
+
+                    # Get the center of the semicircle
+                    center_x = (start.x() + end.x()) / 2
+                    center_y = (start.y() + end.y()) / 2
+                    # Check if the point is within the bounds of the semicircle's radius (ignoring rotation for now)
+                    dist_to_center = math.hypot(point.x() - center_x, point.y() - center_y)
+
+                    # Calculate the angle between the point and the center
+                    angle = self.calculateAngle(QPoint(int(center_x), int(center_y)), point)
+
+                    # Check if the point is within the semicircle (half-circle)
+                    if dist_to_center <= radius and 0 <= angle <= 180:
+                        # Point is inside the semicircle area, so remove the shape
+                        self.shapes.remove(shape)
 
                 elif shape_type == ShapeMode.FreeForm:
                     for free_form_point in range(len(shape[4]) - 1):
@@ -269,6 +294,10 @@ class DrawingWidget(QWidget):
                 qp.setPen(QPen(getShapeColor(), shape[5], Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
                 for free_form_point in range(len(shape[4]) - 1):
                     qp.drawLine(shape[4][free_form_point], shape[4][free_form_point + 1])
+            
+            elif shape_type == ShapeMode.Semicircle:
+                angle = self.calculateAngle(shape[0], shape[1])
+                self.drawSemicircle(qp, shape[0], shape[1], getShapeColor(), shape[5], shape[6], angle)
 
             qp.setPen(QPen(getShapeColor(), getPenWidth(), Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
 
@@ -422,6 +451,41 @@ class DrawingWidget(QWidget):
 
         qp.setPen(QPen(getShapeColor(), getPenWidth(), Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
 
+    
+    def calculateAngle(self, start, end):
+        dx, dy, distance = self.calculateSemiDistance(start, end)
+        
+        angle = math.degrees(math.atan2(dy, dx)) % 360
+        return angle
+    
+    def calculateSemiDistance(self, start, end):
+        dx = end.x() - start.x()
+        dy = end.y() -  start.y()
+        distance = math.hypot(dx, dy)
+        return dx, dy, distance
+    
+    def drawSemicircle(self, qp, start, end, color, pen_width, filled, rotation_angle=0):
+        self.penAndBrushSetup(qp, color, pen_width, filled)
+
+        dx, dy, distance = self.calculateSemiDistance(start, end)
+        size = distance
+
+        # Calculate center of semicircle
+        center_x = (start.x() + end.x()) / 2
+        center_y = (start.y() + end.y()) / 2
+
+        # Create a square bounding box for the semicircle, centered at the midpoint
+        rect_x = int(center_x - size / 2)
+        rect_y = int(center_y - size / 2)
+        size_int = int(size)
+        rect = QRect(rect_x, rect_y, size_int, size_int)
+
+        # Set the rotation as the start angle for drawPie
+        # Note: drawPie expects angle in 1/16th of degrees, and 0° is to the right, counter-clockwise positive
+        start_angle = int((180 + rotation_angle) * -16)  # Rotates the direction the semicircle "opens"
+        span_angle = int(-180 * -16)  # Draw counterclockwise to create a filled top semicircle
+
+        qp.drawPie(rect, start_angle, span_angle)
 
     def penAndBrushSetup(self, qp, color, pen_width, filled):
         if filled:
@@ -502,6 +566,7 @@ class DrawingWidget(QWidget):
 
                 if getShapeMode() == ShapeMode.Line:
                     self.shapes.append([self.begin, self.end, getShapeMode(), getShapeColor(), [], getPenWidth(), False])
+
                 else:
                     self.shapes.append([self.begin, self.end, getShapeMode(), getShapeColor(), [], 1, getFilled()])
 
@@ -529,6 +594,7 @@ class MainWindow(QMainWindow):
     square_button = None
     circle_button = None
     heart_button = None
+    semicircle_button = None
 
 
     def __init__(self):
@@ -893,6 +959,9 @@ class MainWindow(QMainWindow):
         MainWindow.heart_button = self.createShapeButton("icons/heart.png", "Heart", ShapeMode.Heart)
         shapes_toolbar.addAction(MainWindow.heart_button)
 
+        # Semicircle Button
+        MainWindow.semicircle_button = self.createShapeButton("icons/semicircle.png", "Semicircle", ShapeMode.Semicircle)
+        shapes_toolbar.addAction(MainWindow.semicircle_button)
         return shapes_toolbar
 
 
@@ -1074,7 +1143,7 @@ class MainWindow(QMainWindow):
         # Copy shapes and attributes
         shapes_copy = copy.deepcopy(self.drawing_widget.shapes)
         attributes_copy = copy.deepcopy(attributes)
-
+        print("shapes: ", shapes_copy)
         shape_attr_list = []
         shape_types = [shape[2] for shape in shapes_copy]
 
@@ -1112,7 +1181,7 @@ class MainWindow(QMainWindow):
                 filename=file_with_attributes,
                 dimensions=(width, height))
 
-            pre_process_user_input(file_with_attributes, shape_types, width, height, square_size)
+            pre_process_user_input(file_with_attributes, shape_types, width, height, square_size, shapes_copy)
 
 
     def exportGuide(self):

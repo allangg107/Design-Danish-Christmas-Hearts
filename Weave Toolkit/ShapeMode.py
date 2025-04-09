@@ -10,3 +10,4 @@ class ShapeMode(Enum):
     Square = 4
     Circle = 5
     Heart = 6
+    Semicircle = 7

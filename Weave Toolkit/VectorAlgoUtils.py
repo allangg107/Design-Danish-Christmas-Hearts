@@ -18,7 +18,7 @@ from GlobalVariables import(
 )
 
 """Preprocessing"""
-def pre_process_user_input(original_pattern, shape_types, width, height, square_size):
+def pre_process_user_input(original_pattern, shape_types, width, height, square_size, shapes = []):
     setDrawingSquareSize(square_size)
     if original_pattern is None:
         # create a blank SVG file with the specified width and height
@@ -26,7 +26,7 @@ def pre_process_user_input(original_pattern, shape_types, width, height, square_
         dwg = svgwrite.Drawing(original_pattern, profile='tiny', size=(square_size, square_size))
         dwg.save()
         return
-
+    
     rotated_path_name = f"{getFileStepCounter()}_rotated_pattern_step.svg"
     incrementFileStepCounter()
     rotateSVG(original_pattern, rotated_path_name, 45)
@@ -63,8 +63,9 @@ def pre_process_user_input(original_pattern, shape_types, width, height, square_
 
     if len(clipped_paths) > len(attributes):
         attributes = attributes * len(clipped_paths)
-
-    wsvg(clipped_paths, attributes=attributes, filename=final_output_path_name, dimensions=(square_size, square_size))
+    
+    else:
+        wsvg(clipped_paths, attributes=attributes, filename=final_output_path_name, dimensions=(square_size, square_size))
 
     print("finished pre-processing")
 
@@ -95,10 +96,9 @@ def rotateImage(matrix, angle=-45):
 
 def rotateSVG(input_svg, output_svg, angle, center_x=None, center_y=None):
     paths, attributes = svg2paths(input_svg)
-
     tree = ET.parse(input_svg)
     root = tree.getroot()
-    width = float(root.get("width", "500"))  # Default to 500 if missing
+    width = float(root.get("width", "500"))
     height = float(root.get("height", "500"))
 
     # Calculate the center of the SVG
@@ -631,7 +631,7 @@ def crop_svg(paths, starting_x, starting_y, width, height, close_path=True):
             else:
                 clipped_paths.append(clipped)
 
-    #print("Final Clipped Paths:", clipped_paths)
+    print("Final Clipped Paths:", clipped_paths)
 
     return clipped_paths
 

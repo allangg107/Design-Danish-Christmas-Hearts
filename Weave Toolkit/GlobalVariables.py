@@ -25,6 +25,7 @@ USER_OUTPUT_SVG_FILENAME = "svg_file.svg"
 USER_PREPROCESSED_PATTERN = "preprocessed_pattern.svg"
 CURRENT_PATTERN_TYPE = PatternType.Simple
 CURRENT_SIDE = SideType.OneSided
+CENTER = 0
 
 """Functions to get the global values"""
 
@@ -66,6 +67,13 @@ def getCurrentPatternType():
 
 def getCurrentSideType():
     return CURRENT_SIDE    
+
+def getCenter():
+    return CENTER
+
+def setCenter(val):
+    global CENTER
+    CENTER = val
 
 """Functions to set global values"""
 
