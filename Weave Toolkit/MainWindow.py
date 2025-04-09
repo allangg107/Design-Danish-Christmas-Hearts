@@ -365,7 +365,7 @@ class DrawingWidget(QWidget):
             line_distance = distance / 2
             # Draw 3 parallel dashed lines going from bottom left to top right
             classic_cuts = []
-            for i in range(1, 4):  # Lines 1, 2, 3
+            for i in range(1, 3 + 1):  # Lines 1, 2, 3
                 # Calculate start and end points for each line
                 start_x_bottom = inner_coords[3][0] + (i * offset)
                 start_y_bottom = inner_coords[3][1] + (i * offset)
@@ -388,6 +388,63 @@ class DrawingWidget(QWidget):
                 classic_cuts.append([start_x_top, start_y_top, end_x_top, end_y_top])
             self.classic_cuts = classic_cuts
 
+            # Create a dynamic checkerboard pattern over the inner diamond
+            if inner_coords and len(inner_coords) == 4:
+                # Determine the grid size from the number of dashed lines
+                num_dashed_lines = len(self.classic_cuts) // 2  # Each line has two entries in classic_cuts
+                grid_size = num_dashed_lines + 1
+                
+                # Draw a rotated checkerboard that matches the diamond orientation
+                qp.setBrush(QBrush(Qt.GlobalColor.black))
+                
+                # Calculate all grid points for an NxN grid within the diamond
+                grid_points = []
+                for i in range(4):  # For each corner
+                    start = inner_coords[i]
+                    end = inner_coords[(i+1) % 4]  # Next corner
+                    
+                    # Create grid_size+1 points along each edge (including corners)
+                    for j in range(grid_size + 1):
+                        t = j / grid_size  # Parameter from 0 to 1
+                        x = start[0] + t * (end[0] - start[0])
+                        y = start[1] + t * (end[1] - start[1])
+                        grid_points.append((i, j, (x, y)))  # Store edge index, position, and coordinates
+                
+                # Create the internal grid points using bilinear interpolation
+                cells = []
+                for row in range(grid_size):
+                    for col in range(grid_size):
+                        # Calculate the four corners of this cell
+                        top_left = (inner_coords[0][0] + col/grid_size * (inner_coords[1][0] - inner_coords[0][0]) + 
+                                    row/grid_size * (inner_coords[3][0] - inner_coords[0][0]),
+                                    inner_coords[0][1] + col/grid_size * (inner_coords[1][1] - inner_coords[0][1]) + 
+                                    row/grid_size * (inner_coords[3][1] - inner_coords[0][1]))
+                        
+                        top_right = (inner_coords[0][0] + (col+1)/grid_size * (inner_coords[1][0] - inner_coords[0][0]) + 
+                                     row/grid_size * (inner_coords[3][0] - inner_coords[0][0]),
+                                     inner_coords[0][1] + (col+1)/grid_size * (inner_coords[1][1] - inner_coords[0][1]) + 
+                                     row/grid_size * (inner_coords[3][1] - inner_coords[0][1]))
+                        
+                        bottom_left = (inner_coords[0][0] + col/grid_size * (inner_coords[1][0] - inner_coords[0][0]) + 
+                                      (row+1)/grid_size * (inner_coords[3][0] - inner_coords[0][0]),
+                                      inner_coords[0][1] + col/grid_size * (inner_coords[1][1] - inner_coords[0][1]) + 
+                                      (row+1)/grid_size * (inner_coords[3][1] - inner_coords[0][1]))
+                        
+                        bottom_right = (inner_coords[0][0] + (col+1)/grid_size * (inner_coords[1][0] - inner_coords[0][0]) + 
+                                       (row+1)/grid_size * (inner_coords[3][0] - inner_coords[0][0]),
+                                       inner_coords[0][1] + (col+1)/grid_size * (inner_coords[1][1] - inner_coords[0][1]) + 
+                                       (row+1)/grid_size * (inner_coords[3][1] - inner_coords[0][1]))
+                        
+                        # Only fill cells where (row + col) is even (checkerboard pattern)
+                        if (row + col) % 2 == 0:
+                            polygon = QPolygonF([
+                                QPointF(top_left[0], top_left[1]),
+                                QPointF(top_right[0], top_right[1]),
+                                QPointF(bottom_right[0], bottom_right[1]),
+                                QPointF(bottom_left[0], bottom_left[1])
+                            ])
+                            qp.drawPolygon(polygon)
+        
         brush = QBrush(getShapeColor())
         qp.setBrush(brush)
         pen = QPen(getShapeColor(), getPenWidth())
@@ -1138,7 +1195,6 @@ class MainWindow(QMainWindow):
         painter.end()
 
         paths, attributes = svg2paths(file_name)
-        # print("attributes: ", attributes)
 
         # Copy shapes and attributes
         shapes_copy = copy.deepcopy(self.drawing_widget.shapes)

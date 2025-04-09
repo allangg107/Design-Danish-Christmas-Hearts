@@ -1193,38 +1193,9 @@ def splitShapesIntoQuarters(shapes_file, horizontal_lines, vertical_lines, all_t
         incrementFileStepCounter()
         wsvg(middle_half_paths, attributes=attrs, filename=middle_half, dimensions=(square_width, square_height / 2), viewbox=(square_start[0] - 2, square_start[1] + square_height / 4, square_width + 4, square_height / 2))
 
-        # KEEP
-        # Rotate and translate the middle half to the bottom of the stencil
-        # rotated_middle_half = f"{getFileStepCounter()}_rotated_middle_half.svg"
-        # incrementFileStepCounter()
-        # rotateSVG(middle_half, rotated_middle_half, 90, square_start[0] + square_width / 2, square_start[1] + square_height / 2)
-
-        # mirror over x-axis
-        # mirrored_middle_half = f"{getFileStepCounter()}_mirrored_middle_half.svg"
-        # incrementFileStepCounter()
-        # mirrorSVGOverXAxisWithY(rotated_middle_half, mirrored_middle_half, width, getMargin() * 2 + square_size, getMargin() + square_size / 2)
-
         translated_middle_half = f"{getFileStepCounter()}_translated_middle_half.svg"
         incrementFileStepCounter()
         translateSVGBy(middle_half, translated_middle_half, square_size, 0)
-
-        # KEEP
-        # mirror_to_other_stencil = f"{getFileStepCounter()}_mirror_to_other_stencil.svg"
-        # incrementFileStepCounter()
-        # mirrorSVGOverXAxisWithY(translated_middle_half, mirror_to_other_stencil, width, (getMargin() * 2 + square_size) * 2, getMargin() * 4.75 + square_size)
-
-        # mirrored_paths, _ = svg2paths(mirror_to_other_stencil)
-        # topmost_point = grabTopMostPointOfPaths(mirrored_paths)
-        # bottommost_point = grabBottomMostPointOfPaths(mirrored_paths)
-        # middle_of_self = (topmost_point.imag + bottommost_point.imag) / 2
-
-        # mirror_over_self = f"{getFileStepCounter()}_mirror_over_self.svg"
-        # incrementFileStepCounter()
-        # mirrorSVGOverXAxisWithY(mirror_to_other_stencil, mirror_over_self, width, (getMargin() * 2 + square_size) * 2, middle_of_self)
-
-        # translated_mirror_over_self = f"{getFileStepCounter()}_translated_mirror_over_self.svg"
-        # incrementFileStepCounter()
-        # translateSVGBy(translated_middle_half, translated_mirror_over_self, 0, -1.5)
 
         split_halves = f"{getFileStepCounter()}_split_halves.svg"
         incrementFileStepCounter()
