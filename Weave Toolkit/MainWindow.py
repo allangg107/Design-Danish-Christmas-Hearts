@@ -1143,7 +1143,7 @@ class MainWindow(QMainWindow):
         # Copy shapes and attributes
         shapes_copy = copy.deepcopy(self.drawing_widget.shapes)
         attributes_copy = copy.deepcopy(attributes)
-        print("shapes: ", shapes_copy)
+
         shape_attr_list = []
         shape_types = [shape[2] for shape in shapes_copy]
 
@@ -1181,7 +1181,7 @@ class MainWindow(QMainWindow):
                 filename=file_with_attributes,
                 dimensions=(width, height))
 
-            pre_process_user_input(file_with_attributes, shape_types, width, height, square_size, shapes_copy)
+            pre_process_user_input(file_with_attributes, shape_types, width, height, square_size)
 
 
     def exportGuide(self):
