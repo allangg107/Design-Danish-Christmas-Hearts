@@ -1095,37 +1095,63 @@ def findAllNonIntersectedShapes(pattern, classic_cuts, min_intersection_length=5
     return [pattern_paths[i] for i in non_intersected_indices], [pattern_attrs[i] for i in non_intersected_indices]
 
 
-def getLineGroup(path_file, file_name):
+def getLineGroup(path_file, file_name, orientation="vertical"):
     paths, attrs = svg2paths(path_file)
-    # group the lines based on which side of the y-axis they are on
-
-    # find the topmost and bottommost points in paths
-    topmost_point = float('-inf')
-    bottommost_point = float('inf')
-    for path in paths:
-        for line in path:
-            if isinstance(line, Line):
-                topmost_point = max(topmost_point, line.start.imag, line.end.imag)
-                bottommost_point = min(bottommost_point, line.start.imag, line.end.imag)
+    # group the lines based on the specified orientation
     
-    midpoint = (topmost_point + bottommost_point) / 2
+    if orientation == "vertical":
+        # Find the topmost and bottommost points in paths
+        topmost_point = float('inf')
+        bottommost_point = float('-inf')
+        for path in paths:
+            for line in path:
+                if isinstance(line, Line):
+                    topmost_point = min(topmost_point, line.start.imag, line.end.imag)
+                    bottommost_point = max(bottommost_point, line.start.imag, line.end.imag)
+        
+        midpoint = (topmost_point + bottommost_point) / 2
 
-    top_line_group = []
-    bottom_line_group = []
-    for path in paths:
-        for line in path:
-            if isinstance(line, Line):
-                # Check the direction of the line relative to the y-axis
-                if line.start.imag > midpoint:
-                    top_line_group.append(line)
-                elif line.start.imag <= midpoint:
-                    bottom_line_group.append(line)
+        first_group = []
+        second_group = []
+        for path in paths:
+            for line in path:
+                if isinstance(line, Line):
+                    # Check if the line is above or below the midpoint
+                    if line.start.imag < midpoint:
+                        first_group.append(line)
+                    elif line.start.imag >= midpoint:
+                        second_group.append(line)
+    
+    elif orientation == "horizontal":
+        # Find the leftmost and rightmost points in paths
+        leftmost_point = float('inf')
+        rightmost_point = float('-inf')
+        for path in paths:
+            for line in path:
+                if isinstance(line, Line):
+                    leftmost_point = min(leftmost_point, line.start.real, line.end.real)
+                    rightmost_point = max(rightmost_point, line.start.real, line.end.real)
+        
+        midpoint = (leftmost_point + rightmost_point) / 2
+
+        first_group = []
+        second_group = []
+        for path in paths:
+            for line in path:
+                if isinstance(line, Line):
+                    # Check if the line is to the left or right of the midpoint
+                    if line.start.real < midpoint:
+                        first_group.append(line)
+                    elif line.start.real >= midpoint:
+                        second_group.append(line)
+    else:
+        raise ValueError("Orientation must be either 'vertical' or 'horizontal'")
 
     # Convert the list of Line objects into a Path object
-    top_path_group = [Path(*top_line_group)] if top_line_group else []
-    bottom_path_group = [Path(*bottom_line_group)] if bottom_line_group else []
+    first_path_group = [Path(*first_group)] if first_group else []
+    second_path_group = [Path(*second_group)] if second_group else []
 
-    path_group = top_path_group + bottom_path_group
+    path_group = first_path_group + second_path_group
     attrs = [{'stroke': getShapeColor().name(), 'stroke-width': 1, 'fill': 'none'}] * len(path_group)
 
     wsvg(path_group, attributes=attrs, filename=file_name)
@@ -1164,13 +1190,14 @@ def splitShapesIntoQuarters(shapes_file, horizontal_lines, vertical_lines, all_t
         # 3. call crop_svg to crop the middle half
         middle_half_paths = crop_svg(shape_paths, square_start[0] - 2, square_start[1] + square_height / 4, square_width + 4, square_height / 2, False)
         middle_half = f"{getFileStepCounter()}_middle_half.svg"
+        incrementFileStepCounter()
         wsvg(middle_half_paths, attributes=attrs, filename=middle_half, dimensions=(square_width, square_height / 2), viewbox=(square_start[0] - 2, square_start[1] + square_height / 4, square_width + 4, square_height / 2))
-        incrementFileStepCounter()
 
+        # KEEP
         # Rotate and translate the middle half to the bottom of the stencil
-        rotated_middle_half = f"{getFileStepCounter()}_rotated_middle_half.svg"
-        incrementFileStepCounter()
-        rotateSVG(middle_half, rotated_middle_half, 90, square_start[0] + square_width / 2, square_start[1] + square_height / 2)
+        # rotated_middle_half = f"{getFileStepCounter()}_rotated_middle_half.svg"
+        # incrementFileStepCounter()
+        # rotateSVG(middle_half, rotated_middle_half, 90, square_start[0] + square_width / 2, square_start[1] + square_height / 2)
 
         # mirror over x-axis
         # mirrored_middle_half = f"{getFileStepCounter()}_mirrored_middle_half.svg"
@@ -1179,35 +1206,51 @@ def splitShapesIntoQuarters(shapes_file, horizontal_lines, vertical_lines, all_t
 
         translated_middle_half = f"{getFileStepCounter()}_translated_middle_half.svg"
         incrementFileStepCounter()
-        translateSVGBy(rotated_middle_half, translated_middle_half, square_size, 0)
+        translateSVGBy(middle_half, translated_middle_half, square_size, 0)
 
-        mirror_to_other_stencil = f"{getFileStepCounter()}_mirror_to_other_stencil.svg"
-        incrementFileStepCounter()
-        mirrorSVGOverXAxisWithY(translated_middle_half, mirror_to_other_stencil, width, (getMargin() * 2 + square_size) * 2, getMargin() * 4.75 + square_size)
+        # KEEP
+        # mirror_to_other_stencil = f"{getFileStepCounter()}_mirror_to_other_stencil.svg"
+        # incrementFileStepCounter()
+        # mirrorSVGOverXAxisWithY(translated_middle_half, mirror_to_other_stencil, width, (getMargin() * 2 + square_size) * 2, getMargin() * 4.75 + square_size)
 
-        mirrored_paths, _ = svg2paths(mirror_to_other_stencil)
-        topmost_point = grabTopMostPointOfPaths(mirrored_paths)
-        bottommost_point = grabBottomMostPointOfPaths(mirrored_paths)
-        middle_of_self = (topmost_point.imag + bottommost_point.imag) / 2
+        # mirrored_paths, _ = svg2paths(mirror_to_other_stencil)
+        # topmost_point = grabTopMostPointOfPaths(mirrored_paths)
+        # bottommost_point = grabBottomMostPointOfPaths(mirrored_paths)
+        # middle_of_self = (topmost_point.imag + bottommost_point.imag) / 2
 
-        mirror_over_self = f"{getFileStepCounter()}_mirror_over_self.svg"
-        incrementFileStepCounter()
-        mirrorSVGOverXAxisWithY(mirror_to_other_stencil, mirror_over_self, width, (getMargin() * 2 + square_size) * 2, middle_of_self)
+        # mirror_over_self = f"{getFileStepCounter()}_mirror_over_self.svg"
+        # incrementFileStepCounter()
+        # mirrorSVGOverXAxisWithY(mirror_to_other_stencil, mirror_over_self, width, (getMargin() * 2 + square_size) * 2, middle_of_self)
 
-        translated_mirror_over_self = f"{getFileStepCounter()}_translated_mirror_over_self.svg"
-        incrementFileStepCounter()
-        translateSVGBy(mirror_over_self, translated_mirror_over_self, 0, -1.5)
+        # translated_mirror_over_self = f"{getFileStepCounter()}_translated_mirror_over_self.svg"
+        # incrementFileStepCounter()
+        # translateSVGBy(translated_middle_half, translated_mirror_over_self, 0, -1.5)
 
         split_halves = f"{getFileStepCounter()}_split_halves.svg"
         incrementFileStepCounter()
-        getLineGroup(translated_mirror_over_self, split_halves)
+        getLineGroup(translated_middle_half, split_halves, "horizontal")
 
         # Combine all middle halves
         # combineStencils(combined_middle_halves, translated_middle_half, combined_middle_halves)
         combineStencils(combined_middle_halves, split_halves, combined_middle_halves)
 
+    temp_file = f"{getFileStepCounter()}_temp_file.svg"
+    incrementFileStepCounter()
+    temp_paths, temp_attrs = svg2paths(combined_middle_halves)
+    wsvg(temp_paths, attributes=temp_attrs, filename=temp_file, dimensions=(width, height))
+
+    # grab the pattern area on the other side and rotate by -90 degrees
+    rotated_combined_middle_halves = f"{getFileStepCounter()}_rotated_combined_middle_halves.svg"
+    incrementFileStepCounter()
+    rotateSVG(temp_file, rotated_combined_middle_halves, -90, getMargin() + square_size * 2, getMargin() + square_size / 2)
+
+    # translate the pattern to the other stencil
+    translated_combined_middle_halves = f"{getFileStepCounter()}_translated_combined_middle_halves.svg"
+    incrementFileStepCounter()
+    translateSVGBy(rotated_combined_middle_halves, translated_combined_middle_halves, 0, height)
+
     quarter_paths, quarter_attrs = svg2paths(combined_top_and_bottom_quarters)
-    half_paths, half_attrs = svg2paths(combined_middle_halves)
+    half_paths, half_attrs = svg2paths(translated_combined_middle_halves)
 
     # Save the final combined SVG files
     wsvg(quarter_paths, attributes=quarter_attrs, filename=all_top_and_bottom_quarters)
@@ -1502,13 +1545,11 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
 
     # c. translate drawing to the classic line position
     offset = square_size / (n_lines + 1)
-    x_multi = 4
-    y_multi = 3
 
-    x_shift = getMargin() * x_multi + square_size // 2
+    x_shift = getMargin() * 4 + square_size // 2
     x_shift = x_shift - offset - 1
 
-    y_shift = (getMargin() * y_multi)
+    y_shift = (getMargin() * 3)
     y_shift = y_shift - getMargin() * 2
 
     translated_user_path = f"{getFileStepCounter()}_translated_for_overlay.svg"
@@ -1526,7 +1567,25 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     incrementFileStepCounter()
     wsvg(unfilled_pattern_paths, attributes=unfilled_pattern_attrs, filename=unfilled_pattern, dimensions=(width, width))
 
-    combineStencils(stencil_1_classic_cuts, unfilled_pattern, "checkpoint.svg")
+    # unfilled_pattern_topmost_point = grabTopMostPointOfPaths(unfilled_pattern_paths)
+    # unfilled_pattern_bottommost_point = grabBottomMostPointOfPaths(unfilled_pattern_paths)
+    # unfilled_pattern_midpoint = (unfilled_pattern_topmost_point.imag + unfilled_pattern_bottommost_point.imag) / 2
+
+    mirrored_pattern = f"{getFileStepCounter()}_mirrored_pattern.svg"
+    incrementFileStepCounter()
+    mirrorSVGOverXAxisWithY(unfilled_pattern, mirrored_pattern, width, height, getMargin() + square_size / 2)
+
+    # mirrored_pattern_paths, _ = svg2paths(mirrored_pattern)
+
+    # mirrored_pattern_leftmost_point = grabLeftMostPointOfPaths(mirrored_pattern_paths)
+    # mirrored_pattern_rightmost_point = grabRightMostPointOfPaths(mirrored_pattern_paths)
+    # mirrored_pattern_midpoint = (mirrored_pattern_leftmost_point.real + mirrored_pattern_rightmost_point.real) / 2
+
+    # mirrored_pattern_2 = f"{getFileStepCounter()}_mirrored_pattern_2.svg"
+    # incrementFileStepCounter()
+    # mirrorSVGOverYAxisWithX(mirrored_pattern, mirrored_pattern_2, width, height, mirrored_pattern_midpoint)
+
+    combineStencils(stencil_1_classic_cuts, mirrored_pattern, "checkpoint.svg")
     combineStencils("checkpoint.svg", empty_stencil_1, "checkpoint.svg")
 
     # split each shape into a top quarter, middle half, and bottom quarter
@@ -1535,7 +1594,7 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     middle_halves = f"{getFileStepCounter()}_middle_half_pattern.svg"
     incrementFileStepCounter()
     horizontal_lines, vertical_lines = createSquareGrid(square_size, n_lines, offset)
-    splitShapesIntoQuarters(unfilled_pattern, horizontal_lines, vertical_lines, top_and_bottom_quarters_of_shapes, middle_halves, width, height, square_size)
+    splitShapesIntoQuarters(mirrored_pattern, horizontal_lines, vertical_lines, top_and_bottom_quarters_of_shapes, middle_halves, width, height, square_size)
 
     combineStencils(stencil_1_classic_cuts, stencil_2_classic_cuts, "checkpoint_2.svg")
     combineStencils("checkpoint_2.svg", empty_stencil_1, "checkpoint_2.svg")
