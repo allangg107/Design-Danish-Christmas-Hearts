@@ -857,8 +857,8 @@ class MainWindow(QMainWindow):
         if pattern == PatternType.Classic:
             self.classic_lines_container.adjustSize()
             shapes_toolbar = self.findChild(QToolBar, "Shapes toolbar")
-        if shapes_toolbar:
-            shapes_toolbar.adjustSize()
+            if shapes_toolbar:
+                shapes_toolbar.adjustSize()
         
         self.update()
         self.update_backside_image()

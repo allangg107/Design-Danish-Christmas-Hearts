@@ -1741,7 +1741,7 @@ def create_asymmetric_pattern_stencils(preprocessed_pattern, width, height, size
 
         # INSTEAD OF THIS TRANSLATE MIGHT BE WHERE WE MIRROR OVER THE X AXIS
         # translateSVGBy(combined_patt_and_mirror_copy, combined_patt_and_mirror_copy, 0, height)
-        mirrorSVGOverXAxis(combined_patt_and_mirror_copy, combined_patt_and_mirror_copy, width, height)
+        mirrorSVGOverXAxisWithY(combined_patt_and_mirror_copy, combined_patt_and_mirror_copy, width, height, 500)
 
         combined_patt_and_mirror = f"{getFileStepCounter()}_combined_patt_and_mirror.svg"
         incrementFileStepCounter()
