@@ -710,3 +710,29 @@ def savePixmapToCvImage(pixmap):
     cv_image = cv.cvtColor(img_array, cv.COLOR_BGRA2BGR)
 
     return cv_image
+
+def convertLinesToRectangles(input_svg, output_svg):
+    paths, attributes = svg2paths(input_svg)
+
+    # Create a new SVG drawing
+    dwg = svgwrite.Drawing(output_svg, profile='tiny')
+
+    # Iterate through each path and convert lines to rectangles
+    for path in paths:
+        for segment in path:
+            if isinstance(segment, Line):
+                # Get start and end points of the line
+                start = segment.start
+                end = segment.end
+
+                # Create a rectangle from the line endpoints
+                rect_width = abs(end.real - start.real)
+                rect_height = 3
+                x = min(start.real, end.real)
+                y = min(start.imag, end.imag) - rect_height / 2
+
+                # Add the rectangle to the SVG drawing
+                dwg.add(dwg.rect(insert=(x, y), size=(rect_width, rect_height), fill='black'))
+
+    # Save the new SVG file
+    dwg.save()

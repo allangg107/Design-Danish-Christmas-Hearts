@@ -18,8 +18,8 @@ from VectorAlgoUtils import (
     mirrorSVGOverYAxis,
     mirrorSVGOverYAxisWithX,
     mirrorSVGOverXAxisWithY,
-    removeDuplicateLinesFromSVG
-
+    removeDuplicateLinesFromSVG,
+    convertLinesToRectangles
 )
 
 from PatternType import (
@@ -1599,7 +1599,15 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     incrementFileStepCounter()
     attach45DegreeLinesAndRemoveInbetween(middle_halves, updated_classic_cuts_2, middle_halves_w_lines)
 
-    combineStencils(updated_classic_cuts, updated_classic_cuts_2, "checkpoint_3.svg")
+    converted_lines_to_rectangles_1 = f"{getFileStepCounter()}_converted_lines_to_rectangles_1.svg"
+    incrementFileStepCounter()
+    convertLinesToRectangles(updated_classic_cuts, converted_lines_to_rectangles_1)
+
+    converted_lines_to_rectangles_2 = f"{getFileStepCounter()}_converted_lines_to_rectangles_2.svg"
+    incrementFileStepCounter()
+    convertLinesToRectangles(updated_classic_cuts_2, converted_lines_to_rectangles_2)
+
+    combineStencils(converted_lines_to_rectangles_1, converted_lines_to_rectangles_2, "checkpoint_3.svg")
     combineStencils("checkpoint_3.svg", empty_stencil_1, "checkpoint_3.svg")
     combineStencils("checkpoint_3.svg", empty_stencil_2, "checkpoint_3.svg")
     combineStencils("checkpoint_3.svg", top_and_bottom_quarters_of_shapes_w_lines, "checkpoint_3.svg")
