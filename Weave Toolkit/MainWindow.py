@@ -181,7 +181,7 @@ class DrawingWidget(QWidget):
                     qp.drawLine(self.free_form_points[free_form_point], self.free_form_points[free_form_point + 1])
             elif getShapeMode() == ShapeMode.Semicircle:
                 angle = self.calculateAngle(self.begin, self.end)
-                self.drawSemicircle(qp, self.begin, self.end, getShapeColor(), 1 , getFilled(), rotation_angle=angle)
+                self.drawSemicircle(qp, self.begin, self.end, getShapeColor(), 2, getFilled(), rotation_angle=angle)
 
         self.redrawBorder(qp, inner_coords)
 
@@ -512,18 +512,6 @@ class DrawingWidget(QWidget):
         qp.setPen(QPen(getShapeColor(), getPenWidth(), Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
 
 
-    def calculateAngle(self, start, end):
-        dx, dy, distance = self.calculateSemiDistance(start, end)
-
-        angle = math.degrees(math.atan2(dy, dx)) % 360
-        return angle
-
-    def calculateSemiDistance(self, start, end):
-        dx = end.x() - start.x()
-        dy = end.y() -  start.y()
-        distance = math.hypot(dx, dy)
-        return dx, dy, distance
-
     def drawSemicircle(self, qp, start, end, color, pen_width, filled, rotation_angle=0):
         self.penAndBrushSetup(qp, color, pen_width, filled)
 
@@ -546,6 +534,21 @@ class DrawingWidget(QWidget):
         span_angle = int(-180 * -16)  # Draw counterclockwise to create a filled top semicircle
 
         qp.drawPie(rect, start_angle, span_angle)
+
+
+    def calculateSemiDistance(self, start, end):
+        dx = end.x() - start.x()
+        dy = end.y() -  start.y()
+        distance = math.hypot(dx, dy)
+        return dx, dy, distance
+
+
+    def calculateAngle(self, start, end):
+        dx, dy, distance = self.calculateSemiDistance(start, end)
+
+        angle = math.degrees(math.atan2(dy, dx)) % 360
+        return angle
+
 
     def penAndBrushSetup(self, qp, color, pen_width, filled):
         if filled:
@@ -626,6 +629,9 @@ class DrawingWidget(QWidget):
 
                 if getShapeMode() == ShapeMode.Line:
                     self.shapes.append([self.begin, self.end, getShapeMode(), getShapeColor(), [], getPenWidth(), False])
+
+                elif getShapeMode() == ShapeMode.Semicircle:
+                    self.shapes.append([self.begin, self.end, getShapeMode(), getShapeColor(), [], 2, getFilled()])
 
                 else:
                     self.shapes.append([self.begin, self.end, getShapeMode(), getShapeColor(), [], 1, getFilled()])
@@ -1265,6 +1271,8 @@ class MainWindow(QMainWindow):
             updated_attr['fill'] = shape_color.name()
 
             shape_attr_list.append(updated_attr)
+
+        print("shape_attr_list: ", shape_attr_list)
 
         file_with_attributes = "svg_file_2.svg"
 

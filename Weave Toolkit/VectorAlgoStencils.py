@@ -20,7 +20,8 @@ from VectorAlgoUtils import (
     mirrorSVGOverXAxisWithY,
     removeDuplicateLinesFromSVG,
     convertLinesToRectangles,
-    convertLineToRectangle
+    convertLineToRectangle,
+    extractSemiCirclesFromPattern
 )
 
 from PatternType import (
@@ -41,7 +42,8 @@ from GlobalVariables import (
     getDrawingSquareSize,
     incrementFileStepCounter,
     getFileStepCounter,
-    getShapeColor
+    getShapeColor,
+    getNumClassicLines
 )
 
 
@@ -1160,11 +1162,13 @@ def getLineGroup(path_file, file_name, orientation="vertical"):
 
     wsvg(path_group, attributes=attrs, filename=file_name)
 
-def splitShapesIntoQuarters(shapes_file, horizontal_lines, vertical_lines, all_top_and_bottom_quarters, all_middle_halves, width, height, square_size):
+def splitShapesIntoQuarters(shapes_file, horizontal_lines, vertical_lines, all_top_and_bottom_quarters, all_middle_halves, width, height, square_size, side_type):
     shapes, attrs = svg2paths(shapes_file)
 
-    combined_middle_halves = "combined_middle_halves.svg"
-    combined_top_and_bottom_quarters = "combined_top_and_bottom_quarters.svg"
+    combined_middle_halves = f"{getFileStepCounter()}_combined_middle_halves.svg"
+    incrementFileStepCounter()
+    combined_top_and_bottom_quarters = f"{getFileStepCounter()}_combined_top_and_bottom_quarters.svg"
+    incrementFileStepCounter()
     for shape in shapes:
         print("Shape:", shape)
         square_start, square_width, square_height = locateSquare(shape, horizontal_lines, vertical_lines)
@@ -1219,10 +1223,23 @@ def splitShapesIntoQuarters(shapes_file, horizontal_lines, vertical_lines, all_t
     incrementFileStepCounter()
     rotateSVG(temp_file, rotated_combined_middle_halves, -90, getMargin() + square_size * 2, getMargin() + square_size / 2)
 
-    # translate the pattern to the other stencil
-    translated_combined_middle_halves = f"{getFileStepCounter()}_translated_combined_middle_halves.svg"
-    incrementFileStepCounter()
-    translateSVGBy(rotated_combined_middle_halves, translated_combined_middle_halves, 0, height)
+    translated_combined_middle_halves = rotated_combined_middle_halves
+    if side_type == SideType.OneSided:
+        # translate the pattern to the other stencil
+        translated_combined_middle_halves = f"{getFileStepCounter()}_translated_combined_middle_halves.svg"
+        incrementFileStepCounter()
+        translateSVGBy(rotated_combined_middle_halves, translated_combined_middle_halves, 0, height)
+    elif side_type == SideType.TwoSided:
+        combineStencils(combined_top_and_bottom_quarters, rotated_combined_middle_halves, combined_top_and_bottom_quarters)
+
+        two_sided_combined_middle_halves = f"{getFileStepCounter()}_translated_combined_middle_halves.svg"
+        incrementFileStepCounter()
+        all_paths, all_attrs = svg2paths(combined_top_and_bottom_quarters)
+        wsvg(all_paths, attributes=all_attrs, filename=two_sided_combined_middle_halves, dimensions=(width, height))
+
+        translated_combined_middle_halves = f"{getFileStepCounter()}_translated_combined_middle_halves.svg"
+        incrementFileStepCounter()
+        translateSVGBy(two_sided_combined_middle_halves, translated_combined_middle_halves, 0, height)
 
     quarter_paths, quarter_attrs = svg2paths(combined_top_and_bottom_quarters)
     half_paths, half_attrs = svg2paths(translated_combined_middle_halves)
@@ -1330,10 +1347,10 @@ def createSquareGrid(square_size, n_lines, offset):
 
         attributes.append({'stroke': 'black', 'stroke-width': 1, 'fill': 'none'})
 
-    # wsvg(horizontal_lines, attributes=attributes, filename="horizontal_lines.svg", dimensions=(square_size, square_size))
-    # wsvg(vertical_lines, attributes=attributes, filename="vertical_lines.svg", dimensions=(square_size, square_size))
+    wsvg(horizontal_lines, attributes=attributes, filename="horizontal_lines.svg", dimensions=(square_size, square_size))
+    wsvg(vertical_lines, attributes=attributes, filename="vertical_lines.svg", dimensions=(square_size, square_size))
 
-    # combineStencils("horizontal_lines.svg", "vertical_lines.svg", "grid_lines.svg")
+    combineStencils("horizontal_lines.svg", "vertical_lines.svg", "grid_lines.svg")
 
     return horizontal_lines, vertical_lines
 
@@ -1485,7 +1502,6 @@ def attach45DegreeLinesAndRemoveInbetween(quarters, classic_cuts, output_name):
 """Create Non-Simple stencils"""
 
 def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, side_type, n_lines, is_blank):
-
     # 1. create the classic inner cuts
     stencil_1_classic_cuts_paths, stencil_1_classic_cuts_attr = createClassicInnerCuts(width, height, 0, n_lines)
     stencil_2_classic_cuts_paths, stencil_2_classic_cuts_attr = createClassicInnerCuts(width, height, height, n_lines)
@@ -1521,8 +1537,8 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     # c. translate drawing to the classic line position
     offset = square_size / (n_lines + 1)
 
-    x_shift = getMargin() * 4 + square_size // 2
-    x_shift = x_shift - offset - 1
+    x_shift = getMargin() * 4 + square_size // 4
+    x_shift = x_shift - 1
 
     y_shift = (getMargin() * 3)
     y_shift = y_shift - getMargin() * 2
@@ -1542,26 +1558,20 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     incrementFileStepCounter()
     wsvg(unfilled_pattern_paths, attributes=unfilled_pattern_attrs, filename=unfilled_pattern, dimensions=(width, width))
 
-    # unfilled_pattern_topmost_point = grabTopMostPointOfPaths(unfilled_pattern_paths)
-    # unfilled_pattern_bottommost_point = grabBottomMostPointOfPaths(unfilled_pattern_paths)
-    # unfilled_pattern_midpoint = (unfilled_pattern_topmost_point.imag + unfilled_pattern_bottommost_point.imag) / 2
-
     mirrored_pattern = f"{getFileStepCounter()}_mirrored_pattern.svg"
     incrementFileStepCounter()
     mirrorSVGOverXAxisWithY(unfilled_pattern, mirrored_pattern, width, height, getMargin() + square_size / 2)
 
-    # mirrored_pattern_paths, _ = svg2paths(mirrored_pattern)
-
-    # mirrored_pattern_leftmost_point = grabLeftMostPointOfPaths(mirrored_pattern_paths)
-    # mirrored_pattern_rightmost_point = grabRightMostPointOfPaths(mirrored_pattern_paths)
-    # mirrored_pattern_midpoint = (mirrored_pattern_leftmost_point.real + mirrored_pattern_rightmost_point.real) / 2
-
-    # mirrored_pattern_2 = f"{getFileStepCounter()}_mirrored_pattern_2.svg"
-    # incrementFileStepCounter()
-    # mirrorSVGOverYAxisWithX(mirrored_pattern, mirrored_pattern_2, width, height, mirrored_pattern_midpoint)
-
     combineStencils(stencil_1_classic_cuts, mirrored_pattern, "checkpoint.svg")
     combineStencils("checkpoint.svg", empty_stencil_1, "checkpoint.svg")
+
+    semi_circles = f"{getFileStepCounter()}_semi_circles.svg"
+    incrementFileStepCounter()
+
+    pattern_no_semi_circles = f"{getFileStepCounter()}_pattern_no_semi_circles.svg"
+    incrementFileStepCounter()
+
+    extractSemiCirclesFromPattern(mirrored_pattern, semi_circles, pattern_no_semi_circles)
 
     # split each shape into a top quarter, middle half, and bottom quarter
     top_and_bottom_quarters_of_shapes = f"{getFileStepCounter()}_top_bottom_quarters.svg"
@@ -1569,7 +1579,7 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     middle_halves = f"{getFileStepCounter()}_middle_half_pattern.svg"
     incrementFileStepCounter()
     horizontal_lines, vertical_lines = createSquareGrid(square_size, n_lines, offset)
-    splitShapesIntoQuarters(mirrored_pattern, horizontal_lines, vertical_lines, top_and_bottom_quarters_of_shapes, middle_halves, width, height, square_size)
+    splitShapesIntoQuarters(pattern_no_semi_circles, horizontal_lines, vertical_lines, top_and_bottom_quarters_of_shapes, middle_halves, width, height, square_size, side_type)
 
     combineStencils(stencil_1_classic_cuts, stencil_2_classic_cuts, "checkpoint_2.svg")
     combineStencils("checkpoint_2.svg", empty_stencil_1, "checkpoint_2.svg")
@@ -1590,8 +1600,6 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     attach45DegreeLinesAndRemoveInbetween(top_and_bottom_quarters_of_shapes, updated_classic_cuts, top_and_bottom_quarters_of_shapes_w_lines)
 
     # repeat above with middle_halves and stencil_2_classic_cuts
-    # check amount of paths in middle halves with lines
-    # we assume there is one path rn, if that is the case, use splitlinegroup to get each path group for top and bottom
     middle_halves_w_lines = f"{getFileStepCounter()}_middle_halves_w_lines.svg"
     incrementFileStepCounter()
     updated_classic_cuts_2 = f"{getFileStepCounter()}_updated_classic_cuts_2.svg"

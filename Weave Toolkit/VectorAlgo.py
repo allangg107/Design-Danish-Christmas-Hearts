@@ -8,7 +8,6 @@ from shapely.geometry import LineString, Polygon, MultiLineString, MultiPolygon
 import xml.etree.ElementTree as ET
 from svgpathtools import svg2paths, wsvg, Path, Line, CubicBezier, QuadraticBezier, parse_path
 
-
 import tempfile
 import svgwrite
 import copy
@@ -27,12 +26,10 @@ from VectorAlgoUtils import (
     crop_svg,
     savePixmapToCvImage,
     saveSvgFileAsPixmap,
-    rotateImage,
-
+    rotateImage
 )
 
 from VectorAlgoStencils import (
-
     create_classic_pattern_stencils,
     create_and_combine_stencils_onesided,
     combineStencils,
@@ -53,6 +50,7 @@ from PatternType import (
 from SideType import (
     SideType
 )
+
 from GlobalVariables import(
     getFileStepCounter,
     incrementFileStepCounter,

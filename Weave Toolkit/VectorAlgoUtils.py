@@ -26,7 +26,7 @@ def pre_process_user_input(original_pattern, shape_types, width, height, square_
         dwg = svgwrite.Drawing(original_pattern, profile='tiny', size=(square_size, square_size))
         dwg.save()
         return
-    
+
     rotated_path_name = f"{getFileStepCounter()}_rotated_pattern_step.svg"
     incrementFileStepCounter()
     rotateSVG(original_pattern, rotated_path_name, 45)
@@ -63,7 +63,7 @@ def pre_process_user_input(original_pattern, shape_types, width, height, square_
 
     if len(clipped_paths) > len(attributes):
         attributes = attributes * len(clipped_paths)
-    
+
     wsvg(clipped_paths, attributes=attributes, filename=final_output_path_name, dimensions=(square_size, square_size))
 
     print("finished pre-processing")
@@ -759,3 +759,45 @@ def convertLinesToRectangles(input_svg, output_svg):
 
     # Save the new SVG file
     dwg.save()
+
+
+def extractSemiCirclesFromPattern(mirrored_pattern, semi_circles, pattern_no_semi_circles):
+    paths, attributes = svg2paths(mirrored_pattern)
+    semi_circle_paths = []
+    semi_circles_attributes = []
+    pattern_no_semi_circles_paths = []
+    pattern_no_semi_circles_attributes = []
+
+    # Iterate through each path and filter out lines from semi-circle paths
+    for path, attribute in zip(paths, attributes):
+        if 'stroke-width' in attribute and attribute['stroke-width'] == '2':
+            print("FOUND SEMI CIRCLE")
+            print("SEMI CIRCLE PATH: ", path)
+
+            # Find the longest line segment
+            # Find the two longest lines
+            line_segments = [(segment, segment.length()) for segment in path if isinstance(segment, Line)]
+            line_segments.sort(key=lambda x: x[1], reverse=True)
+            
+            # Get the two longest lines (if there are at least two)
+            longest_lines = [segment for segment, _ in line_segments[:min(2, len(line_segments))]]
+            
+            # Create a list of all segments except the two longest lines
+            non_line_segments = [segment for segment in path if segment not in longest_lines]
+
+            if non_line_segments:  # Only add if there are segments left
+                print("SEMI CIRCLE FOUND part 2")
+                filtered_path = Path(*non_line_segments)
+                semi_circle_paths.append(filtered_path)
+                semi_circles_attributes.append(attribute)
+                print("ATTRIBUTE: ", attribute)
+
+                print("SEMI CIRCLE FILTERED PATH: ", filtered_path)
+        else:
+            pattern_no_semi_circles_paths.append(path)
+            pattern_no_semi_circles_attributes.append(attribute)
+
+    print("SEMI CIRCLE PATHS: ", semi_circle_paths)
+
+    wsvg(semi_circle_paths, attributes=semi_circles_attributes, filename=semi_circles)
+    wsvg(pattern_no_semi_circles_paths, attributes=pattern_no_semi_circles_attributes, filename=pattern_no_semi_circles)
