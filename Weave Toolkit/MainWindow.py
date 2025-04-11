@@ -670,28 +670,6 @@ class DrawingWidget(QWidget):
 
                 else:
                     self.shapes.append([self.begin, self.end, getShapeMode(), shape_color, [], 1, getFilled()])
-                #     shape_color = getShapeColor()
-                #     # Create the shape path from its bounding rect
-                #     shape_rect = QRectF(QPointF(self.begin), QPointF(self.end))
-                #     shape_path = QPainterPath()
-                #     shape_path.addRect(shape_rect)
-
-                #     # Loop through checkerboard cells
-                #     for polygon, cell_color in self.cells:
-                #         cell_path = QPainterPath()
-                #         cell_path.addPolygon(polygon)
-                        
-                #         if shape_path.intersects(cell_path) and cell_color == shape_color:
-                #             if shape_color == getBackgroundColor():
-                #                 shape_color = getShapeColor()
-                #             else:
-                #                 shape_color = getBackgroundColor()
-                #             break
-                    
-                # self.shapes.append([
-                # self.begin, self.end, getShapeMode(), shape_color,
-                # [], getPenWidth() if  getShapeMode() == ShapeMode.Line else 1,
-                # getFilled()])
 
             if getCurrentPatternType() == PatternType.Symmetric:
                 self.shapes.append([QPoint(self.width() - self.begin.x(), self.begin.y()), QPoint(self.width() - self.end.x(), self.end.y()), getShapeMode(), getShapeColor(), [], 1, getFilled()])
