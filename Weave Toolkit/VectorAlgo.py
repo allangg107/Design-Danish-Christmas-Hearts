@@ -28,11 +28,11 @@ from VectorAlgoUtils import (
     savePixmapToCvImage,
     saveSvgFileAsPixmap,
     rotateImage,
-    
+
 )
 
 from VectorAlgoStencils import (
-    
+
     create_classic_pattern_stencils,
     create_and_combine_stencils_onesided,
     combineStencils,
@@ -59,7 +59,8 @@ from GlobalVariables import(
     getDrawingSquareSize,
     setDrawingSquareSize,
     getHasImage,
-    setHasImage
+    setHasImage,
+    getNumClassicLines
 )
 
 # VectorAlgo will be used when the user presses the "Update SVG" button
@@ -189,8 +190,6 @@ def createFinalHeartDisplay(image):
     return reverse_rotated_mask
 
 def createFinalHeartCutoutPatternExport(size, side_type, pattern_type, n_lines=0, line_color='black', background_color='white'):
-    
-
     print("pattern type: ", pattern_type)
     print("sides: ", side_type)
 
@@ -224,9 +223,9 @@ def createFinalHeartCutoutPatternExport(size, side_type, pattern_type, n_lines=0
 
     if pattern_type == PatternType.Simple:
         print("Creating SIMPLE pattern")
-        
+
         create_simple_pattern_stencils(preprocessed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, side_type, pattern_type, is_blank)
-    
+
     elif pattern_type == PatternType.Symmetric:
         print("Creating SYMMETRICAL pattern")
 
@@ -239,12 +238,8 @@ def createFinalHeartCutoutPatternExport(size, side_type, pattern_type, n_lines=0
 
     elif pattern_type == PatternType.Classic:
         print("Creating CLASSIC pattern")
-        
-        create_classic_pattern_stencils(preprocessed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, pattern_type, n_lines, is_blank)
-
-        # resizeSvg(final_stencil, user_decided_export_size)
-
-        # return final_stencil
+        n_lines = getNumClassicLines()
+        create_classic_pattern_stencils(preprocessed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, side_type, n_lines, is_blank)
 
 def mainAlgorithmSvg(img, side_type, pattern_type, function='show', n_lines = 0):
 

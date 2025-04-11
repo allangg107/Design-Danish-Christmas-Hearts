@@ -1102,7 +1102,7 @@ def findAllNonIntersectedShapes(pattern, classic_cuts, min_intersection_length=5
 def getLineGroup(path_file, file_name, orientation="vertical"):
     paths, attrs = svg2paths(path_file)
     # group the lines based on the specified orientation
-    
+
     if orientation == "vertical":
         # Find the topmost and bottommost points in paths
         topmost_point = float('inf')
@@ -1112,7 +1112,7 @@ def getLineGroup(path_file, file_name, orientation="vertical"):
                 if isinstance(line, Line):
                     topmost_point = min(topmost_point, line.start.imag, line.end.imag)
                     bottommost_point = max(bottommost_point, line.start.imag, line.end.imag)
-        
+
         midpoint = (topmost_point + bottommost_point) / 2
 
         first_group = []
@@ -1125,7 +1125,7 @@ def getLineGroup(path_file, file_name, orientation="vertical"):
                         first_group.append(line)
                     elif line.start.imag >= midpoint:
                         second_group.append(line)
-    
+
     elif orientation == "horizontal":
         # Find the leftmost and rightmost points in paths
         leftmost_point = float('inf')
@@ -1135,7 +1135,7 @@ def getLineGroup(path_file, file_name, orientation="vertical"):
                 if isinstance(line, Line):
                     leftmost_point = min(leftmost_point, line.start.real, line.end.real)
                     rightmost_point = max(rightmost_point, line.start.real, line.end.real)
-        
+
         midpoint = (leftmost_point + rightmost_point) / 2
 
         first_group = []
@@ -1346,10 +1346,10 @@ def attach45DegreeLinesAndRemoveInbetween(quarters, classic_cuts, output_name):
 
     paths_copy = copy.deepcopy(paths)
     attributes_copy = copy.deepcopy(attrs)
-    
+
     # Store modified classic cut lines in a dictionary keyed by y-coordinate
     modified_classic_lines = {}
-    
+
     for path in paths:
         # find the left- and right-most point of each path
         left_most_point = None
@@ -1362,11 +1362,11 @@ def attach45DegreeLinesAndRemoveInbetween(quarters, classic_cuts, output_name):
             for t in np.linspace(0, 1, 10):  # Sample 10 points per segment
                 point = segment.point(t)
                 x, y = point.real, point.imag
-                
+
                 if x < min_x:
                     min_x = x
                     left_most_point = (x, y)
-                
+
                 if x > max_x:
                     max_x = x
                     right_most_point = (x, y)
@@ -1374,7 +1374,7 @@ def attach45DegreeLinesAndRemoveInbetween(quarters, classic_cuts, output_name):
         # find the closest classic cut line to the left and right-most point of each path
         closest_classic_line = None
         min_left_distance = float('inf')
-        
+
         for i, classic_cut in enumerate(classic_cut_paths):
             for segment in classic_cut:
                 if isinstance(segment, Line):
@@ -1388,73 +1388,73 @@ def attach45DegreeLinesAndRemoveInbetween(quarters, classic_cuts, output_name):
         # Draw a 45-degree line from the leftmost point to the closest classic cut line
         if closest_classic_line is not None:
             classic_line_y = closest_classic_line.coords[0][1]
-            
+
             # Calculate intersection point for left side
             left_intersection_x = left_most_point[0] - abs(left_most_point[1] - classic_line_y)
-            
+
             # Calculate intersection point for right side
             right_intersection_x = right_most_point[0] + abs(right_most_point[1] - classic_line_y)
-            
+
             intersection_y = classic_line_y
-            
+
             # Draw left diagonal
             left_diagonal = Line(complex(left_most_point[0], left_most_point[1]),
                                 complex(left_intersection_x, intersection_y))
             paths_copy.append(Path(left_diagonal))
             attributes_copy.append({'stroke': 'red', 'stroke-width': 1, 'fill': 'none'})
-            
+
             # Draw right diagonal
             right_diagonal = Line(complex(right_most_point[0], right_most_point[1]),
                                 complex(right_intersection_x, intersection_y))
             paths_copy.append(Path(right_diagonal))
             attributes_copy.append({'stroke': 'blue', 'stroke-width': 1, 'fill': 'none'})
-            
+
             # Get the original line coordinates
             orig_start_x, orig_start_y = closest_classic_line.coords[0]
             orig_end_x, orig_end_y = closest_classic_line.coords[-1]
-            
+
             # Check if this classic line is already in our modified dictionary
             if classic_line_y in modified_classic_lines:
                 # The line has already been modified, update the segments
                 segments = modified_classic_lines[classic_line_y]
                 new_segments = []
-                
+
                 for segment in segments:
                     seg_start_x, seg_start_y = segment[0]
                     seg_end_x, seg_end_y = segment[1]
-                    
+
                     # Check if this segment overlaps with our current removal
                     if (seg_start_x <= left_intersection_x and seg_end_x >= left_intersection_x) or \
                        (seg_start_x <= right_intersection_x and seg_end_x >= right_intersection_x) or \
                        (seg_start_x >= left_intersection_x and seg_end_x <= right_intersection_x):
-                        
+
                         # This segment overlaps with our removal area
                         if seg_start_x < left_intersection_x:
                             # Keep part to the left of our removal
                             new_segments.append([(seg_start_x, seg_start_y), (left_intersection_x, intersection_y)])
-                        
+
                         if seg_end_x > right_intersection_x:
                             # Keep part to the right of our removal
                             new_segments.append([(right_intersection_x, intersection_y), (seg_end_x, seg_end_y)])
                     else:
                         # This segment doesn't overlap with our removal area
                         new_segments.append(segment)
-                
+
                 modified_classic_lines[classic_line_y] = new_segments
             else:
                 # First modification to this line
                 segments = []
-                
+
                 # Add left segment if it exists
                 if orig_start_x < left_intersection_x:
                     segments.append([(orig_start_x, orig_start_y), (left_intersection_x, intersection_y)])
-                
+
                 # Add right segment if it exists
                 if orig_end_x > right_intersection_x:
                     segments.append([(right_intersection_x, intersection_y), (orig_end_x, orig_end_y)])
-                
+
                 modified_classic_lines[classic_line_y] = segments
-    
+
     # Create new classic cut paths from the modified segments
     new_classic_cut_paths = []
     for y_coord, segments in modified_classic_lines.items():
@@ -1463,7 +1463,7 @@ def attach45DegreeLinesAndRemoveInbetween(quarters, classic_cuts, output_name):
             end_x, end_y = segment[1]
             line = Line(complex(start_x, start_y), complex(end_x, end_y))
             new_classic_cut_paths.append(Path(line))
-    
+
     # Keep any classic cut paths that weren't modified
     for path in classic_cut_paths:
         for segment in path:
@@ -1471,20 +1471,20 @@ def attach45DegreeLinesAndRemoveInbetween(quarters, classic_cuts, output_name):
                 line_y = segment.start.imag
                 if line_y not in modified_classic_lines:
                     new_classic_cut_paths.append(Path(segment))
-    
+
     # Update classic cut attributes
     new_classic_cut_attrs = [{'stroke': 'yellow', 'stroke-width': 1, 'fill': 'none'}] * len(new_classic_cut_paths)
-    
+
     # Save the modified classic cuts
     wsvg(new_classic_cut_paths, attributes=new_classic_cut_attrs, filename=classic_cuts)
-    
+
     # Save the output with the diagonal lines
     wsvg(paths_copy, attributes=attributes_copy, filename=output_name)
 
 
 """Create Non-Simple stencils"""
 
-def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, pattern_type, n_lines, is_blank):
+def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, side_type, n_lines, is_blank):
 
     # 1. create the classic inner cuts
     stencil_1_classic_cuts_paths, stencil_1_classic_cuts_attr = createClassicInnerCuts(width, height, 0, n_lines)
@@ -1598,7 +1598,7 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     incrementFileStepCounter()
     classic_paths_2, classic_attrs_2 = svg2paths(stencil_2_classic_cuts)
     wsvg(classic_paths_2, attributes=classic_attrs_2, filename=updated_classic_cuts_2)
-    
+
     middle_halves_w_lines = f"{getFileStepCounter()}_middle_halves_w_lines.svg"
     incrementFileStepCounter()
     attach45DegreeLinesAndRemoveInbetween(middle_halves, updated_classic_cuts_2, middle_halves_w_lines)

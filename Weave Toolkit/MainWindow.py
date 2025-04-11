@@ -55,7 +55,7 @@ from PyQt6.QtWidgets import  (
     QSlider,
     QCheckBox,
     QDialog,
-    QFileDialog, 
+    QFileDialog,
     QGraphicsPixmapItem
 )
 
@@ -95,7 +95,7 @@ from GuideWindow import (
     GuideWindow
 )
 from GlobalVariables import(
-    getShapeMode, 
+    getShapeMode,
     setShapeMode,
     getShapeColor,
     setShapeColor,
@@ -141,7 +141,24 @@ class DrawingWidget(QWidget):
         # Fill the background with light gray color
         qp.fillRect(self.rect(), Qt.GlobalColor.lightGray)
 
-        self.drawRotatedSquareEffect(qp)
+        width, height = self.width(), self.height()
+        margin = 0
+        x1, y1 = margin, margin
+        x2, y2 = width - margin, height - margin
+        center_x, center_y = (x1 + x2) / 2, (y1 + y2) / 2
+
+        # Coordinates of the corners of the inner rotated square
+        inner_coords = [
+            (center_x, y1),
+            (x2, center_y),
+            (center_x, y2),
+            (x1, center_y)
+        ]
+
+        self.drawRotatedSquareEffect(qp, inner_coords)
+
+        if getCurrentPatternType() == PatternType.Classic:
+            self.drawCheckerboard(qp, inner_coords)
 
         # Redraw all the previous shapes
         self.redrawAllShapes(qp)
@@ -166,35 +183,17 @@ class DrawingWidget(QWidget):
                 angle = self.calculateAngle(self.begin, self.end)
                 self.drawSemicircle(qp, self.begin, self.end, getShapeColor(), 1 , getFilled(), rotation_angle=angle)
 
-        self.redrawBorder(qp)
+        self.redrawBorder(qp, inner_coords)
 
 
-    def drawRotatedSquareEffect(self, qp):
+    def drawRotatedSquareEffect(self, qp, inner_coords):
         pen = QPen(Qt.GlobalColor.black, 3)
         qp.setPen(pen)
         brush = QBrush(Qt.GlobalColor.lightGray)
         qp.setBrush(brush)
 
-        width, height = self.width(), self.height()
-        margin = 0
-
-        # Coordinates of the corners of the outer square
-        x1, y1 = margin, margin
-        x2, y2 = width - margin, height - margin
-
         # Drawing outer square
-        qp.drawRect(x1, y1, x2 - x1, y2 - y1)
-
-        # Calculate the center and half-diagonal
-        center_x, center_y = (x1 + x2) / 2, (y1 + y2) / 2
-
-        # Coordinates of the corners of the inner rotated square
-        inner_coords = [
-            (center_x, y1),
-            (x2, center_y),
-            (center_x, y2),
-            (x1, center_y)
-        ]
+        qp.drawRect(inner_coords[3][0], inner_coords[0][1], inner_coords[1][0] - inner_coords[3][0], inner_coords[2][1] - inner_coords[0][1])
 
         # Drawing inner rotated square with selected background fill
         brush = QBrush(getBackgroundColor())
@@ -251,7 +250,7 @@ class DrawingWidget(QWidget):
                     if self.lineContainsPoint(point, shape[0], shape[1]):
                         self.shapes.remove(shape)
                         # continue # Skip drawing since it's erased
-                
+
                 elif shape_type == ShapeMode.Semicircle:
                     start = shape[0]
                     end = shape[1]
@@ -298,7 +297,7 @@ class DrawingWidget(QWidget):
                 qp.setPen(QPen(getShapeColor(), shape[5], Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
                 for free_form_point in range(len(shape[4]) - 1):
                     qp.drawLine(shape[4][free_form_point], shape[4][free_form_point + 1])
-            
+
             elif shape_type == ShapeMode.Semicircle:
                 angle = self.calculateAngle(shape[0], shape[1])
                 self.drawSemicircle(qp, shape[0], shape[1], getShapeColor(), shape[5], shape[6], angle)
@@ -306,7 +305,7 @@ class DrawingWidget(QWidget):
             qp.setPen(QPen(getShapeColor(), getPenWidth(), Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
 
 
-    def redrawBorder(self, qp):
+    def redrawBorder(self, qp, inner_coords):
         pen = QPen(Qt.GlobalColor.black, 3)
         qp.setPen(pen)
         brush = QBrush(Qt.GlobalColor.lightGray)
@@ -337,17 +336,6 @@ class DrawingWidget(QWidget):
         qp.drawPolygon (corner3)
         qp.drawPolygon (corner4)
 
-        # Calculate the center and half-diagonal
-        center_x, center_y = (x1 + x2) / 2, (y1 + y2) / 2
-
-        # Coordinates of the corners of the inner rotated square
-        inner_coords = [
-            (center_x, y1),
-            (x2, center_y),
-            (center_x, y2),
-            (x1, center_y)
-        ]
-
         # Draw the edges of the inner rotated square
         for i in range(len(inner_coords)):
             qp.drawLine(int(inner_coords[i][0]), int(inner_coords[i][1]),
@@ -358,97 +346,108 @@ class DrawingWidget(QWidget):
             # draw a dashed line in the middle of the canvas
             pen.setStyle(Qt.PenStyle.DashLine)
             qp.setPen(pen)
-            qp.drawLine(int(center_x), int(y1), int(center_x), int(y2))
-        elif getCurrentPatternType() == PatternType.Classic:
-            num_classic_lines = getNumClassicLines()
-            # draw 3 dashed lines going from lower left to upper right and upper left to lower right
-            pen.setStyle(Qt.PenStyle.DashLine)
-            qp.setPen(pen)
-            distance = calculate_distance(inner_coords[0], inner_coords[2])
-            offset = distance / (num_classic_lines + 1) / 2
-            line_distance = distance / 2
-            # Draw 3 parallel dashed lines going from bottom left to top right
-            classic_cuts = []
-            for i in range(1, num_classic_lines + 1):  # Lines 1, 2, 3
-                # Calculate start and end points for each line
-                start_x_bottom = inner_coords[3][0] + (i * offset)
-                start_y_bottom = inner_coords[3][1] + (i * offset)
+            qp.drawLine(int(inner_coords[0][0]), int(y1), int(inner_coords[0][0]), int(y2))
 
-                end_x_bottom = start_x_bottom + line_distance
-                end_y_bottom = start_y_bottom - line_distance
+        brush = QBrush(getShapeColor())
+        qp.setBrush(brush)
+        pen = QPen(getShapeColor(), getPenWidth())
+        qp.setPen(pen)
 
-                # Draw the dashed line
-                qp.drawLine(int(start_x_bottom), int(start_y_bottom), int(end_x_bottom), int(end_y_bottom))
-                classic_cuts.append([start_x_bottom, start_y_bottom, end_x_bottom, end_y_bottom])
 
-                start_x_top = inner_coords[3][0] + (i * offset)
-                start_y_top = inner_coords[3][1] - (i * offset)
+    def drawCheckerboard(self, qp, inner_coords):
+        pen = QPen(Qt.GlobalColor.black, 3)
+        qp.setPen(pen)
+        brush = QBrush(Qt.GlobalColor.lightGray)
+        qp.setBrush(brush)
 
-                end_x_top = start_x_top + line_distance
-                end_y_top = start_y_top + line_distance
+        num_classic_lines = getNumClassicLines()
+        # draw 3 dashed lines going from lower left to upper right and upper left to lower right
+        pen.setStyle(Qt.PenStyle.DashLine)
+        qp.setPen(pen)
+        distance = calculate_distance(inner_coords[0], inner_coords[2])
+        offset = distance / (num_classic_lines + 1) / 2
+        line_distance = distance / 2
+        # Draw 3 parallel dashed lines going from bottom left to top right
+        classic_cuts = []
+        for i in range(1, num_classic_lines + 1):  # Lines 1, 2, 3
+            # Calculate start and end points for each line
+            start_x_bottom = inner_coords[3][0] + (i * offset)
+            start_y_bottom = inner_coords[3][1] + (i * offset)
 
-                # Draw the dashed line
-                qp.drawLine(int(start_x_top), int(start_y_top), int(end_x_top), int(end_y_top))
-                classic_cuts.append([start_x_top, start_y_top, end_x_top, end_y_top])
-            self.classic_cuts = classic_cuts
+            end_x_bottom = start_x_bottom + line_distance
+            end_y_bottom = start_y_bottom - line_distance
 
-            # Create a dynamic checkerboard pattern over the inner diamond
-            if inner_coords and len(inner_coords) == 4:
-                # Determine the grid size from the number of dashed lines
-                num_dashed_lines = len(self.classic_cuts) // 2  # Each line has two entries in classic_cuts
-                grid_size = num_dashed_lines + 1
-                
-                # Draw a rotated checkerboard that matches the diamond orientation
-                qp.setBrush(QBrush(Qt.GlobalColor.black))
-                
-                # Calculate all grid points for an NxN grid within the diamond
-                grid_points = []
-                for i in range(4):  # For each corner
-                    start = inner_coords[i]
-                    end = inner_coords[(i+1) % 4]  # Next corner
-                    
-                    # Create grid_size+1 points along each edge (including corners)
-                    for j in range(grid_size + 1):
-                        t = j / grid_size  # Parameter from 0 to 1
-                        x = start[0] + t * (end[0] - start[0])
-                        y = start[1] + t * (end[1] - start[1])
-                        grid_points.append((i, j, (x, y)))  # Store edge index, position, and coordinates
-                
-                # Create the internal grid points using bilinear interpolation
-                cells = []
-                for row in range(grid_size):
-                    for col in range(grid_size):
-                        # Calculate the four corners of this cell
-                        top_left = (inner_coords[0][0] + col/grid_size * (inner_coords[1][0] - inner_coords[0][0]) + 
+            # Draw the dashed line
+            qp.drawLine(int(start_x_bottom), int(start_y_bottom), int(end_x_bottom), int(end_y_bottom))
+            classic_cuts.append([start_x_bottom, start_y_bottom, end_x_bottom, end_y_bottom])
+
+            start_x_top = inner_coords[3][0] + (i * offset)
+            start_y_top = inner_coords[3][1] - (i * offset)
+
+            end_x_top = start_x_top + line_distance
+            end_y_top = start_y_top + line_distance
+
+            # Draw the dashed line
+            qp.drawLine(int(start_x_top), int(start_y_top), int(end_x_top), int(end_y_top))
+            classic_cuts.append([start_x_top, start_y_top, end_x_top, end_y_top])
+        self.classic_cuts = classic_cuts
+
+        # Create a dynamic checkerboard pattern over the inner diamond
+        if inner_coords and len(inner_coords) == 4:
+            # Determine the grid size from the number of dashed lines
+            num_dashed_lines = len(self.classic_cuts) // 2  # Each line has two entries in classic_cuts
+            grid_size = num_dashed_lines + 1
+
+            # Draw a rotated checkerboard that matches the diamond orientation
+            qp.setBrush(QBrush(Qt.GlobalColor.black))
+
+            # Calculate all grid points for an NxN grid within the diamond
+            grid_points = []
+            for i in range(4):  # For each corner
+                start = inner_coords[i]
+                end = inner_coords[(i+1) % 4]  # Next corner
+
+                # Create grid_size+1 points along each edge (including corners)
+                for j in range(grid_size + 1):
+                    t = j / grid_size  # Parameter from 0 to 1
+                    x = start[0] + t * (end[0] - start[0])
+                    y = start[1] + t * (end[1] - start[1])
+                    grid_points.append((i, j, (x, y)))  # Store edge index, position, and coordinates
+
+            # Create the internal grid points using bilinear interpolation
+            for row in range(grid_size):
+                for col in range(grid_size):
+                    # Calculate the four corners of this cell
+                    top_left = (inner_coords[0][0] + col/grid_size * (inner_coords[1][0] - inner_coords[0][0]) +
+                                row/grid_size * (inner_coords[3][0] - inner_coords[0][0]),
+                                inner_coords[0][1] + col/grid_size * (inner_coords[1][1] - inner_coords[0][1]) +
+                                row/grid_size * (inner_coords[3][1] - inner_coords[0][1]))
+
+                    top_right = (inner_coords[0][0] + (col+1)/grid_size * (inner_coords[1][0] - inner_coords[0][0]) +
                                     row/grid_size * (inner_coords[3][0] - inner_coords[0][0]),
-                                    inner_coords[0][1] + col/grid_size * (inner_coords[1][1] - inner_coords[0][1]) + 
+                                    inner_coords[0][1] + (col+1)/grid_size * (inner_coords[1][1] - inner_coords[0][1]) +
                                     row/grid_size * (inner_coords[3][1] - inner_coords[0][1]))
-                        
-                        top_right = (inner_coords[0][0] + (col+1)/grid_size * (inner_coords[1][0] - inner_coords[0][0]) + 
-                                     row/grid_size * (inner_coords[3][0] - inner_coords[0][0]),
-                                     inner_coords[0][1] + (col+1)/grid_size * (inner_coords[1][1] - inner_coords[0][1]) + 
-                                     row/grid_size * (inner_coords[3][1] - inner_coords[0][1]))
-                        
-                        bottom_left = (inner_coords[0][0] + col/grid_size * (inner_coords[1][0] - inner_coords[0][0]) + 
-                                      (row+1)/grid_size * (inner_coords[3][0] - inner_coords[0][0]),
-                                      inner_coords[0][1] + col/grid_size * (inner_coords[1][1] - inner_coords[0][1]) + 
-                                      (row+1)/grid_size * (inner_coords[3][1] - inner_coords[0][1]))
-                        
-                        bottom_right = (inner_coords[0][0] + (col+1)/grid_size * (inner_coords[1][0] - inner_coords[0][0]) + 
-                                       (row+1)/grid_size * (inner_coords[3][0] - inner_coords[0][0]),
-                                       inner_coords[0][1] + (col+1)/grid_size * (inner_coords[1][1] - inner_coords[0][1]) + 
-                                       (row+1)/grid_size * (inner_coords[3][1] - inner_coords[0][1]))
-                        
-                        # Only fill cells where (row + col) is even (checkerboard pattern)
-                        if (row + col) % 2 == 0:
-                            polygon = QPolygonF([
-                                QPointF(top_left[0], top_left[1]),
-                                QPointF(top_right[0], top_right[1]),
-                                QPointF(bottom_right[0], bottom_right[1]),
-                                QPointF(bottom_left[0], bottom_left[1])
-                            ])
-                            qp.drawPolygon(polygon)
-        
+
+                    bottom_left = (inner_coords[0][0] + col/grid_size * (inner_coords[1][0] - inner_coords[0][0]) +
+                                    (row+1)/grid_size * (inner_coords[3][0] - inner_coords[0][0]),
+                                    inner_coords[0][1] + col/grid_size * (inner_coords[1][1] - inner_coords[0][1]) +
+                                    (row+1)/grid_size * (inner_coords[3][1] - inner_coords[0][1]))
+
+                    bottom_right = (inner_coords[0][0] + (col+1)/grid_size * (inner_coords[1][0] - inner_coords[0][0]) +
+                                    (row+1)/grid_size * (inner_coords[3][0] - inner_coords[0][0]),
+                                    inner_coords[0][1] + (col+1)/grid_size * (inner_coords[1][1] - inner_coords[0][1]) +
+                                    (row+1)/grid_size * (inner_coords[3][1] - inner_coords[0][1]))
+
+                    # Only fill cells where (row + col) is even (checkerboard pattern)
+                    if (row + col) % 2 == 0:
+                        polygon = QPolygonF([
+                            QPointF(top_left[0], top_left[1]),
+                            QPointF(top_right[0], top_right[1]),
+                            QPointF(bottom_right[0], bottom_right[1]),
+                            QPointF(bottom_left[0], bottom_left[1])
+                        ])
+                        qp.drawPolygon(polygon)
+
         brush = QBrush(getShapeColor())
         qp.setBrush(brush)
         pen = QPen(getShapeColor(), getPenWidth())
@@ -512,19 +511,19 @@ class DrawingWidget(QWidget):
 
         qp.setPen(QPen(getShapeColor(), getPenWidth(), Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
 
-    
+
     def calculateAngle(self, start, end):
         dx, dy, distance = self.calculateSemiDistance(start, end)
-        
+
         angle = math.degrees(math.atan2(dy, dx)) % 360
         return angle
-    
+
     def calculateSemiDistance(self, start, end):
         dx = end.x() - start.x()
         dy = end.y() -  start.y()
         distance = math.hypot(dx, dy)
         return dx, dy, distance
-    
+
     def drawSemicircle(self, qp, start, end, color, pen_width, filled, rotation_angle=0):
         self.penAndBrushSetup(qp, color, pen_width, filled)
 
@@ -859,7 +858,7 @@ class MainWindow(QMainWindow):
             shapes_toolbar = self.findChild(QToolBar, "Shapes toolbar")
             if shapes_toolbar:
                 shapes_toolbar.adjustSize()
-        
+
         self.update()
         self.update_backside_image()
 
@@ -870,8 +869,8 @@ class MainWindow(QMainWindow):
         setCurrentSideType(side)
         self.update()
         self.update_backside_image()
-    
-    
+
+
     def createWeavingPatternDropdownMenu(self):
         weaving_pattern_menu = QMenu("Weaving Pattern", self)
         weaving_pattern_menu.setToolTipsVisible(True)  # Enable tooltips in the menu
@@ -1029,10 +1028,10 @@ class MainWindow(QMainWindow):
 
         classic_container_widget = QWidget()
         container_layout = QVBoxLayout(classic_container_widget)
-        
+
         self.classic_lines_container = self.createClassicLinesWidget()
         container_layout.addWidget(self.classic_lines_container)
-        
+
         shapes_toolbar.addWidget(classic_container_widget)
 
         return shapes_toolbar
@@ -1139,7 +1138,7 @@ class MainWindow(QMainWindow):
         classic_lines_container = QWidget()
         classic_lines_container.setObjectName("ClassicLinesContainer")
         classic_lines_container.setFixedHeight(28)
-                                          
+
         self.classic_lines_layout = QHBoxLayout(classic_lines_container)
 
         initial_num_lines = getNumClassicLines()
@@ -1157,9 +1156,9 @@ class MainWindow(QMainWindow):
         self.classic_lines_layout.addWidget(self.num_classic_lines_slider)
 
         classic_lines_container.setVisible(getCurrentPatternType() == PatternType.Classic)
-        
+
         return classic_lines_container
-    
+
     def updateClassicLines(self, value):
         """Update the classic lines count when slider changes"""
         self.classic_lines_label.setText(f'Classic Lines: {value}')
