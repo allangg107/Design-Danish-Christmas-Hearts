@@ -711,6 +711,29 @@ def savePixmapToCvImage(pixmap):
 
     return cv_image
 
+
+def convertLineToRectangle(input_line):
+    if isinstance(input_line, Line):
+            # Get start and end points of the line
+            start = input_line.start
+            end = input_line.end
+
+            # Create a rectangle from the line endpoints
+            rect_width = abs(end.real - start.real)
+            rect_height = 3
+            x = min(start.real, end.real)
+            y = min(start.imag, end.imag) - rect_height / 2
+
+            # Create a rectangular path using 4 line segments
+            rect_path = Path(
+                Line(complex(x, y), complex(x + rect_width, y)),                   # top line
+                Line(complex(x + rect_width, y), complex(x + rect_width, y + rect_height)),  # right line
+                Line(complex(x + rect_width, y + rect_height), complex(x, y + rect_height)),  # bottom line
+                Line(complex(x, y + rect_height), complex(x, y))                   # left line
+            )
+            return rect_path
+
+
 def convertLinesToRectangles(input_svg, output_svg):
     paths, attributes = svg2paths(input_svg)
 

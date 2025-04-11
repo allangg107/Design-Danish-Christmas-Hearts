@@ -19,7 +19,8 @@ from VectorAlgoUtils import (
     mirrorSVGOverYAxisWithX,
     mirrorSVGOverXAxisWithY,
     removeDuplicateLinesFromSVG,
-    convertLinesToRectangles
+    convertLinesToRectangles,
+    convertLineToRectangle
 )
 
 from PatternType import (
@@ -217,7 +218,7 @@ def drawInnerCutLines(width, height, starting_y, margin_x=getMargin(), line_colo
     # Define the square size
     square_size = (height // 1.5) - margin_x
     margin_y = margin_x + starting_y
-    extension = 20  # Amount to extend the lines
+    extension = 3  # Amount to extend the lines
 
     # Define the left square margins
     left_top_line_start = (margin_x + square_size // 2, margin_y)
@@ -267,8 +268,8 @@ def createClassicInnerCuts(width, height, starting_y, n_lines, margin_x=getMargi
     attributes = []
 
     new_paths = [Line(
-        start=complex(left_top_line_start[0] - 20, left_top_line_start[1] + offset * (i + 1)),
-        end=complex(right_top_line_end[0] + 20, left_top_line_start[1] + offset * (i + 1))
+        start=complex(left_top_line_start[0] - 3, left_top_line_start[1] + offset * (i + 1)),
+        end=complex(right_top_line_end[0] + 3, left_top_line_start[1] + offset * (i + 1))
     ) for i in range(n_lines)]
     new_attributes = [{'stroke': line_color, 'stroke-width': 1, 'fill': 'none'} for _ in range(n_lines)]
     paths.extend(new_paths)
@@ -283,6 +284,9 @@ def create_and_combine_stencils_onesided(width, height, size, stencil_1_pattern,
     incrementFileStepCounter()
     stencil_2_inner_cuts = drawInnerCutLines(width, height, height, file_name=f"{getFileStepCounter()}_simpleStencil2.svg")
     incrementFileStepCounter()
+
+    convertLinesToRectangles(stencil_1_inner_cuts, stencil_1_inner_cuts)
+    convertLinesToRectangles(stencil_2_inner_cuts, stencil_2_inner_cuts)
 
     # Combine all stencils first
     stencil_1_combined = f"{getFileStepCounter()}stencil_1_combined.svg"
@@ -755,7 +759,7 @@ def drawExtensionLines(combined_stencil, stencil_pattern, output_name, side_type
 
     # Draw a line from the bottom most point to the left edge of the stencil and draw a line from the top most point to the right edge of the stencil
     for path, attr in zip(combined_paths, combined_attrs):
-        extension = 20
+        extension = 3
 
         stencil_square_start = margin_x + square_size // 2
 
@@ -774,10 +778,10 @@ def drawExtensionLines(combined_stencil, stencil_pattern, output_name, side_type
             bottom_of_los = Line(bottom_point_rotated, complex(margin_x + square_size * 1.5, bottom_point_rotated.imag))
 
         # Add the left_line and right_line to the final paths
-        combined_paths_w_lines.append(Path(top_of_los))
-        combined_attrs_w_lines.append({'stroke': 'red', 'stroke-width': 1, 'fill': 'none'})
-        combined_paths_w_lines.append(Path(bottom_of_los))
-        combined_attrs_w_lines.append({'stroke': 'blue', 'stroke-width': 1, 'fill': 'none'})
+        combined_paths_w_lines.append(convertLineToRectangle(top_of_los))
+        combined_attrs_w_lines.append({'stroke': 'red', 'stroke-width': 1, 'fill': 'red'})
+        combined_paths_w_lines.append(convertLineToRectangle(bottom_of_los))
+        combined_attrs_w_lines.append({'stroke': 'blue', 'stroke-width': 1, 'fill': 'blue'})
 
     # Save the final SVG with extended lines
     wsvg(combined_paths_w_lines, attributes=combined_attrs_w_lines, filename=output_name, dimensions=(width, width))
