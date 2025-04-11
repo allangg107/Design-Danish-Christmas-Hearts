@@ -127,6 +127,7 @@ class DrawingWidget(QWidget):
         self.main_window = main_window
         self.shapes = [] #Stores shapes
         self.free_form_points = []  # Store points for free form drawing
+        self.cells = [] #Stores cells
         self.setGeometry(30,30,600,400)
         self.begin = QPoint()
         self.end = QPoint()
@@ -140,6 +141,7 @@ class DrawingWidget(QWidget):
         qp.setBrush(getShapeColor())
         # Fill the background with light gray color
         qp.fillRect(self.rect(), Qt.GlobalColor.lightGray)
+        shape_color = getShapeColor()
 
         width, height = self.width(), self.height()
         margin = 0
@@ -159,7 +161,8 @@ class DrawingWidget(QWidget):
 
         if getCurrentPatternType() == PatternType.Classic:
             self.drawCheckerboard(qp, inner_coords)
-
+            shape_color = self.flipSquareColor(shape_color)
+            
         # Redraw all the previous shapes
         self.redrawAllShapes(qp)
 
@@ -169,11 +172,11 @@ class DrawingWidget(QWidget):
         # Draws the current shape as it is being created
         if self.begin != self.end:
             if (getShapeMode() == ShapeMode.Square):
-                self.drawSquare(qp, self.begin, self.end, getShapeColor(), 1, getFilled())
+                self.drawSquare(qp, self.begin, self.end, shape_color, 1, getFilled())
             elif (getShapeMode() == ShapeMode.Circle):
-                self.drawCircle(qp, self.begin, self.end, getShapeColor(), 1, getFilled())
+                self.drawCircle(qp, self.begin, self.end, shape_color, 1, getFilled())
             elif (getShapeMode() == ShapeMode.Heart):
-                self.drawHeart(qp, self.begin, self.end, getShapeColor(), 1, getFilled())
+                self.drawHeart(qp, self.begin, self.end, shape_color, 1, getFilled())
             elif (getShapeMode() == ShapeMode.Line):
                 qp.drawLine(self.begin, self.end)
             elif getShapeMode() == ShapeMode.FreeForm:
@@ -181,10 +184,9 @@ class DrawingWidget(QWidget):
                     qp.drawLine(self.free_form_points[free_form_point], self.free_form_points[free_form_point + 1])
             elif getShapeMode() == ShapeMode.Semicircle:
                 angle = self.calculateAngle(self.begin, self.end)
-                self.drawSemicircle(qp, self.begin, self.end, getShapeColor(), 2, getFilled(), rotation_angle=angle)
+                self.drawSemicircle(qp, self.begin, self.end, shape_color, 2 , getFilled(), rotation_angle=angle)
 
         self.redrawBorder(qp, inner_coords)
-
 
     def drawRotatedSquareEffect(self, qp, inner_coords):
         pen = QPen(Qt.GlobalColor.black, 3)
@@ -216,13 +218,35 @@ class DrawingWidget(QWidget):
         brush = QBrush(getShapeColor())
         qp.setBrush(brush)
 
+    def flipSquareColor(self, shape_color):
+        # Create the shape path from its bounding rect
+        shape_rect = QRectF(QPointF(self.begin), QPointF(self.end))
+        shape_path = QPainterPath()
+        shape_path.addRect(shape_rect)
+
+        # Loop through checkerboard cells
+        for polygon, cell_color in self.cells:
+            cell_path = QPainterPath()
+            cell_path.addPolygon(polygon)
+            
+            if shape_path.intersects(cell_path) and cell_color == shape_color:
+                # Flips the colors to the opposite
+                if shape_color == getBackgroundColor():
+                    shape_color = getShapeColor()
+                else:
+                    shape_color = getBackgroundColor()
+                break
+        return shape_color
 
     # Redraws all the shapes, while removing the ones that are erased
     def redrawAllShapes(self, qp):
         for shape in self.shapes[:]:  # Use a copy of the list to avoid modification issues
             shape_type = shape[2]
-            qp.setBrush(getShapeColor()) # set to shape[3] if we want to change color to stored shape color instead of global color
-            qp.setPen(QPen(getShapeColor(), getPenWidth(), Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin)) # pen width should needs to be saved in the shape list
+            shape_color = getShapeColor()
+            if getCurrentPatternType() == PatternType.Classic:
+                shape_color = shape[3]
+            qp.setBrush(shape_color) # set to shape[3] if we want to change color to stored shape color instead of global color
+            qp.setPen(QPen(shape_color, getPenWidth(), Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin)) # pen width should needs to be saved in the shape list
 
             # if in eraser mode, removes shapes that contain the point clicked
             if getShapeMode() == ShapeMode.Eraser:
@@ -281,26 +305,26 @@ class DrawingWidget(QWidget):
 
             # Draw the shape if not in eraser mode
             if shape_type == ShapeMode.Square:
-                self.drawSquare(qp, shape[0], shape[1], getShapeColor(), shape[5], shape[6])
+                self.drawSquare(qp, shape[0], shape[1], shape_color, shape[5], shape[6])
 
             elif shape_type == ShapeMode.Circle:
-                self.drawCircle(qp, shape[0], shape[1], getShapeColor(), shape[5], shape[6])
+                self.drawCircle(qp, shape[0], shape[1], shape_color, shape[5], shape[6])
 
             elif shape_type == ShapeMode.Heart:
-                self.drawHeart(qp, shape[0], shape[1], getShapeColor(), shape[5], shape[6])
+                self.drawHeart(qp, shape[0], shape[1], shape_color, shape[5], shape[6])
 
             elif shape_type == ShapeMode.Line:
-                qp.setPen(QPen(getShapeColor(), shape[5], Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
+                qp.setPen(QPen(shape_color, shape[5], Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
                 qp.drawLine(shape[0], shape[1])
 
             elif shape_type == ShapeMode.FreeForm:
-                qp.setPen(QPen(getShapeColor(), shape[5], Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
+                qp.setPen(QPen(shape_color, shape[5], Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
                 for free_form_point in range(len(shape[4]) - 1):
                     qp.drawLine(shape[4][free_form_point], shape[4][free_form_point + 1])
 
             elif shape_type == ShapeMode.Semicircle:
                 angle = self.calculateAngle(shape[0], shape[1])
-                self.drawSemicircle(qp, shape[0], shape[1], getShapeColor(), shape[5], shape[6], angle)
+                self.drawSemicircle(qp, shape[0], shape[1], shape_color, shape[5], shape[6], angle)
 
             qp.setPen(QPen(getShapeColor(), getPenWidth(), Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin))
 
@@ -399,7 +423,7 @@ class DrawingWidget(QWidget):
             grid_size = num_dashed_lines + 1
 
             # Draw a rotated checkerboard that matches the diamond orientation
-            qp.setBrush(QBrush(Qt.GlobalColor.black))
+            qp.setBrush(QBrush(getBackgroundColor()))
 
             # Calculate all grid points for an NxN grid within the diamond
             grid_points = []
@@ -447,11 +471,20 @@ class DrawingWidget(QWidget):
                             QPointF(bottom_left[0], bottom_left[1])
                         ])
                         qp.drawPolygon(polygon)
+                        self.cells.append([polygon, getBackgroundColor()])
+                    
+
+                    else:
+                        qp.setBrush(QBrush(getShapeColor()))
+                        qp.drawPolygon(polygon)
+                        self.cells.append([polygon, getShapeColor()])
 
         brush = QBrush(getShapeColor())
         qp.setBrush(brush)
         pen = QPen(getShapeColor(), getPenWidth())
         qp.setPen(pen)
+        
+
 
 
     def get_drawing_image(self):
@@ -620,21 +653,45 @@ class DrawingWidget(QWidget):
 
     def mouseReleaseEvent(self, event):
         if self.drawing_mode:
+            shape_color = getShapeColor()
             if getShapeMode() == ShapeMode.FreeForm:
                 self.shapes.append([self.begin, self.end, getShapeMode(), getShapeColor(), list(self.free_form_points), getPenWidth(), False])
 
             else:
                 if getCurrentPatternType() == PatternType.Classic:
+                    shape_color = self.flipSquareColor(shape_color)
                     self.begin, self.end = snapShapeToClassicCuts(self.classic_cuts, getShapeMode(), self.begin, self.end, self.width(), self.height())
-
+                
                 if getShapeMode() == ShapeMode.Line:
-                    self.shapes.append([self.begin, self.end, getShapeMode(), getShapeColor(), [], getPenWidth(), False])
-
+                    self.shapes.append([self.begin, self.end, getShapeMode(), shape_color, [], getPenWidth(), False])
+                
                 elif getShapeMode() == ShapeMode.Semicircle:
-                    self.shapes.append([self.begin, self.end, getShapeMode(), getShapeColor(), [], 2, getFilled()])
+                    self.shapes.append([self.begin, self.end, getShapeMode(), shape_color, [], 2, getFilled()])
 
                 else:
-                    self.shapes.append([self.begin, self.end, getShapeMode(), getShapeColor(), [], 1, getFilled()])
+                    self.shapes.append([self.begin, self.end, getShapeMode(), shape_color, [], 1, getFilled()])
+                #     shape_color = getShapeColor()
+                #     # Create the shape path from its bounding rect
+                #     shape_rect = QRectF(QPointF(self.begin), QPointF(self.end))
+                #     shape_path = QPainterPath()
+                #     shape_path.addRect(shape_rect)
+
+                #     # Loop through checkerboard cells
+                #     for polygon, cell_color in self.cells:
+                #         cell_path = QPainterPath()
+                #         cell_path.addPolygon(polygon)
+                        
+                #         if shape_path.intersects(cell_path) and cell_color == shape_color:
+                #             if shape_color == getBackgroundColor():
+                #                 shape_color = getShapeColor()
+                #             else:
+                #                 shape_color = getBackgroundColor()
+                #             break
+                    
+                # self.shapes.append([
+                # self.begin, self.end, getShapeMode(), shape_color,
+                # [], getPenWidth() if  getShapeMode() == ShapeMode.Line else 1,
+                # getFilled()])
 
             if getCurrentPatternType() == PatternType.Symmetric:
                 self.shapes.append([QPoint(self.width() - self.begin.x(), self.begin.y()), QPoint(self.width() - self.end.x(), self.end.y()), getShapeMode(), getShapeColor(), [], 1, getFilled()])
@@ -1174,12 +1231,28 @@ class MainWindow(QMainWindow):
 
     def change_foreground_color(self, color):
         setShapeColor(QColor(color))
+        if getCurrentPatternType() == PatternType.Classic:
+            for shape in self.drawing_widget.shapes:
+                if shape[3] == getShapeColor():
+                    continue
+                elif shape[3] == getBackgroundColor():
+                    continue
+                else:
+                    shape[3] = self.drawing_widget.flipSquareColor(getShapeColor())
         self.update()
         self.update_backside_image()
 
 
     def change_background_color(self, color):
         setBackgroundColor(QColor(color))
+        if getCurrentPatternType() == PatternType.Classic:
+            for shape in self.drawing_widget.shapes:
+                if shape[3] == getShapeColor():
+                    continue
+                elif shape[3] == getBackgroundColor():
+                    continue
+                else:
+                    shape[3] = self.drawing_widget.flipSquareColor(getBackgroundColor())
         self.update()
         self.update_backside_image()
 
