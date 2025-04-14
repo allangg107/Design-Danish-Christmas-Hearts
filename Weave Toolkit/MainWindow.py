@@ -219,23 +219,16 @@ class DrawingWidget(QWidget):
         qp.setBrush(brush)
 
     def flipSquareColor(self, shape_color):
-        # Create the shape path from its bounding rect
-        shape_rect = QRectF(QPointF(self.begin), QPointF(self.end))
-        shape_path = QPainterPath()
-        shape_path.addRect(shape_rect)
-
-        # Loop through checkerboard cells
+       
         for polygon, cell_color in self.cells:
-            cell_path = QPainterPath()
-            cell_path.addPolygon(polygon)
-            
-            if shape_path.intersects(cell_path) and cell_color == shape_color:
-                # Flips the colors to the opposite
-                if shape_color == getBackgroundColor():
-                    shape_color = getShapeColor()
-                else:
-                    shape_color = getBackgroundColor()
-                break
+            if polygon.containsPoint(QPointF(self.end), Qt.FillRule.OddEvenFill):
+                if cell_color == shape_color:
+                    if shape_color == getBackgroundColor():
+                        shape_color = getShapeColor()
+                    else:
+                        shape_color = getBackgroundColor()
+                    break
+       
         return shape_color
 
     # Redraws all the shapes, while removing the ones that are erased
@@ -439,8 +432,8 @@ class DrawingWidget(QWidget):
                     grid_points.append((i, j, (x, y)))  # Store edge index, position, and coordinates
 
             # Create the internal grid points using bilinear interpolation
-            for row in range(grid_size):
-                for col in range(grid_size):
+            for row in range(grid_size + 1):
+                for col in range(grid_size + 1):
                     # Calculate the four corners of this cell
                     top_left = (inner_coords[0][0] + col/grid_size * (inner_coords[1][0] - inner_coords[0][0]) +
                                 row/grid_size * (inner_coords[3][0] - inner_coords[0][0]),
@@ -1207,30 +1200,30 @@ class MainWindow(QMainWindow):
         self.drawing_widget.update()  # Refresh the drawing
 
 
-    def change_foreground_color(self, color):
-        setShapeColor(QColor(color))
+    def change_active_color(self, color):
         if getCurrentPatternType() == PatternType.Classic:
-            for shape in self.drawing_widget.shapes:
+            if getShapeColor() == getBackgroundColor():
+               self.drawing_widget.shapes.clear()
+            for shape in self.drawing_widget.shapes: 
+
                 if shape[3] == getShapeColor():
                     continue
+
                 elif shape[3] == getBackgroundColor():
                     continue
                 else:
-                    shape[3] = self.drawing_widget.flipSquareColor(getShapeColor())
+                    shape[3] = self.drawing_widget.flipSquareColor(color)
+                    
+    def change_foreground_color(self, color):
+        setShapeColor(QColor(color))
+        self.change_active_color(getShapeColor())
         self.update()
         self.update_backside_image()
 
 
     def change_background_color(self, color):
         setBackgroundColor(QColor(color))
-        if getCurrentPatternType() == PatternType.Classic:
-            for shape in self.drawing_widget.shapes:
-                if shape[3] == getShapeColor():
-                    continue
-                elif shape[3] == getBackgroundColor():
-                    continue
-                else:
-                    shape[3] = self.drawing_widget.flipSquareColor(getBackgroundColor())
+        self.change_active_color(getBackgroundColor())
         self.update()
         self.update_backside_image()
 
@@ -1311,7 +1304,10 @@ class MainWindow(QMainWindow):
         print("number of paths: ", len(paths))
 
         for attr, shape in zip(attributes_copy, shapes_copy):
-            shape_color = getShapeColor()
+            if getCurrentPatternType() == PatternType.Classic:
+                shape_color = shape[3]
+            else:
+                shape_color = getShapeColor()
             pen_width = shape[5]
             filled = shape[6]
 

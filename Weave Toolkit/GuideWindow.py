@@ -21,8 +21,9 @@ class GuideWindow(QDialog):
             <img src={} width="300">
             <br>
             <p>Place your 2 stencils down side by side in front of each hand, such that the stencil with the circle with a cross within
-                is in front of your left hand and the stencil with just a cross within is placed in front of your right hand
-                as seen in the image above.</p>
+                is in front of your left hand and the stencil with just a cross within is placed in front of your right hand and
+                the crosses from each stencil overlap, such that the circle with the cross is not visible inside the heart.
+                As seen in the image above.</p>
         </div>
     
         <h2>Step 2</h2>
