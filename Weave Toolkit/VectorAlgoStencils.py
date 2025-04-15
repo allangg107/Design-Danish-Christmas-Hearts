@@ -21,7 +21,12 @@ from VectorAlgoUtils import (
     removeDuplicateLinesFromSVG,
     convertLinesToRectangles,
     convertLineToRectangle,
-    extractSemiCirclesFromPattern
+    extractSemiCirclesFromPattern,
+    grabTopMostPointOfPaths,
+    grabBottomMostPointOfPaths,
+    grabLeftMostPointOfPaths,
+    grabRightMostPointOfPaths,
+    combineStencils
 )
 
 from PatternType import (
@@ -47,41 +52,6 @@ from GlobalVariables import (
 )
 
 
-def combineStencils(first_stencil, second_stencil, filename='combined.svg'):
-    """Combines two SVG files together into one"""
-    # Initialize empty paths and attributes
-    paths1, attributes1 = [], []
-    paths2, attributes2 = [], []
-
-    # Try to read the first stencil
-    try:
-        paths1, attributes1 = svg2paths(first_stencil)
-    except Exception as e:
-        print(f"Could not read {first_stencil}: {e}")
-
-    # Try to read the second stencil
-    try:
-        paths2, attributes2 = svg2paths(second_stencil)
-    except Exception as e:
-        print(f"Could not read {second_stencil}: {e}")
-
-    # Check if both files are empty or non-existent
-    if not paths1 and not paths2:
-        print("Both SVG files are empty or non-existent.")
-        return
-
-    # If only one file has content, use that one
-    if not paths1:
-        wsvg(paths2, attributes=attributes2, filename=filename)
-        return
-    if not paths2:
-        wsvg(paths1, attributes=attributes1, filename=filename)
-        return
-
-    # If both files have content, combine them
-    combined_paths = paths1 + paths2
-    combined_attributes = attributes1 + attributes2
-    wsvg(combined_paths, attributes=combined_attributes, filename=filename)
 
 
 """Overlaying of SVG files"""
@@ -507,88 +477,88 @@ def distance(p1, p2):
     return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
 
 
-def grabLeftMostPointOfPaths(paths):
-    """Grab the left most point from a path or a list of paths"""
-    min_x = float('inf')
-    min_point = None
+# def grabLeftMostPointOfPaths(paths):
+#     """Grab the left most point from a path or a list of paths"""
+#     min_x = float('inf')
+#     min_point = None
 
-    # Convert single path to a list for consistent processing
-    if not isinstance(paths, list):
-        paths = [paths]
+#     # Convert single path to a list for consistent processing
+#     if not isinstance(paths, list):
+#         paths = [paths]
 
-    for path in paths:
-        for segment in path:
-            # Sample points along the segment
-            for t in np.linspace(0, 1, 20):  # Sample 20 points per segment
-                pt = segment.point(t)
-                if pt.real < min_x:
-                    min_x = pt.real
-                    min_point = pt
+#     for path in paths:
+#         for segment in path:
+#             # Sample points along the segment
+#             for t in np.linspace(0, 1, 20):  # Sample 20 points per segment
+#                 pt = segment.point(t)
+#                 if pt.real < min_x:
+#                     min_x = pt.real
+#                     min_point = pt
 
-    return min_point
-
-
-def grabRightMostPointOfPaths(paths):
-    """Grab the right most point from a path or a list of paths"""
-    max_x = float('-inf')
-    max_point = None
-
-    # Convert single path to a list for consistent processing
-    if not isinstance(paths, list):
-        paths = [paths]
-
-    for path in paths:
-        for segment in path:
-            # Sample points along the segment
-            for t in np.linspace(0, 1, 20):  # Sample 20 points per segment
-                pt = segment.point(t)
-                if pt.real > max_x:
-                    max_x = pt.real
-                    max_point = pt
-
-    return max_point
+#     return min_point
 
 
-def grabTopMostPointOfPaths(paths):
-    """Grab the top most point from a path or a list of paths"""
-    min_y = float('inf')  # Using min_y since in SVG coordinate system, lower y values are higher up
-    min_point = None
+# def grabRightMostPointOfPaths(paths):
+#     """Grab the right most point from a path or a list of paths"""
+#     max_x = float('-inf')
+#     max_point = None
 
-    # Convert single path to a list for consistent processing
-    if not isinstance(paths, list):
-        paths = [paths]
+#     # Convert single path to a list for consistent processing
+#     if not isinstance(paths, list):
+#         paths = [paths]
 
-    for path in paths:
-        for segment in path:
-            # Sample points along the segment
-            for t in np.linspace(0, 1, 20):  # Sample 20 points per segment
-                pt = segment.point(t)
-                if pt.imag < min_y:
-                    min_y = pt.imag
-                    min_point = pt
+#     for path in paths:
+#         for segment in path:
+#             # Sample points along the segment
+#             for t in np.linspace(0, 1, 20):  # Sample 20 points per segment
+#                 pt = segment.point(t)
+#                 if pt.real > max_x:
+#                     max_x = pt.real
+#                     max_point = pt
 
-    return min_point
+#     return max_point
 
 
-def grabBottomMostPointOfPaths(paths):
-    """Grab the bottom most point from a path or a list of paths"""
-    max_y = float('-inf')  # Using max_y since in SVG coordinate system, higher y values are lower down
-    max_point = None
+# def grabTopMostPointOfPaths(paths):
+#     """Grab the top most point from a path or a list of paths"""
+#     min_y = float('inf')  # Using min_y since in SVG coordinate system, lower y values are higher up
+#     min_point = None
 
-    # Convert single path to a list for consistent processing
-    if not isinstance(paths, list):
-        paths = [paths]
+#     # Convert single path to a list for consistent processing
+#     if not isinstance(paths, list):
+#         paths = [paths]
 
-    for path in paths:
-        for segment in path:
-            # Sample points along the segment
-            for t in np.linspace(0, 1, 20):  # Sample 20 points per segment
-                pt = segment.point(t)
-                if pt.imag > max_y:
-                    max_y = pt.imag
-                    max_point = pt
+#     for path in paths:
+#         for segment in path:
+#             # Sample points along the segment
+#             for t in np.linspace(0, 1, 20):  # Sample 20 points per segment
+#                 pt = segment.point(t)
+#                 if pt.imag < min_y:
+#                     min_y = pt.imag
+#                     min_point = pt
 
-    return max_point
+#     return min_point
+
+
+# def grabBottomMostPointOfPaths(paths):
+#     """Grab the bottom most point from a path or a list of paths"""
+#     max_y = float('-inf')  # Using max_y since in SVG coordinate system, higher y values are lower down
+#     max_point = None
+
+#     # Convert single path to a list for consistent processing
+#     if not isinstance(paths, list):
+#         paths = [paths]
+
+#     for path in paths:
+#         for segment in path:
+#             # Sample points along the segment
+#             for t in np.linspace(0, 1, 20):  # Sample 20 points per segment
+#                 pt = segment.point(t)
+#                 if pt.imag > max_y:
+#                     max_y = pt.imag
+#                     max_point = pt
+
+#     return max_point
 
 
 def set_fill_to_none(paths, attrs):
@@ -1565,13 +1535,16 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     combineStencils(stencil_1_classic_cuts, mirrored_pattern, "checkpoint.svg")
     combineStencils("checkpoint.svg", empty_stencil_1, "checkpoint.svg")
 
-    semi_circles = f"{getFileStepCounter()}_semi_circles.svg"
+    top_semi_circles = f"{getFileStepCounter()}_top_semi_circles.svg"
+    incrementFileStepCounter()
+
+    bottom_semi_circles = f"{getFileStepCounter()}_bottom_semi_circles.svg"
     incrementFileStepCounter()
 
     pattern_no_semi_circles = f"{getFileStepCounter()}_pattern_no_semi_circles.svg"
     incrementFileStepCounter()
 
-    extractSemiCirclesFromPattern(mirrored_pattern, semi_circles, pattern_no_semi_circles)
+    extractSemiCirclesFromPattern(mirrored_pattern, top_semi_circles, bottom_semi_circles, pattern_no_semi_circles, width, height, square_size, side_type, n_lines)
 
     # split each shape into a top quarter, middle half, and bottom quarter
     top_and_bottom_quarters_of_shapes = f"{getFileStepCounter()}_top_bottom_quarters.svg"
@@ -1619,11 +1592,20 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     incrementFileStepCounter()
     convertLinesToRectangles(updated_classic_cuts_2, converted_lines_to_rectangles_2)
 
+    top_semi_circles_w_lines = f"{getFileStepCounter()}_top_semi_circles_w_lines.svg"
+    incrementFileStepCounter()
+    bottom_semi_circles_w_lines = f"{getFileStepCounter()}_bottom_semi_circles_w_lines.svg"
+    incrementFileStepCounter()
+    attach45DegreeLinesAndRemoveInbetween(bottom_semi_circles, updated_classic_cuts, bottom_semi_circles_w_lines)
+    attach45DegreeLinesAndRemoveInbetween(top_semi_circles, updated_classic_cuts_2, top_semi_circles_w_lines)
+
     combineStencils(converted_lines_to_rectangles_1, converted_lines_to_rectangles_2, "checkpoint_3.svg")
     combineStencils("checkpoint_3.svg", empty_stencil_1, "checkpoint_3.svg")
     combineStencils("checkpoint_3.svg", empty_stencil_2, "checkpoint_3.svg")
     combineStencils("checkpoint_3.svg", top_and_bottom_quarters_of_shapes_w_lines, "checkpoint_3.svg")
     combineStencils("checkpoint_3.svg", middle_halves_w_lines, "checkpoint_3.svg")
+    combineStencils("checkpoint_3.svg", top_semi_circles_w_lines, "checkpoint_3.svg")
+    combineStencils("checkpoint_3.svg", bottom_semi_circles_w_lines, "checkpoint_3.svg")
 
 
 def create_symmetric_pattern_stencils(preprocessed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, side_type, pattern_type):

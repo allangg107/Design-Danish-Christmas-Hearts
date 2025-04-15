@@ -10,11 +10,17 @@ import math
 import numpy as np
 import cv2 as cv
 import svgwrite
-from GlobalVariables import(
+
+from GlobalVariables import (
     getFileStepCounter,
     getDrawingSquareSize,
     incrementFileStepCounter,
-    setDrawingSquareSize
+    setDrawingSquareSize,
+    getMargin
+)
+
+from SideType import (
+    SideType
 )
 
 """Preprocessing"""
@@ -69,6 +75,120 @@ def pre_process_user_input(original_pattern, shape_types, width, height, square_
     print("finished pre-processing")
 
 """Utility functions for rotating an SVG file"""
+
+def combineStencils(first_stencil, second_stencil, filename='combined.svg'):
+    """Combines two SVG files together into one"""
+    # Initialize empty paths and attributes
+    paths1, attributes1 = [], []
+    paths2, attributes2 = [], []
+
+    # Try to read the first stencil
+    try:
+        paths1, attributes1 = svg2paths(first_stencil)
+    except Exception as e:
+        print(f"Could not read {first_stencil}: {e}")
+
+    # Try to read the second stencil
+    try:
+        paths2, attributes2 = svg2paths(second_stencil)
+    except Exception as e:
+        print(f"Could not read {second_stencil}: {e}")
+
+    # Check if both files are empty or non-existent
+    if not paths1 and not paths2:
+        print("Both SVG files are empty or non-existent.")
+        return
+
+    # If only one file has content, use that one
+    if not paths1:
+        wsvg(paths2, attributes=attributes2, filename=filename)
+        return
+    if not paths2:
+        wsvg(paths1, attributes=attributes1, filename=filename)
+        return
+
+    # If both files have content, combine them
+    combined_paths = paths1 + paths2
+    combined_attributes = attributes1 + attributes2
+    wsvg(combined_paths, attributes=combined_attributes, filename=filename)
+
+
+
+def grabLeftMostPointOfPaths(paths):
+    """Grab the left most point from a path or a list of paths"""
+    min_x = float('inf')
+    min_point = None
+
+    # Convert single path to a list for consistent processing
+    if not isinstance(paths, list):
+        paths = [paths]
+
+    for path in paths:
+        for segment in path:
+            # Sample points along the segment
+            for t in np.linspace(0, 1, 20):  # Sample 20 points per segment
+                pt = segment.point(t)
+                if pt.real < min_x:
+                    min_x = pt.real
+                    min_point = pt
+
+    return min_point
+
+
+def grabRightMostPointOfPaths(paths):
+    """Grab the right most point from a path or a list of paths"""
+    max_x = float('-inf')
+    max_point = None
+
+    # Convert single path to a list for consistent processing
+    if not isinstance(paths, list):
+        paths = [paths]
+
+    for path in paths:
+        for segment in path:
+            # Sample points along the segment
+            for t in np.linspace(0, 1, 20):  # Sample 20 points per segment
+                pt = segment.point(t)
+                if pt.real > max_x:
+                    max_x = pt.real
+                    max_point = pt
+
+    return max_point
+
+def grabTopMostPointOfPaths(paths):
+    """Grab the top most point from a path or a list of paths"""
+    min_y = float('inf')  # Using min_y since in SVG coordinate system, lower y values are higher up
+    min_point = None
+    # Convert single path to a list for consistent processing
+    if not isinstance(paths, list):
+        paths = [paths]
+    for path in paths:
+        for segment in path:
+            # Sample points along the segment
+            for t in np.linspace(0, 1, 20):  # Sample 20 points per segment
+                pt = segment.point(t)
+                if pt.imag < min_y:
+                    min_y = pt.imag
+                    min_point = pt
+    return min_point
+
+
+def grabBottomMostPointOfPaths(paths):
+    """Grab the bottom most point from a path or a list of paths"""
+    max_y = float('-inf')  # Using max_y since in SVG coordinate system, higher y values are lower down
+    max_point = None
+    # Convert single path to a list for consistent processing
+    if not isinstance(paths, list):
+        paths = [paths]
+    for path in paths:
+        for segment in path:
+            # Sample points along the segment
+            for t in np.linspace(0, 1, 20):  # Sample 20 points per segment
+                pt = segment.point(t)
+                if pt.imag > max_y:
+                    max_y = pt.imag
+                    max_point = pt
+    return max_point
 
 def rotateImage(matrix, angle=-45):
     height, width = matrix.shape[:2]
@@ -761,12 +881,16 @@ def convertLinesToRectangles(input_svg, output_svg):
     dwg.save()
 
 
-def extractSemiCirclesFromPattern(mirrored_pattern, semi_circles, pattern_no_semi_circles):
+def extractSemiCirclesFromPattern(mirrored_pattern, top_semi_circles, bottom_semi_circles, pattern_no_semi_circles, width, height, square_size, side_type, n_lines):
     paths, attributes = svg2paths(mirrored_pattern)
-    semi_circle_paths = []
-    semi_circles_attributes = []
+    top_semi_circle_paths = []
+    top_semi_circles_attributes = []
+    bottom_semi_circle_paths = []
+    bottom_semi_circles_attributes = []
     pattern_no_semi_circles_paths = []
     pattern_no_semi_circles_attributes = []
+    offset = square_size / (n_lines + 1)
+
 
     # Iterate through each path and filter out lines from semi-circle paths
     for path, attribute in zip(paths, attributes):
@@ -778,18 +902,71 @@ def extractSemiCirclesFromPattern(mirrored_pattern, semi_circles, pattern_no_sem
             # Find the two longest lines
             line_segments = [(segment, segment.length()) for segment in path if isinstance(segment, Line)]
             line_segments.sort(key=lambda x: x[1], reverse=True)
-            
+
             # Get the two longest lines (if there are at least two)
             longest_lines = [segment for segment, _ in line_segments[:min(2, len(line_segments))]]
-            
+
+            # Check if the longest line is vertical (similar x-coordinates)
+            top_circle = False
+            if longest_lines:
+                longest_line = longest_lines[0]
+                x_diff = abs(longest_line.start.real - longest_line.end.real)
+                y_diff = abs(longest_line.start.imag - longest_line.end.imag)
+
+                if x_diff < y_diff / 5:
+                    top_circle = True
+
             # Create a list of all segments except the two longest lines
             non_line_segments = [segment for segment in path if segment not in longest_lines]
 
             if non_line_segments:  # Only add if there are segments left
                 print("SEMI CIRCLE FOUND part 2")
                 filtered_path = Path(*non_line_segments)
-                semi_circle_paths.append(filtered_path)
-                semi_circles_attributes.append(attribute)
+                if top_circle:
+                    wsvg(filtered_path, attributes=[attribute], filename="temp_semi_circle.svg", dimensions=(400, 400))
+                    temp_paths, temp_attributes = svg2paths("temp_semi_circle.svg")
+                    print("temp paths: ", temp_paths)
+                    print("temp attributes: ", temp_attributes)
+                    # rotate top_semi_circles -90 degrees
+                    rotated_top_semi_circles = f"{getFileStepCounter()}_rotated_top_semi_circles.svg"
+                    incrementFileStepCounter()
+                    right_most_point = max(filtered_path, key=lambda p: p.start.real).start.real
+                    top_most_point_y = max(filtered_path, key=lambda p: p.start.imag).start.imag
+                    bottom_most_point_y = min(filtered_path, key=lambda p: p.start.imag).start.imag
+                    mid_point_y = (top_most_point_y + bottom_most_point_y) / 2
+                    rotateSVG("temp_semi_circle.svg", rotated_top_semi_circles, -90, right_most_point, mid_point_y)
+
+                    # mirror the top_semi_circles over the y-axis
+                    mirrored_top_semi_circles = f"{getFileStepCounter()}_mirrored_top_semi_circles.svg"
+                    incrementFileStepCounter()
+                    mirrorSVGOverYAxisWithX(rotated_top_semi_circles, mirrored_top_semi_circles, width, height, getMargin() / 2 + square_size * 1.5)
+
+                    # mirror over itself around the x-axis
+                    self_mirrored_top_semi_circles = f"{getFileStepCounter()}_self_mirrored_top_semi_circles.svg"
+                    incrementFileStepCounter()
+                    # top_most_paths, _ = svg2paths(mirrored_top_semi_circles)
+                    # top_most_point_y = grabTopMostPointOfPaths(top_most_paths).imag
+                    # bottom_most_point_y = grabBottomMostPointOfPaths(top_most_paths).imag
+                    # mid_point_y = (top_most_point_y + bottom_most_point_y) / 2
+                    # mirrorSVGOverXAxisWithY(mirrored_top_semi_circles, self_mirrored_top_semi_circles, width, height, mid_point_y)
+
+                    translated_top_semi_circles = self_mirrored_top_semi_circles
+                    if side_type == SideType.OneSided:
+                        # translate the top_semi_circles to the bottom stencil position
+                        translated_top_semi_circles = f"{getFileStepCounter()}_translated_top_semi_circles.svg"
+                        incrementFileStepCounter()
+                        translateSVGBy(mirrored_top_semi_circles, translated_top_semi_circles, 0, height + offset / 2)
+
+                    corrected_filtered_path, _ = svg2paths(translated_top_semi_circles)
+
+                    corrected_filtered_path = corrected_filtered_path[0]
+
+                    top_semi_circle_paths.append(corrected_filtered_path)
+                    top_semi_circles_attributes.append(attribute)
+                else:
+                    bottom_semi_circle_paths.append(filtered_path)
+                    bottom_semi_circles_attributes.append(attribute)
+
                 print("ATTRIBUTE: ", attribute)
 
                 print("SEMI CIRCLE FILTERED PATH: ", filtered_path)
@@ -797,7 +974,36 @@ def extractSemiCirclesFromPattern(mirrored_pattern, semi_circles, pattern_no_sem
             pattern_no_semi_circles_paths.append(path)
             pattern_no_semi_circles_attributes.append(attribute)
 
-    print("SEMI CIRCLE PATHS: ", semi_circle_paths)
+    print("TOP SEMI CIRCLE PATHS: ", top_semi_circle_paths)
+    print("BOTTOM SEMI CIRCLE PATHS: ", bottom_semi_circle_paths)
 
-    wsvg(semi_circle_paths, attributes=semi_circles_attributes, filename=semi_circles)
+    if side_type == SideType.TwoSided:
+        wsvg(top_semi_circle_paths, attributes=top_semi_circles_attributes, filename=top_semi_circles, dimensions=(width, height))
+        wsvg(bottom_semi_circle_paths, attributes=bottom_semi_circles_attributes, filename=bottom_semi_circles, dimensions=(width, height))
+
+        combined_semi_circles = f"{getFileStepCounter()}_combined_semi_circles.svg"
+        incrementFileStepCounter()
+        combineStencils(top_semi_circles, bottom_semi_circles, combined_semi_circles)
+
+        two_sided_combined_semi_circles = f"{getFileStepCounter()}_translated_combined_semi_circles.svg"
+        incrementFileStepCounter()
+        all_paths, all_attrs = svg2paths(combined_semi_circles)
+        wsvg(all_paths, attributes=all_attrs, filename=two_sided_combined_semi_circles, dimensions=(width, height))
+
+        translated_combined_semi_circles = f"{getFileStepCounter()}_translated_combined_semi_circles.svg"
+        incrementFileStepCounter()
+        translateSVGBy(two_sided_combined_semi_circles, translated_combined_semi_circles, 0, height)
+
+        all_paths_2, all_attrs_2 = svg2paths(translated_combined_semi_circles)
+
+        top_semi_circle_paths = all_paths
+        bottom_semi_circle_paths = all_paths_2
+        top_semi_circles_attributes = all_attrs
+        bottom_semi_circles_attributes = all_attrs_2
+
+    if top_semi_circle_paths:
+        wsvg(top_semi_circle_paths, attributes=top_semi_circles_attributes, filename=top_semi_circles, dimensions=(400, 400))
+    if bottom_semi_circle_paths:
+        wsvg(bottom_semi_circle_paths, attributes=bottom_semi_circles_attributes, filename=bottom_semi_circles)
+
     wsvg(pattern_no_semi_circles_paths, attributes=pattern_no_semi_circles_attributes, filename=pattern_no_semi_circles)
