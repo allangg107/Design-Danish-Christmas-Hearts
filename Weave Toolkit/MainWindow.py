@@ -556,8 +556,8 @@ class DrawingWidget(QWidget):
 
         # Set the rotation as the start angle for drawPie
         # Note: drawPie expects angle in 1/16th of degrees, and 0° is to the right, counter-clockwise positive
-        start_angle = int((180 + rotation_angle) * -16)  # Rotates the direction the semicircle "opens"
-        span_angle = int(-180 * -16)  # Draw counterclockwise to create a filled top semicircle
+        start_angle = int((-180 + rotation_angle) * -16)  # Rotates the direction the semicircle "opens"
+        span_angle = int(180 * -16)  # Draw counterclockwise to create a filled top semicircle
 
         qp.drawPie(rect, start_angle, span_angle)
 
