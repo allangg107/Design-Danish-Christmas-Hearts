@@ -695,6 +695,10 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.shape_attributes = []
 
+        # Save the color buttons in a dictionary
+        self.foreground_buttons = {}
+        self.background_buttons = {}
+
         self.setWindowTitle("Weave Toolkit")
         self.setStyleSheet("background-color: white;")
 
@@ -1104,6 +1108,7 @@ class MainWindow(QMainWindow):
 
         for color_name, color_value in foreground_colors:
             button = QPushButton(color_name, self, styleSheet=f"background-color: {color_value}; color: black;")
+            self.foreground_buttons[color_name] = button
             button.clicked.connect(partial(self.change_foreground_color, color_value))
             colors_toolbar.addWidget(button)
 
@@ -1133,6 +1138,7 @@ class MainWindow(QMainWindow):
 
         for color_name, color_value in background_colors:
             button = QPushButton(color_name, self, styleSheet=f"background-color: {color_value}; color: black;")
+            self.background_buttons[color_name] = button
             button.clicked.connect(partial(self.change_background_color, color_value))
             colors_toolbar.addWidget(button)
 
@@ -1199,11 +1205,18 @@ class MainWindow(QMainWindow):
         setNumClassicLines(value)
         self.drawing_widget.update()  # Refresh the drawing
 
-
+    def get_color_name(self, qcolor):
+        color_map = {
+            QColor("red").name(): "Red",
+            QColor("green").name(): "Green",
+            QColor("blue").name(): "Blue",
+             QColor("orange").name(): "Orange",
+             QColor("white").name(): "White"
+        }
+        return color_map.get(qcolor.name(), "Unkown")
+    
     def change_active_color(self, color):
         if getCurrentPatternType() == PatternType.Classic:
-            if getShapeColor() == getBackgroundColor():
-               self.drawing_widget.shapes.clear()
             for shape in self.drawing_widget.shapes: 
 
                 if shape[3] == getShapeColor():
@@ -1213,9 +1226,22 @@ class MainWindow(QMainWindow):
                     continue
                 else:
                     shape[3] = self.drawing_widget.flipSquareColor(color)
+    
+    def disable_enable_color_button(self, foreground=True):
+        if foreground:
+            color = self.get_color_name(getShapeColor())
+            for color_name, button in self.background_buttons.items():
+                button.setEnabled(color_name != color)
+        
+        else:
+            color = self.get_color_name(getBackgroundColor())
+            for color_name, button in self.foreground_buttons.items():
+                button.setEnabled(color_name != color)
+            
                     
     def change_foreground_color(self, color):
         setShapeColor(QColor(color))
+        self.disable_enable_color_button()
         self.change_active_color(getShapeColor())
         self.update()
         self.update_backside_image()
@@ -1223,6 +1249,7 @@ class MainWindow(QMainWindow):
 
     def change_background_color(self, color):
         setBackgroundColor(QColor(color))
+        self.disable_enable_color_button(foreground=False)
         self.change_active_color(getBackgroundColor())
         self.update()
         self.update_backside_image()
