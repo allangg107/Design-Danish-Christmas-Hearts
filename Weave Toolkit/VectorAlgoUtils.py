@@ -934,28 +934,28 @@ def extractSemiCirclesFromPattern(mirrored_pattern, top_semi_circles, bottom_sem
                     top_most_point_y = max(filtered_path, key=lambda p: p.start.imag).start.imag
                     bottom_most_point_y = min(filtered_path, key=lambda p: p.start.imag).start.imag
                     mid_point_y = (top_most_point_y + bottom_most_point_y) / 2
-                    rotateSVG("temp_semi_circle.svg", rotated_top_semi_circles, -90, right_most_point, mid_point_y)
+                    rotateSVG("temp_semi_circle.svg", rotated_top_semi_circles, -90, right_most_point + (top_most_point_y - bottom_most_point_y) / 2, mid_point_y)
 
                     # mirror the top_semi_circles over the y-axis
                     mirrored_top_semi_circles = f"{getFileStepCounter()}_mirrored_top_semi_circles.svg"
                     incrementFileStepCounter()
-                    mirrorSVGOverYAxisWithX(rotated_top_semi_circles, mirrored_top_semi_circles, width, height, getMargin() / 2 + square_size * 1.5)
+                    mirrorSVGOverYAxisWithX(rotated_top_semi_circles, mirrored_top_semi_circles, width, height, getMargin() / 1.125 + square_size * 1.5)
 
                     # mirror over itself around the x-axis
-                    self_mirrored_top_semi_circles = f"{getFileStepCounter()}_self_mirrored_top_semi_circles.svg"
-                    incrementFileStepCounter()
+                    # self_mirrored_top_semi_circles = f"{getFileStepCounter()}_self_mirrored_top_semi_circles.svg"
+                    # incrementFileStepCounter()
                     # top_most_paths, _ = svg2paths(mirrored_top_semi_circles)
                     # top_most_point_y = grabTopMostPointOfPaths(top_most_paths).imag
                     # bottom_most_point_y = grabBottomMostPointOfPaths(top_most_paths).imag
                     # mid_point_y = (top_most_point_y + bottom_most_point_y) / 2
                     # mirrorSVGOverXAxisWithY(mirrored_top_semi_circles, self_mirrored_top_semi_circles, width, height, mid_point_y)
 
-                    translated_top_semi_circles = self_mirrored_top_semi_circles
+                    translated_top_semi_circles = mirrored_top_semi_circles
                     if side_type == SideType.OneSided:
                         # translate the top_semi_circles to the bottom stencil position
                         translated_top_semi_circles = f"{getFileStepCounter()}_translated_top_semi_circles.svg"
                         incrementFileStepCounter()
-                        translateSVGBy(mirrored_top_semi_circles, translated_top_semi_circles, 0, height + offset / 2)
+                        translateSVGBy(mirrored_top_semi_circles, translated_top_semi_circles, 0, height)
 
                     corrected_filtered_path, _ = svg2paths(translated_top_semi_circles)
 
@@ -996,10 +996,10 @@ def extractSemiCirclesFromPattern(mirrored_pattern, top_semi_circles, bottom_sem
 
         all_paths_2, all_attrs_2 = svg2paths(translated_combined_semi_circles)
 
-        top_semi_circle_paths = all_paths
-        bottom_semi_circle_paths = all_paths_2
-        top_semi_circles_attributes = all_attrs
-        bottom_semi_circles_attributes = all_attrs_2
+        top_semi_circle_paths = all_paths_2
+        bottom_semi_circle_paths = all_paths
+        top_semi_circles_attributes = all_attrs_2
+        bottom_semi_circles_attributes = all_attrs
 
     if top_semi_circle_paths:
         wsvg(top_semi_circle_paths, attributes=top_semi_circles_attributes, filename=top_semi_circles, dimensions=(400, 400))

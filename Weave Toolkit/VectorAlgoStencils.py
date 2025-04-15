@@ -1328,23 +1328,23 @@ def createSquareGrid(square_size, n_lines, offset):
 def attach45DegreeLinesAndRemoveInbetween(quarters, classic_cuts, output_name):
     # load in the svg file of one instance of a single drawing
     # each drawing should have a top and bottom quarter disconnected from each other
-    paths, attrs = svg2paths(quarters)
+    quarter_paths, quarter_attrs = svg2paths(quarters)
     classic_cut_paths, classic_cut_attrs = svg2paths(classic_cuts)
 
-    paths_copy = copy.deepcopy(paths)
-    attributes_copy = copy.deepcopy(attrs)
+    quarter_paths_copy = copy.deepcopy(quarter_paths)
+    quarter_attributes_copy = copy.deepcopy(quarter_attrs)
 
     # Store modified classic cut lines in a dictionary keyed by y-coordinate
     modified_classic_lines = {}
 
-    for path in paths:
+    for quarter_path in quarter_paths:
         # find the left- and right-most point of each path
         left_most_point = None
         right_most_point = None
         min_x = float('inf')
         max_x = float('-inf')
 
-        for segment in path:
+        for segment in quarter_path:
             # Sample points along the segment
             for t in np.linspace(0, 1, 10):  # Sample 10 points per segment
                 point = segment.point(t)
@@ -1387,14 +1387,14 @@ def attach45DegreeLinesAndRemoveInbetween(quarters, classic_cuts, output_name):
             # Draw left diagonal
             left_diagonal = Line(complex(left_most_point[0], left_most_point[1]),
                                 complex(left_intersection_x, intersection_y))
-            paths_copy.append(Path(left_diagonal))
-            attributes_copy.append({'stroke': 'red', 'stroke-width': 1, 'fill': 'none'})
+            quarter_paths_copy.append(Path(left_diagonal))
+            quarter_attributes_copy.append({'stroke': 'red', 'stroke-width': 1, 'fill': 'none'})
 
             # Draw right diagonal
             right_diagonal = Line(complex(right_most_point[0], right_most_point[1]),
                                 complex(right_intersection_x, intersection_y))
-            paths_copy.append(Path(right_diagonal))
-            attributes_copy.append({'stroke': 'blue', 'stroke-width': 1, 'fill': 'none'})
+            quarter_paths_copy.append(Path(right_diagonal))
+            quarter_attributes_copy.append({'stroke': 'blue', 'stroke-width': 1, 'fill': 'none'})
 
             # Get the original line coordinates
             orig_start_x, orig_start_y = closest_classic_line.coords[0]
@@ -1452,8 +1452,8 @@ def attach45DegreeLinesAndRemoveInbetween(quarters, classic_cuts, output_name):
             new_classic_cut_paths.append(Path(line))
 
     # Keep any classic cut paths that weren't modified
-    for path in classic_cut_paths:
-        for segment in path:
+    for quarter_path in classic_cut_paths:
+        for segment in quarter_path:
             if isinstance(segment, Line):
                 line_y = segment.start.imag
                 if line_y not in modified_classic_lines:
@@ -1466,7 +1466,7 @@ def attach45DegreeLinesAndRemoveInbetween(quarters, classic_cuts, output_name):
     wsvg(new_classic_cut_paths, attributes=new_classic_cut_attrs, filename=classic_cuts)
 
     # Save the output with the diagonal lines
-    wsvg(paths_copy, attributes=attributes_copy, filename=output_name)
+    wsvg(quarter_paths_copy, attributes=quarter_attributes_copy, filename=output_name)
 
 
 """Create Non-Simple stencils"""
@@ -1561,28 +1561,32 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     combineStencils("checkpoint_2.svg", middle_halves, "checkpoint_2.svg")
 
     #  attach a 45 degree line from each end of the quarters to their closest classic cut line/stencil line
-    top_and_bottom_quarters_of_shapes_w_lines = f"{getFileStepCounter()}_top_and_bottom_quarters_of_shapes_w_lines.svg"
-    incrementFileStepCounter()
     updated_classic_cuts = f"{getFileStepCounter()}_updated_classic_cuts.svg"
     incrementFileStepCounter()
     classic_paths, classic_attrs = svg2paths(stencil_1_classic_cuts)
     wsvg(classic_paths, attributes=classic_attrs, filename=updated_classic_cuts)
 
-    top_and_bottom_quarters_of_shapes_w_lines = f"{getFileStepCounter()}_top_and_bottom_quarters_of_shapes_w_lines.svg"
+    top_stencil_shapes = f"{getFileStepCounter()}_top_stencil_shapes.svg"
     incrementFileStepCounter()
-    attach45DegreeLinesAndRemoveInbetween(top_and_bottom_quarters_of_shapes, updated_classic_cuts, top_and_bottom_quarters_of_shapes_w_lines)
+    combineStencils(top_and_bottom_quarters_of_shapes, bottom_semi_circles, top_stencil_shapes)
+
+    bottom_stencil_shapes = f"{getFileStepCounter()}_bottom_stencil_shapes.svg"
+    incrementFileStepCounter()
+    combineStencils(middle_halves, top_semi_circles, bottom_stencil_shapes)
+
+    top_stencil_shapes_with_lines = f"{getFileStepCounter()}_top_stencil_shapes_w_lines.svg"
+    incrementFileStepCounter()
+    attach45DegreeLinesAndRemoveInbetween(top_stencil_shapes, updated_classic_cuts, top_stencil_shapes_with_lines)
 
     # repeat above with middle_halves and stencil_2_classic_cuts
-    middle_halves_w_lines = f"{getFileStepCounter()}_middle_halves_w_lines.svg"
-    incrementFileStepCounter()
     updated_classic_cuts_2 = f"{getFileStepCounter()}_updated_classic_cuts_2.svg"
     incrementFileStepCounter()
     classic_paths_2, classic_attrs_2 = svg2paths(stencil_2_classic_cuts)
     wsvg(classic_paths_2, attributes=classic_attrs_2, filename=updated_classic_cuts_2)
 
-    middle_halves_w_lines = f"{getFileStepCounter()}_middle_halves_w_lines.svg"
+    bottom_stencil_shapes_w_lines = f"{getFileStepCounter()}_bottom_stencil_shapes_w_lines.svg"
     incrementFileStepCounter()
-    attach45DegreeLinesAndRemoveInbetween(middle_halves, updated_classic_cuts_2, middle_halves_w_lines)
+    attach45DegreeLinesAndRemoveInbetween(bottom_stencil_shapes, updated_classic_cuts_2, bottom_stencil_shapes_w_lines)
 
     converted_lines_to_rectangles_1 = f"{getFileStepCounter()}_converted_lines_to_rectangles_1.svg"
     incrementFileStepCounter()
@@ -1592,20 +1596,20 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     incrementFileStepCounter()
     convertLinesToRectangles(updated_classic_cuts_2, converted_lines_to_rectangles_2)
 
-    top_semi_circles_w_lines = f"{getFileStepCounter()}_top_semi_circles_w_lines.svg"
-    incrementFileStepCounter()
-    bottom_semi_circles_w_lines = f"{getFileStepCounter()}_bottom_semi_circles_w_lines.svg"
-    incrementFileStepCounter()
-    attach45DegreeLinesAndRemoveInbetween(bottom_semi_circles, updated_classic_cuts, bottom_semi_circles_w_lines)
-    attach45DegreeLinesAndRemoveInbetween(top_semi_circles, updated_classic_cuts_2, top_semi_circles_w_lines)
+    # top_semi_circles_w_lines = f"{getFileStepCounter()}_top_semi_circles_w_lines.svg"
+    # incrementFileStepCounter()
+    # bottom_semi_circles_w_lines = f"{getFileStepCounter()}_bottom_semi_circles_w_lines.svg"
+    # incrementFileStepCounter()
+    # attach45DegreeLinesAndRemoveInbetween(bottom_semi_circles, updated_classic_cuts, bottom_semi_circles_w_lines)
+    # attach45DegreeLinesAndRemoveInbetween(top_semi_circles, updated_classic_cuts_2, top_semi_circles_w_lines)
 
     combineStencils(converted_lines_to_rectangles_1, converted_lines_to_rectangles_2, "checkpoint_3.svg")
     combineStencils("checkpoint_3.svg", empty_stencil_1, "checkpoint_3.svg")
     combineStencils("checkpoint_3.svg", empty_stencil_2, "checkpoint_3.svg")
-    combineStencils("checkpoint_3.svg", top_and_bottom_quarters_of_shapes_w_lines, "checkpoint_3.svg")
-    combineStencils("checkpoint_3.svg", middle_halves_w_lines, "checkpoint_3.svg")
-    combineStencils("checkpoint_3.svg", top_semi_circles_w_lines, "checkpoint_3.svg")
-    combineStencils("checkpoint_3.svg", bottom_semi_circles_w_lines, "checkpoint_3.svg")
+    combineStencils("checkpoint_3.svg", top_stencil_shapes_with_lines, "checkpoint_3.svg")
+    combineStencils("checkpoint_3.svg", bottom_stencil_shapes_w_lines, "checkpoint_3.svg")
+    # combineStencils("checkpoint_3.svg", top_semi_circles_w_lines, "checkpoint_3.svg")
+    # combineStencils("checkpoint_3.svg", bottom_semi_circles_w_lines, "checkpoint_3.svg")
 
 
 def create_symmetric_pattern_stencils(preprocessed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, side_type, pattern_type):
