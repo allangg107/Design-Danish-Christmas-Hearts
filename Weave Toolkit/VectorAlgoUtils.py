@@ -817,7 +817,8 @@ def get_rgb_from_qcolor(qcolor):
 def calculate_distance(point1, point2):
         return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
 
-def drawCheckerboardOnPixmap(pixmap, painter, lines=6):
+def drawCheckerboardOnPixmap(pixmap, painter):
+    lines = getNumClassicLines() * 2
     # Draw standard checkerboard pattern
     size = pixmap.size()
     width, height = size.width(), size.height()
