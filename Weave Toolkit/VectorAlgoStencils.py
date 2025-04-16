@@ -50,7 +50,8 @@ from GlobalVariables import (
     incrementFileStepCounter,
     getFileStepCounter,
     getShapeColor,
-    getNumClassicLines
+    getNumClassicLines,
+    getLineThicknessAndExtension
 )
 
 
@@ -192,7 +193,7 @@ def drawInnerCutLines(width, height, starting_y, margin_x=getMargin(), line_colo
     # Define the square size
     square_size = (height // 1.5) - margin_x
     margin_y = margin_x + starting_y
-    extension = 3  # Amount to extend the lines
+    extension = getLineThicknessAndExtension()  # Amount to extend the lines
 
     # Define the left square margins
     left_top_line_start = (margin_x + square_size // 2, margin_y)
@@ -733,7 +734,7 @@ def drawExtensionLines(combined_stencil, stencil_pattern, output_name, side_type
 
     # Draw a line from the bottom most point to the left edge of the stencil and draw a line from the top most point to the right edge of the stencil
     for path, attr in zip(combined_paths, combined_attrs):
-        extension = 3
+        extension = getLineThicknessAndExtension()
 
         stencil_square_start = margin_x + square_size // 2
 

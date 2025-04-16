@@ -16,7 +16,8 @@ from GlobalVariables import (
     getDrawingSquareSize,
     incrementFileStepCounter,
     setDrawingSquareSize,
-    getMargin
+    getMargin,
+    getLineThicknessAndExtension
 )
 
 from SideType import (
@@ -840,7 +841,7 @@ def convertLineToRectangle(input_line):
 
             # Create a rectangle from the line endpoints
             rect_width = abs(end.real - start.real)
-            rect_height = 4
+            rect_height = getLineThicknessAndExtension()
             x = min(start.real, end.real)
             y = min(start.imag, end.imag) - rect_height / 2
 
@@ -870,7 +871,7 @@ def convertLinesToRectangles(input_svg, output_svg):
 
                 # Create a rectangle from the line endpoints
                 rect_width = abs(end.real - start.real)
-                rect_height = 4
+                rect_height = getLineThicknessAndExtension()
                 x = min(start.real, end.real)
                 y = min(start.imag, end.imag) - rect_height / 2
 
