@@ -1,8 +1,8 @@
 import sys
 from PyQt6.QtSvg import QSvgRenderer, QSvgGenerator
 from PyQt6.QtWidgets import QApplication, QWidget, QLabel
-from PyQt6.QtGui import QImage, QPainter, QTransform, QPixmap, QColor
-from PyQt6.QtCore import QSize, QByteArray, QRectF
+from PyQt6.QtGui import QImage, QPainter, QTransform, QPixmap, QColor, QPen, QBrush, QPolygonF
+from PyQt6.QtCore import QSize, QByteArray, QRectF, Qt, QPointF, QRect
 import xml.etree.ElementTree as ET
 from svgpathtools import svg2paths, wsvg, Path, Line, CubicBezier, QuadraticBezier, parse_path
 from shapely.geometry import LineString, Polygon, MultiLineString, MultiPolygon
@@ -17,11 +17,20 @@ from GlobalVariables import (
     incrementFileStepCounter,
     setDrawingSquareSize,
     getMargin,
-    getLineThicknessAndExtension
+    getLineThicknessAndExtension,
+    getBackgroundColor,
+    getShapeColor,
+    getCurrentPatternType,
+    getNumClassicLines,
+    getPenWidth
 )
 
 from SideType import (
     SideType
+)
+
+from PatternType import (
+    PatternType
 )
 
 """Preprocessing"""
@@ -802,13 +811,58 @@ def makeTrans(final_output_array, color):
     return rgba_image
 
 
+def get_rgb_from_qcolor(qcolor):
+    return (qcolor.blue(), qcolor.green(), qcolor.red())
+
+def calculate_distance(point1, point2):
+        return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
+
+def drawCheckerboardOnPixmap(pixmap, painter, lines=6):
+    # Draw standard checkerboard pattern
+    size = pixmap.size()
+    width, height = size.width(), size.height()
+
+    # Calculate square size to get `lines` squares along the diagonal
+    diagonal = math.hypot(width, height)
+    square_size = math.ceil(diagonal / lines)
+
+    # Create a temporary pixmap for the checkerboard
+    checker_pixmap = QPixmap(size)
+    checker_pixmap.fill(Qt.GlobalColor.transparent)
+    checker_painter = QPainter(checker_pixmap)
+
+    rows = size.height() // square_size + 2
+    cols = size.width() // square_size + 2
+    for row in range(rows):
+        for col in range(cols):
+            if (row + col) % 2 == 0:
+                color = getShapeColor()
+            else:
+                color = getBackgroundColor()
+
+            x = col * square_size
+            y = row * square_size
+            checker_painter.fillRect(QRect(x, y, square_size, square_size), QBrush(color))
+    
+    checker_painter.end()
+
+    rotated = checker_pixmap.transformed(QTransform().rotate(-90), Qt.TransformationMode.SmoothTransformation)
+
+    # Draw rotated checkerboard onto the original pixmap using the passed painter
+    x_offset = (pixmap.width() - rotated.width()) // 2 + 20
+    y_offset = (pixmap.height() - rotated.height()) // 2 - 20
+    painter.drawPixmap(x_offset, y_offset, rotated)
+
 def saveSvgFileAsPixmap(filepath, size=QSize(600, 600)):
     renderer = QSvgRenderer(filepath)
 
     pixmap = QPixmap(size)
-    pixmap.fill()  # Fill with transparent background
+    pixmap.fill(getBackgroundColor())  # Fill with background color background
 
     painter = QPainter(pixmap)
+    if getCurrentPatternType() == PatternType.Classic:
+        drawCheckerboardOnPixmap(pixmap, painter)
+        
     renderer.render(painter)
     painter.end()
 
