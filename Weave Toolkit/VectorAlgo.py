@@ -26,7 +26,8 @@ from VectorAlgoUtils import (
     crop_svg,
     savePixmapToCvImage,
     saveSvgFileAsPixmap,
-    rotateImage
+    rotateImage,
+    get_rgb_from_qcolor
 )
 
 from VectorAlgoStencils import (
@@ -58,7 +59,10 @@ from GlobalVariables import(
     setDrawingSquareSize,
     getHasImage,
     setHasImage,
-    getNumClassicLines
+    getNumClassicLines,
+    getShapeColor,
+    getBackgroundColor,
+    getCurrentPatternType,
 )
 
 # VectorAlgo will be used when the user presses the "Update SVG" button
@@ -133,7 +137,64 @@ def close_line_with_corners(coords, width, height, tol=1e-6):
     #new_coords.append(first)
     return new_coords
 
-def createFinalHeartDisplay(image):
+def createFinalHeartDisplayBaseCase(mask, points, foreground_color, background_color):
+    if background_color != (255,255,255):
+        cv.fillPoly(mask,[points],background_color)
+
+    # Draw diamonds at each corner
+    diamond_size = 3
+    symmetric_asymmetric_case = False
+    counter = 1
+    if getCurrentPatternType() == PatternType.Symmetric or getCurrentPatternType() == PatternType.Asymmetric:
+        symmetric_asymmetric_case = True
+    for (x, y) in points:
+        diamond = np.array([
+            [x, y - diamond_size],  # Top
+            [x + diamond_size, y],  # Right
+            [x, y + diamond_size],  # Bottom
+            [x - diamond_size, y]   # Left
+        ], dtype=np.int32)
+
+        if symmetric_asymmetric_case and counter == 2 or counter == 4:
+            cv.fillPoly(mask, [diamond], background_color)  
+        
+        elif symmetric_asymmetric_case:  
+            cv.fillPoly(mask, [diamond], foreground_color)
+        counter += 1
+
+def creatFinalHeartDisplayClassicCase(mask, points, foreground_color, background_color):
+    num_segments = getNumClassicLines() + 1
+    for i in range(len(points)):
+        pt1 = np.array(points[i])
+        pt2 = np.array(points[(i + 1) % len(points)])
+        
+        edge_vector = pt2 - pt1
+        segment_vector = edge_vector / num_segments
+
+        # Perpendicular vector to push line inward slightly
+        normal = np.array([-edge_vector[1], edge_vector[0]])
+        normal = normal / np.linalg.norm(normal)
+        inward_offset = normal * 4  # adjust this for inward offset
+        
+        for j in range(num_segments):
+            t = j + 0.5  # center of the segment
+            midpoint = pt1 + segment_vector * t
+            start_pos = midpoint + inward_offset - segment_vector * 0.5
+            end_pos = midpoint + inward_offset + segment_vector * 0.5
+
+            color = foreground_color if j % 2 == 0 else background_color
+
+            # Draw the line segment
+            cv.line(
+                mask,
+                tuple(start_pos.astype(int)),
+                tuple(end_pos.astype(int)),
+                color,
+                thickness=7  # Adjust thickness as needed
+            )
+
+
+def createFinalHeartDisplay(image, pattern_type):
     line_color = (0, 0, 0)  # Black color
     height, width, _ = image.shape # isolated_pattern's shape is a square
     square_size =   height // 2  # Ensuring a balanced square
@@ -150,10 +211,10 @@ def createFinalHeartDisplay(image):
         [center[0] + half_size, center[1]],
         [center[0], center[1] + half_size]
     ])
-
-    # Draw the rotated square (diamond)
-    cv.polylines(mask, [points], isClosed=True, color=line_color, thickness=3)
-
+    
+    foreground_color = get_rgb_from_qcolor(getShapeColor())
+    background_color = get_rgb_from_qcolor(getBackgroundColor())
+    
     # calculate the semi-circle positions
     point1 = [center[0] - half_size, center[1]]
     point2 = [center[0], center[1] + half_size]
@@ -167,8 +228,21 @@ def createFinalHeartDisplay(image):
     # draw the semi-circles
     cv.ellipse(mask, halfway_point_upper_left, (radius, radius), 0, -225, -45, line_color, thickness=3)
     cv.ellipse(mask, halfway_point_upper_right, (radius, radius), 0, -135, 45, line_color, 3)
-
-    # rotate the heart outline so it is ready to have the pattern overlayed on it
+    
+    if getShapeColor() != QColor("black"):
+        cv.ellipse(mask, halfway_point_upper_left, (radius, radius), 0, -225, -45, foreground_color, thickness=-1)
+        
+    if getBackgroundColor() != QColor("white"):
+        cv.ellipse(mask, halfway_point_upper_right, (radius, radius), 0, -135, 45, background_color , -1)
+        
+    # Draw the rotated square (diamond)
+    cv.polylines(mask, [points], isClosed=True, color=line_color, thickness=3)
+    
+    if pattern_type == PatternType.Classic:
+        creatFinalHeartDisplayClassicCase(mask, points, foreground_color, background_color)
+    else:
+        createFinalHeartDisplayBaseCase(mask, points, foreground_color, background_color)
+    
     rotated_mask = rotateImage(mask, -45)
 
     # scale the pattern to fit inside the square of the heart
@@ -248,7 +322,7 @@ def mainAlgorithmSvg(img, side_type, pattern_type, function='show', n_lines = 0)
             heartPixmap = saveSvgFileAsPixmap(img)
             heartCvImage = savePixmapToCvImage(heartPixmap)
 
-            return createFinalHeartDisplay(heartCvImage)
+            return createFinalHeartDisplay(heartCvImage, pattern_type)
 
         case _:
             return createFinalHeartCutoutPatternExport(1200, side_type, pattern_type, n_lines)

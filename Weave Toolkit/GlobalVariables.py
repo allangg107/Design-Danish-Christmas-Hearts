@@ -26,6 +26,7 @@ USER_PREPROCESSED_PATTERN = "preprocessed_pattern.svg"
 CURRENT_PATTERN_TYPE = PatternType.Simple
 CURRENT_SIDE = SideType.OneSided
 NUM_CLASSIC_LINES = 3 # Number of lines for the classic pattern, only used in the classic case
+LINE_THICKNESS_AND_EXTENSION = 4
 
 """Functions to get the global values"""
 
@@ -70,6 +71,9 @@ def getCurrentSideType():
 
 def getNumClassicLines():
     return NUM_CLASSIC_LINES
+
+def getLineThicknessAndExtension():
+    return LINE_THICKNESS_AND_EXTENSION
 
 """Functions to set global values"""
 
@@ -155,3 +159,10 @@ def setNumClassicLines(num):
         NUM_CLASSIC_LINES = num
     else:
         print("Error: ", num, "is not a positive integer between 0 and 10")
+
+def setLineThicknessAndExtension(value):
+    global LINE_THICKNESS_AND_EXTENSION
+    if isinstance(value, int) and value > 0:
+        LINE_THICKNESS_AND_EXTENSION = value
+    else:
+        print("Error: ", value, "is not a positive integer")
