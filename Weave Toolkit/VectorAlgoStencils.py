@@ -51,7 +51,8 @@ from GlobalVariables import (
     getFileStepCounter,
     getShapeColor,
     getNumClassicLines,
-    getLineThicknessAndExtension
+    getLineThicknessAndExtension,
+    getUserOutputSVGFileName
 )
 
 
@@ -263,6 +264,18 @@ def create_and_combine_stencils_onesided(width, height, size, stencil_1_pattern,
     convertLinesToRectangles(stencil_1_inner_cuts, stencil_1_inner_cuts)
     convertLinesToRectangles(stencil_2_inner_cuts, stencil_2_inner_cuts)
 
+    if is_blank:
+        final_output_top = getUserOutputSVGFileName() + "_top.svg"
+        final_output_bottom = getUserOutputSVGFileName() + "_bottom.svg"
+
+        combineStencils(empty_stencil_1, stencil_1_inner_cuts, final_output_top)
+        combineStencils(empty_stencil_2, stencil_2_inner_cuts, final_output_bottom)
+
+        final_output_combined = getUserOutputSVGFileName() + "_combined.svg"
+        combineStencils(final_output_top, final_output_bottom, final_output_combined)
+
+        return -1, -1, -1
+
     # Combine all stencils first
     stencil_1_combined = f"{getFileStepCounter()}stencil_1_combined.svg"
     incrementFileStepCounter()
@@ -271,12 +284,6 @@ def create_and_combine_stencils_onesided(width, height, size, stencil_1_pattern,
     stencil_2_combined = f"{getFileStepCounter()}stencil_2_combined.svg"
     incrementFileStepCounter()
     combineStencils(empty_stencil_2, stencil_2_inner_cuts, stencil_2_combined)
-
-    if is_blank:
-        final_output = f"{getFileStepCounter()}_final_output.svg"
-        incrementFileStepCounter()
-        combineStencils(stencil_1_combined, stencil_2_combined, final_output)
-        return final_output, final_output
 
     combined_stencils = f"{getFileStepCounter()}_combined_stencils.svg"
     incrementFileStepCounter()
@@ -289,7 +296,7 @@ def create_and_combine_stencils_onesided(width, height, size, stencil_1_pattern,
 
     # Now overlay the pattern on the combined stencil
     overlayed_pattern = overlayPatternOnStencil(rotated_path_name, combined_stencils, size, 1, pattern_type)
-    return overlayed_pattern, combined_stencils
+    return overlayed_pattern, stencil_1_combined, stencil_2_combined
 
 
 """ Helper functions for symmetric and asymmetric cases"""
@@ -785,28 +792,28 @@ def mirrorLines(pattern_w_extended_lines, output_name, width, height, pattern_ty
     translateSVGBy(fixed_rounding_mirrored_lines, output_name, distance_between - getMargin(), height)
 
 
-def combinePatternAndMirrorWithStencils(pattern_w_extended_lines, combined_simple_stencil_no_patt, translated_mirrored_lines, output_name=None):
+def combinePatternAndMirrorWithStencils(pattern_w_extended_lines, simple_stencil_1, translated_mirrored_lines, simple_stencil_2):
 
-    # combine the mirrored lines with the original mirrored pattern
-    combined_mirrored_lines = f"{getFileStepCounter()}_combined_mirrored_lines.svg"
-    incrementFileStepCounter()
-    combineStencils(translated_mirrored_lines, pattern_w_extended_lines, combined_mirrored_lines)
+    final_output_top = getUserOutputSVGFileName() + "_top.svg"
+    final_output_bottom = getUserOutputSVGFileName() + "_bottom.svg"
 
-    # combine the combined_mirrored_lines with the stencil pattern
-    if output_name is None:
-        output_name = f"{getFileStepCounter()}_final_output.svg"
-        incrementFileStepCounter()
-    combineStencils(combined_mirrored_lines, combined_simple_stencil_no_patt, output_name)
+    combineStencils(pattern_w_extended_lines, simple_stencil_1, final_output_top)
+    combineStencils(translated_mirrored_lines, simple_stencil_2, final_output_bottom)
 
-    print("saved final stencil")
+    final_output_combined = getUserOutputSVGFileName() + "_combined.svg"
+    combineStencils(final_output_top, final_output_bottom, final_output_combined)
 
 
 def create_simple_pattern_stencils(stencil_1_pattern, width, height, size, empty_stencil_1, empty_stencil_2, side_type, pattern_type, is_blank):
 
-    combined_simple_stencil_w_patt, combined_simple_stencil_no_patt = create_and_combine_stencils_onesided(width, height, size, stencil_1_pattern, empty_stencil_1, empty_stencil_2, pattern_type, is_blank=is_blank)
+    combined_simple_stencil_w_patt, simple_stencil_1, simple_stencil_2 = create_and_combine_stencils_onesided(width, height, size, stencil_1_pattern, empty_stencil_1, empty_stencil_2, pattern_type, is_blank=is_blank)
 
     if is_blank:
         return
+    
+    combined_simple_stencil_no_patt = f"{getFileStepCounter()}_combined_simple_stencil_no_patt.svg"
+    incrementFileStepCounter()
+    combineStencils(simple_stencil_1, simple_stencil_2, combined_simple_stencil_no_patt)
 
     if side_type == SideType.TwoSided:
         processed_pattern = f"{getFileStepCounter()}_translated_pattern.svg"
@@ -820,7 +827,7 @@ def create_simple_pattern_stencils(stencil_1_pattern, width, height, size, empty
         incrementFileStepCounter()
         combineStencils(processed_pattern, mirrored_pattern, combined_patt_and_mirror)
 
-        combinePatternAndMirrorWithStencils(processed_pattern, combined_simple_stencil_no_patt, mirrored_pattern)
+        combinePatternAndMirrorWithStencils(processed_pattern, simple_stencil_1, mirrored_pattern, simple_stencil_2)
 
 
 
@@ -1536,11 +1543,15 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     wsvg(stencil_2_classic_cuts_paths, attributes=stencil_2_classic_cuts_attr, filename=stencil_2_classic_cuts, dimensions=(width, width))
 
     if is_blank:
-        combineStencils(stencil_1_classic_cuts, empty_stencil_1, stencil_1_classic_cuts)
-        combineStencils(stencil_2_classic_cuts, empty_stencil_2, stencil_2_classic_cuts)
-        final_output = f"{getFileStepCounter()}_final_output.svg"
-        incrementFileStepCounter()
-        combineStencils(stencil_1_classic_cuts, stencil_2_classic_cuts, final_output)
+        final_output_top = getUserOutputSVGFileName() + "_top.svg"
+        final_output_bottom = getUserOutputSVGFileName() + "_bottom.svg"
+
+        combineStencils(stencil_1_classic_cuts, empty_stencil_1, final_output_top)
+        combineStencils(stencil_2_classic_cuts, empty_stencil_2, final_output_bottom)
+
+        final_output_combined = getUserOutputSVGFileName() + "_combined.svg"
+        combineStencils(final_output_top, final_output_bottom, final_output_combined)
+
         return
 
     # a. rotate -90
@@ -1606,12 +1617,6 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     if fileIsNonEmpty(pattern_no_semi_circles):
         splitShapesIntoQuarters(pattern_no_semi_circles, horizontal_lines, vertical_lines, top_and_bottom_quarters_of_shapes, middle_halves, width, height, square_size, side_type)
 
-    # combineStencils(stencil_1_classic_cuts, stencil_2_classic_cuts, "checkpoint_2.svg")
-    # combineStencils("checkpoint_2.svg", empty_stencil_1, "checkpoint_2.svg")
-    # combineStencils("checkpoint_2.svg", empty_stencil_2, "checkpoint_2.svg")
-    # combineStencils("checkpoint_2.svg", top_and_bottom_quarters_of_shapes, "checkpoint_2.svg")
-    # combineStencils("checkpoint_2.svg", middle_halves, "checkpoint_2.svg")
-
     #  attach a 45 degree line from each end of the quarters to their closest classic cut line/stencil line
     updated_classic_cuts = f"{getFileStepCounter()}_updated_classic_cuts.svg"
     incrementFileStepCounter()
@@ -1660,11 +1665,16 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     incrementFileStepCounter()
     convertLinesToRectangles(updated_classic_cuts_2, converted_lines_to_rectangles_2)
 
-    combineStencils(converted_lines_to_rectangles_1, converted_lines_to_rectangles_2, "checkpoint_3.svg")
-    combineStencils("checkpoint_3.svg", empty_stencil_1, "checkpoint_3.svg")
-    combineStencils("checkpoint_3.svg", empty_stencil_2, "checkpoint_3.svg")
-    combineStencils("checkpoint_3.svg", top_stencil_shapes_with_lines, "checkpoint_3.svg")
-    combineStencils("checkpoint_3.svg", bottom_stencil_shapes_w_lines, "checkpoint_3.svg")
+    final_output_top = getUserOutputSVGFileName() + "_top.svg"
+    combineStencils(converted_lines_to_rectangles_1, empty_stencil_1, final_output_top)
+    combineStencils(final_output_top, top_stencil_shapes_with_lines, final_output_top)
+
+    final_output_bottom = getUserOutputSVGFileName() + "_bottom.svg"
+    combineStencils(converted_lines_to_rectangles_2, empty_stencil_2, final_output_bottom)
+    combineStencils(final_output_bottom, bottom_stencil_shapes_w_lines, final_output_bottom)
+
+    final_output_combined = getUserOutputSVGFileName() + "_combined.svg"
+    combineStencils(final_output_top, final_output_bottom, final_output_combined)
 
 
 def create_symmetric_pattern_stencils(preprocessed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, side_type, pattern_type):
@@ -1684,7 +1694,11 @@ def create_symmetric_pattern_stencils(preprocessed_pattern, width, height, size,
     incrementFileStepCounter()
     cropPrep(half_of_pattern, post_cropped_pattern, -cropped_size, -45)
 
-    combined_simple_stencil_w_patt, combined_simple_stencil_no_patt = create_and_combine_stencils_onesided(width, height, size, post_cropped_pattern, empty_stencil_1, empty_stencil_2, pattern_type)
+    combined_simple_stencil_w_patt, simple_stencil_1, simple_stencil_2 = create_and_combine_stencils_onesided(width, height, size, post_cropped_pattern, empty_stencil_1, empty_stencil_2, pattern_type)
+
+    combined_simple_stencil_no_patt = f"{getFileStepCounter()}_combined_simple_stencil_no_patt.svg"
+    incrementFileStepCounter()
+    combineStencils(simple_stencil_1, simple_stencil_2, combined_simple_stencil_no_patt)
 
     # rotate the pattern, grab the 2 points on the line of symmetry, and then rotate it back (including the points we grabbed)
 
@@ -1697,7 +1711,7 @@ def create_symmetric_pattern_stencils(preprocessed_pattern, width, height, size,
     incrementFileStepCounter()
     if side_type == SideType.OneSided:
         mirrorLines(pattern_w_extended_lines, mirrored_pattern_extended, width, height, pattern_type)
-        combinePatternAndMirrorWithStencils(pattern_w_extended_lines, combined_simple_stencil_no_patt, mirrored_pattern_extended)
+        combinePatternAndMirrorWithStencils(pattern_w_extended_lines, simple_stencil_1, mirrored_pattern_extended, simple_stencil_2)
 
     elif side_type == SideType.TwoSided:
         mirrorLines(pattern_w_extended_lines, mirrored_pattern_extended, width, 0, pattern_type)
@@ -1751,7 +1765,11 @@ def create_asymmetric_pattern_stencils(preprocessed_pattern, width, height, size
     cropPrep(re_translated_for_bottom_half, post_cropped_bottom_pattern, -cropped_size, -45)
 
     # --- for top half ---
-    combined_simple_stencil_w_top_patt, combined_simple_stencil_no_patt = create_and_combine_stencils_onesided(width, height, size, post_cropped_pattern, empty_stencil_1, empty_stencil_2, pattern_type)
+    combined_simple_stencil_w_top_patt, simple_stencil_1, simple_stencil_2 = create_and_combine_stencils_onesided(width, height, size, post_cropped_pattern, empty_stencil_1, empty_stencil_2, pattern_type)
+
+    combined_simple_stencil_no_patt = f"{getFileStepCounter()}_combined_simple_stencil_no_patt.svg"
+    incrementFileStepCounter()
+    combineStencils(simple_stencil_1, simple_stencil_2, combined_simple_stencil_no_patt)
 
     top_pattern_w_extended_lines = f"{getFileStepCounter()}_pattern_w_extended_lines.svg"
     incrementFileStepCounter()
@@ -1759,7 +1777,7 @@ def create_asymmetric_pattern_stencils(preprocessed_pattern, width, height, size
     # ------
 
     # --- for bottom half ---
-    combined_simple_stencil_w_bot_patt, _ = create_and_combine_stencils_onesided(width, height, size, post_cropped_bottom_pattern, empty_stencil_1, empty_stencil_2, pattern_type)
+    combined_simple_stencil_w_bot_patt, _, _ = create_and_combine_stencils_onesided(width, height, size, post_cropped_bottom_pattern, empty_stencil_1, empty_stencil_2, pattern_type)
 
     bottom_pattern_w_extended_lines = f"{getFileStepCounter()}_bottom_pattern_w_extended_lines.svg"
     incrementFileStepCounter()
@@ -1772,7 +1790,7 @@ def create_asymmetric_pattern_stencils(preprocessed_pattern, width, height, size
     incrementFileStepCounter()
     if side_type == SideType.OneSided:
         mirrorLines(bottom_pattern_w_extended_lines, mirrored_bottom_pattern_extended, width, height, pattern_type)
-        combinePatternAndMirrorWithStencils(top_pattern_w_extended_lines, combined_simple_stencil_no_patt, mirrored_bottom_pattern_extended)
+        combinePatternAndMirrorWithStencils(top_pattern_w_extended_lines, simple_stencil_1, mirrored_bottom_pattern_extended, simple_stencil_2)
 
     elif side_type == SideType.TwoSided:
         mirrorLines(top_pattern_w_extended_lines, mirrored_top_pattern_extended, width, 0, pattern_type)
@@ -1800,4 +1818,4 @@ def create_asymmetric_pattern_stencils(preprocessed_pattern, width, height, size
         incrementFileStepCounter()
         combineStencils(combined_patt_and_mirror_top, combined_patt_and_mirror_copy, combined_patt_and_mirror)
 
-        combinePatternAndMirrorWithStencils(combined_patt_and_mirror, combined_simple_stencil_no_patt, combined_patt_and_mirror_copy)
+        combinePatternAndMirrorWithStencils(combined_patt_and_mirror, simple_stencil_1, combined_patt_and_mirror_copy, simple_stencil_2)

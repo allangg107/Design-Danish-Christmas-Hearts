@@ -797,7 +797,7 @@ class MainWindow(QMainWindow):
 
         update_button_svg = QPushButton("Update SVG", self)
         update_button_svg.setStyleSheet("background-color: lightgray; color: black;")
-        update_button_svg.clicked.connect(lambda: self.save_as_svg(getUserOutputSVGFileName(), self.drawing_widget.size()))
+        update_button_svg.clicked.connect(lambda: self.save_as_svg(getUserOutputSVGFileName() + ".svg", self.drawing_widget.size()))
         update_button_svg.clicked.connect(lambda: self.updateDisplaySvg())
         menu_toolbar.addWidget(update_button_svg)
 
@@ -1373,7 +1373,7 @@ class MainWindow(QMainWindow):
 
 
     def exportSVG(self):
-        svg_file_path = getUserOutputSVGFileName()
+        svg_file_path = getUserOutputSVGFileName() + ".svg"
         mainAlgorithmSvg(svg_file_path, getCurrentSideType(), getCurrentPatternType(), function=' ', n_lines=3)
 
 
