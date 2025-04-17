@@ -88,7 +88,8 @@ from VectorAlgoStencils import (
 )
 
 from VectorAlgoUtils import (
-    pre_process_user_input
+    pre_process_user_input,
+    calculate_distance
 )
 
 from GuideWindow import (
@@ -117,8 +118,7 @@ from GlobalVariables import(
     setNumClassicLines
 )
 
-def calculate_distance(point1, point2):
-        return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
+
 
 class DrawingWidget(QWidget):
     # Defining the initial state of the canvas
