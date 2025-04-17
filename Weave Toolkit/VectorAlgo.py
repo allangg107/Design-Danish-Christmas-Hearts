@@ -158,7 +158,7 @@ def createFinalHeartDisplayBaseCase(mask, points, foreground_color, background_c
         if symmetric_asymmetric_case and counter == 2 or counter == 4:
             cv.fillPoly(mask, [diamond], background_color)  
         
-        else:  
+        elif symmetric_asymmetric_case:  
             cv.fillPoly(mask, [diamond], foreground_color)
         counter += 1
 
