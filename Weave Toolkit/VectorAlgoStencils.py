@@ -828,11 +828,27 @@ def create_simple_pattern_stencils(stencil_1_pattern, width, height, size, empty
         mirrored_pattern = f"{getFileStepCounter()}_mirrored_pattern.svg"
         incrementFileStepCounter()
         mirrorLines(processed_pattern, mirrored_pattern, width, 0, pattern_type)
-        
+
         combineStencils(final_output_top, mirrored_pattern, final_output_top)
 
     bottom_paths, bottom_attrs = svg2paths(simple_stencil_2)
-    wsvg(bottom_paths, attributes=bottom_attrs, filename=final_output_bottom, dimensions=(width, height))
+    
+    # Extract viewBox from simple_stencil_2
+    tree = ET.parse(simple_stencil_2)
+    root = tree.getroot()
+    viewbox = root.get('viewBox')
+
+    # If viewBox isn't at root level, search for svg element
+    if viewbox is None:
+        for elem in root.iter():
+            if 'viewBox' in elem.attrib:
+                viewbox = elem.get('viewBox')
+                break
+
+    # If still no viewBox found, use default dimensions
+    if viewbox is None:
+        viewbox = f"0 0 {width} {height}"
+    wsvg(bottom_paths, attributes=bottom_attrs, filename=final_output_bottom, dimensions=(width, height), viewbox=viewbox)
 
     final_output_combined = getUserOutputSVGFileName() + "_combined.svg"
     combineStencils(final_output_top, final_output_bottom, final_output_combined)
@@ -1734,7 +1750,7 @@ def create_symmetric_pattern_stencils(preprocessed_pattern, width, height, size,
         wsvg(paths_copy, attributes=attributes_copy, filename=combined_patt_and_mirror_copy, dimensions=(width, height))
         translateSVGBy(combined_patt_and_mirror_copy, combined_patt_and_mirror_copy, 0, height)
 
-        combinePatternAndMirrorWithStencils(combined_patt_and_mirror, combined_simple_stencil_no_patt, combined_patt_and_mirror_copy)
+        combinePatternAndMirrorWithStencils(combined_patt_and_mirror, simple_stencil_1, combined_patt_and_mirror_copy, simple_stencil_2)
 
 
 def create_asymmetric_pattern_stencils(preprocessed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, side_type, pattern_type):
