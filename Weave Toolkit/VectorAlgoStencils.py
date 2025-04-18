@@ -815,20 +815,27 @@ def create_simple_pattern_stencils(stencil_1_pattern, width, height, size, empty
     incrementFileStepCounter()
     combineStencils(simple_stencil_1, simple_stencil_2, combined_simple_stencil_no_patt)
 
-    if side_type == SideType.TwoSided:
-        processed_pattern = f"{getFileStepCounter()}_translated_pattern.svg"
-        incrementFileStepCounter()
-        processed_pattern = removeDuplicateLinesFromSVG(combined_simple_stencil_w_patt, combined_simple_stencil_no_patt)
+    processed_pattern = f"{getFileStepCounter()}_translated_pattern.svg"
+    incrementFileStepCounter()
+    processed_pattern = removeDuplicateLinesFromSVG(combined_simple_stencil_w_patt, combined_simple_stencil_no_patt)
 
+    final_output_top = getUserOutputSVGFileName() + "_top.svg"
+    final_output_bottom = getUserOutputSVGFileName() + "_bottom.svg"
+
+    combineStencils(processed_pattern, simple_stencil_1, final_output_top)
+
+    if side_type == SideType.TwoSided:
         mirrored_pattern = f"{getFileStepCounter()}_mirrored_pattern.svg"
         incrementFileStepCounter()
         mirrorLines(processed_pattern, mirrored_pattern, width, 0, pattern_type)
-        combined_patt_and_mirror = f"{getFileStepCounter()}_combined_patt_and_mirror.svg"
-        incrementFileStepCounter()
-        combineStencils(processed_pattern, mirrored_pattern, combined_patt_and_mirror)
+        
+        combineStencils(final_output_top, mirrored_pattern, final_output_top)
 
-        combinePatternAndMirrorWithStencils(processed_pattern, simple_stencil_1, mirrored_pattern, simple_stencil_2)
+    bottom_paths, bottom_attrs = svg2paths(simple_stencil_2)
+    wsvg(bottom_paths, attributes=bottom_attrs, filename=final_output_bottom, dimensions=(width, height))
 
+    final_output_combined = getUserOutputSVGFileName() + "_combined.svg"
+    combineStencils(final_output_top, final_output_bottom, final_output_combined)
 
 
 def fitClassicCuts(classic_cuts, stencil_pattern, output_name, width, height, size):
