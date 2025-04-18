@@ -1620,16 +1620,16 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     combineStencils(stencil_1_classic_cuts, mirrored_pattern, "checkpoint.svg")
     combineStencils("checkpoint.svg", empty_stencil_1, "checkpoint.svg")
 
-    top_semi_circles = f"{getFileStepCounter()}_top_semi_circles.svg"
+    bottom_stencil_semi_circles = f"{getFileStepCounter()}_bottom_stencil_semi_circles.svg"
     incrementFileStepCounter()
 
-    bottom_semi_circles = f"{getFileStepCounter()}_bottom_semi_circles.svg"
+    top_stencil_semi_circles = f"{getFileStepCounter()}_top_stencil_semi_circles.svg"
     incrementFileStepCounter()
 
     pattern_no_semi_circles = f"{getFileStepCounter()}_pattern_no_semi_circles.svg"
     incrementFileStepCounter()
 
-    extractSemiCirclesFromPattern(mirrored_pattern, top_semi_circles, bottom_semi_circles, pattern_no_semi_circles, width, height, square_size, side_type, n_lines)
+    extractSemiCirclesFromPattern(mirrored_pattern, bottom_stencil_semi_circles, top_stencil_semi_circles, pattern_no_semi_circles, width, height, square_size, side_type, n_lines)
 
     # split each shape into a top quarter, middle half, and bottom quarter
     top_and_bottom_quarters_of_shapes = f"{getFileStepCounter()}_top_bottom_quarters.svg"
@@ -1647,28 +1647,29 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     wsvg(classic_paths, attributes=classic_attrs, filename=updated_classic_cuts)
 
     top_stencil_shapes = ""
-    if fileIsNonEmpty(top_and_bottom_quarters_of_shapes) and not fileIsNonEmpty(bottom_semi_circles):
+    if fileIsNonEmpty(top_and_bottom_quarters_of_shapes) and not fileIsNonEmpty(top_stencil_semi_circles):
         top_stencil_shapes = top_and_bottom_quarters_of_shapes
-    elif fileIsNonEmpty(bottom_semi_circles) and not fileIsNonEmpty(top_and_bottom_quarters_of_shapes):
-        top_stencil_shapes = bottom_semi_circles
+    elif fileIsNonEmpty(top_stencil_semi_circles) and not fileIsNonEmpty(top_and_bottom_quarters_of_shapes):
+        top_stencil_shapes = top_stencil_semi_circles
     else:
         top_stencil_shapes = f"{getFileStepCounter()}_top_stencil_shapes.svg"
         incrementFileStepCounter()
-        combineStencils(top_and_bottom_quarters_of_shapes, bottom_semi_circles, top_stencil_shapes)
+        combineStencils(top_and_bottom_quarters_of_shapes, top_stencil_semi_circles, top_stencil_shapes)
 
     bottom_stencil_shapes = ""
-    if fileIsNonEmpty(middle_halves) and not fileIsNonEmpty(top_semi_circles):
+    if fileIsNonEmpty(middle_halves) and not fileIsNonEmpty(bottom_stencil_semi_circles):
         bottom_stencil_shapes = middle_halves
-    elif fileIsNonEmpty(top_semi_circles) and not fileIsNonEmpty(middle_halves):
-        bottom_stencil_shapes = top_semi_circles
+    elif fileIsNonEmpty(bottom_stencil_semi_circles) and not fileIsNonEmpty(middle_halves):
+        bottom_stencil_shapes = bottom_stencil_semi_circles
     else:
         bottom_stencil_shapes = f"{getFileStepCounter()}_bottom_stencil_shapes.svg"
         incrementFileStepCounter()
-        combineStencils(middle_halves, top_semi_circles, bottom_stencil_shapes)
+        combineStencils(middle_halves, bottom_stencil_semi_circles, bottom_stencil_shapes)
 
     top_stencil_shapes_with_lines = f"{getFileStepCounter()}_top_stencil_shapes_w_lines.svg"
     incrementFileStepCounter()
-    attach45DegreeLinesAndRemoveInbetween(top_stencil_shapes, updated_classic_cuts, top_stencil_shapes_with_lines)
+    if fileIsNonEmpty(top_stencil_shapes):
+        attach45DegreeLinesAndRemoveInbetween(top_stencil_shapes, updated_classic_cuts, top_stencil_shapes_with_lines)
 
     # repeat above with middle_halves and stencil_2_classic_cuts
     updated_classic_cuts_2 = f"{getFileStepCounter()}_updated_classic_cuts_2.svg"
@@ -1678,7 +1679,8 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
 
     bottom_stencil_shapes_w_lines = f"{getFileStepCounter()}_bottom_stencil_shapes_w_lines.svg"
     incrementFileStepCounter()
-    attach45DegreeLinesAndRemoveInbetween(bottom_stencil_shapes, updated_classic_cuts_2, bottom_stencil_shapes_w_lines)
+    if fileIsNonEmpty(bottom_stencil_shapes):
+        attach45DegreeLinesAndRemoveInbetween(bottom_stencil_shapes, updated_classic_cuts_2, bottom_stencil_shapes_w_lines)
 
     converted_lines_to_rectangles_1 = f"{getFileStepCounter()}_converted_lines_to_rectangles_1.svg"
     incrementFileStepCounter()

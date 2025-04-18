@@ -937,16 +937,14 @@ def convertLinesToRectangles(input_svg, output_svg):
     dwg.save()
 
 
-def extractSemiCirclesFromPattern(mirrored_pattern, top_semi_circles, bottom_semi_circles, pattern_no_semi_circles, width, height, square_size, side_type, n_lines):
+def extractSemiCirclesFromPattern(mirrored_pattern, bottom_stencil_semi_circles, top_stencil_semi_circles, pattern_no_semi_circles, width, height, square_size, side_type, n_lines):
     paths, attributes = svg2paths(mirrored_pattern)
-    top_semi_circle_paths = []
-    top_semi_circles_attributes = []
-    bottom_semi_circle_paths = []
-    bottom_semi_circles_attributes = []
+    bottom_stencil_semi_circle_paths = []
+    bottom_stencil_semi_circles_attributes = []
+    top_stencil_semi_circle_paths = []
+    top_stencil_semi_circles_attributes = []
     pattern_no_semi_circles_paths = []
     pattern_no_semi_circles_attributes = []
-    offset = square_size / (n_lines + 1)
-
 
     # Iterate through each path and filter out lines from semi-circle paths
     for path, attribute in zip(paths, attributes):
@@ -984,35 +982,35 @@ def extractSemiCirclesFromPattern(mirrored_pattern, top_semi_circles, bottom_sem
                     print("temp paths: ", temp_paths)
                     print("temp attributes: ", temp_attributes)
                     # rotate top_semi_circles -90 degrees
-                    rotated_top_semi_circles = f"{getFileStepCounter()}_rotated_top_semi_circles.svg"
+                    rotated_bottom_stencil_semi_circles = f"{getFileStepCounter()}_rotated_top_semi_circles.svg"
                     incrementFileStepCounter()
                     right_most_point = max(filtered_path, key=lambda p: p.start.real).start.real
                     top_most_point_y = max(filtered_path, key=lambda p: p.start.imag).start.imag
                     bottom_most_point_y = min(filtered_path, key=lambda p: p.start.imag).start.imag
                     mid_point_y = (top_most_point_y + bottom_most_point_y) / 2
-                    rotateSVG("temp_semi_circle.svg", rotated_top_semi_circles, -90, right_most_point + (top_most_point_y - bottom_most_point_y) / 2, mid_point_y)
+                    rotateSVG("temp_semi_circle.svg", rotated_bottom_stencil_semi_circles, -90, right_most_point + (top_most_point_y - bottom_most_point_y) / 2, mid_point_y)
 
                     # mirror the top_semi_circles over the y-axis
-                    mirrored_top_semi_circles = f"{getFileStepCounter()}_mirrored_top_semi_circles.svg"
+                    mirrored_bottom_stencil_semi_circles = f"{getFileStepCounter()}_mirrored_top_semi_circles.svg"
                     incrementFileStepCounter()
-                    mirrorSVGOverYAxisWithX(rotated_top_semi_circles, mirrored_top_semi_circles, width, height, getMargin() / 1.125 + square_size * 1.5)
+                    mirrorSVGOverYAxisWithX(rotated_bottom_stencil_semi_circles, mirrored_bottom_stencil_semi_circles, width, height, getMargin() / 1.125 + square_size * 1.5)
 
-                    translated_top_semi_circles = mirrored_top_semi_circles
+                    translated_top_semi_circles = mirrored_bottom_stencil_semi_circles
                     if side_type == SideType.OneSided:
                         # translate the top_semi_circles to the bottom stencil position
                         translated_top_semi_circles = f"{getFileStepCounter()}_translated_top_semi_circles.svg"
                         incrementFileStepCounter()
-                        translateSVGBy(mirrored_top_semi_circles, translated_top_semi_circles, 0, height)
+                        translateSVGBy(mirrored_bottom_stencil_semi_circles, translated_top_semi_circles, 0, height)
 
                     corrected_filtered_path, _ = svg2paths(translated_top_semi_circles)
 
                     corrected_filtered_path = corrected_filtered_path[0]
 
-                    top_semi_circle_paths.append(corrected_filtered_path)
-                    top_semi_circles_attributes.append(attribute)
+                    bottom_stencil_semi_circle_paths.append(corrected_filtered_path)
+                    bottom_stencil_semi_circles_attributes.append(attribute)
                 else:
-                    bottom_semi_circle_paths.append(filtered_path)
-                    bottom_semi_circles_attributes.append(attribute)
+                    top_stencil_semi_circle_paths.append(filtered_path)
+                    top_stencil_semi_circles_attributes.append(attribute)
 
                 print("ATTRIBUTE: ", attribute)
 
@@ -1021,37 +1019,41 @@ def extractSemiCirclesFromPattern(mirrored_pattern, top_semi_circles, bottom_sem
             pattern_no_semi_circles_paths.append(path)
             pattern_no_semi_circles_attributes.append(attribute)
 
-    print("TOP SEMI CIRCLE PATHS: ", top_semi_circle_paths)
-    print("BOTTOM SEMI CIRCLE PATHS: ", bottom_semi_circle_paths)
+    print("TOP SEMI CIRCLE PATHS: ", bottom_stencil_semi_circle_paths)
+    print("BOTTOM SEMI CIRCLE PATHS: ", top_stencil_semi_circle_paths)
 
     if side_type == SideType.TwoSided:
-        wsvg(top_semi_circle_paths, attributes=top_semi_circles_attributes, filename=top_semi_circles, dimensions=(width, height))
-        wsvg(bottom_semi_circle_paths, attributes=bottom_semi_circles_attributes, filename=bottom_semi_circles, dimensions=(width, height))
+        if bottom_stencil_semi_circle_paths:
+            wsvg(bottom_stencil_semi_circle_paths, attributes=bottom_stencil_semi_circles_attributes, filename=bottom_stencil_semi_circles, dimensions=(width, height))
+        if top_stencil_semi_circle_paths:
+            wsvg(top_stencil_semi_circle_paths, attributes=top_stencil_semi_circles_attributes, filename=top_stencil_semi_circles, dimensions=(width, height))
 
         combined_semi_circles = f"{getFileStepCounter()}_combined_semi_circles.svg"
         incrementFileStepCounter()
-        combineStencils(top_semi_circles, bottom_semi_circles, combined_semi_circles)
+        combineStencils(bottom_stencil_semi_circles, top_stencil_semi_circles, combined_semi_circles)
 
         two_sided_combined_semi_circles = f"{getFileStepCounter()}_translated_combined_semi_circles.svg"
         incrementFileStepCounter()
-        all_paths, all_attrs = svg2paths(combined_semi_circles)
-        wsvg(all_paths, attributes=all_attrs, filename=two_sided_combined_semi_circles, dimensions=(width, height))
+        if fileIsNonEmpty(combined_semi_circles):
+            all_paths, all_attrs = svg2paths(combined_semi_circles)
+            wsvg(all_paths, attributes=all_attrs, filename=two_sided_combined_semi_circles, dimensions=(width, height))
 
         translated_combined_semi_circles = f"{getFileStepCounter()}_translated_combined_semi_circles.svg"
         incrementFileStepCounter()
-        translateSVGBy(two_sided_combined_semi_circles, translated_combined_semi_circles, 0, height)
+        if fileIsNonEmpty(two_sided_combined_semi_circles):
+            translateSVGBy(two_sided_combined_semi_circles, translated_combined_semi_circles, 0, height)
 
-        all_paths_2, all_attrs_2 = svg2paths(translated_combined_semi_circles)
+            all_paths_2, all_attrs_2 = svg2paths(translated_combined_semi_circles)
 
-        top_semi_circle_paths = all_paths_2
-        bottom_semi_circle_paths = all_paths
-        top_semi_circles_attributes = all_attrs_2
-        bottom_semi_circles_attributes = all_attrs
+            bottom_stencil_semi_circle_paths = all_paths_2
+            top_stencil_semi_circle_paths = all_paths
+            bottom_stencil_semi_circles_attributes = all_attrs_2
+            top_stencil_semi_circles_attributes = all_attrs
 
-    if top_semi_circle_paths:
-        wsvg(top_semi_circle_paths, attributes=top_semi_circles_attributes, filename=top_semi_circles, dimensions=(400, 400))
-    if bottom_semi_circle_paths:
-        wsvg(bottom_semi_circle_paths, attributes=bottom_semi_circles_attributes, filename=bottom_semi_circles)
+    if bottom_stencil_semi_circle_paths:
+        wsvg(bottom_stencil_semi_circle_paths, attributes=bottom_stencil_semi_circles_attributes, filename=bottom_stencil_semi_circles, dimensions=(400, 400))
+    if top_stencil_semi_circle_paths:
+        wsvg(top_stencil_semi_circle_paths, attributes=top_stencil_semi_circles_attributes, filename=top_stencil_semi_circles)
     if pattern_no_semi_circles_paths:
         wsvg(pattern_no_semi_circles_paths, attributes=pattern_no_semi_circles_attributes, filename=pattern_no_semi_circles)
 
