@@ -1215,17 +1215,16 @@ class MainWindow(QMainWindow):
         }
         return color_map.get(qcolor.name(), "Unkown")
     
-    def change_active_color(self, color):
+    def change_active_color(self, old_color, foreground_bool):
         if getCurrentPatternType() == PatternType.Classic:
             for shape in self.drawing_widget.shapes: 
 
-                if shape[3] == getShapeColor():
-                    continue
+                if shape[3] == old_color:
+                    if foreground_bool:
 
-                elif shape[3] == getBackgroundColor():
-                    continue
-                else:
-                    shape[3] = self.drawing_widget.flipSquareColor(color)
+                        shape[3] = getShapeColor()
+                    else:
+                        shape[3] = getBackgroundColor()
     
     def disable_enable_color_button(self, foreground_bool):
         if foreground_bool:
@@ -1240,17 +1239,19 @@ class MainWindow(QMainWindow):
             
                     
     def change_foreground_color(self, color):
+        old_color = getShapeColor()
         setShapeColor(QColor(color))
         self.disable_enable_color_button(True)
-        self.change_active_color(getShapeColor())
+        self.change_active_color(old_color, True)
         self.update()
         self.update_backside_image()
 
 
     def change_background_color(self, color):
+        old_color = getBackgroundColor()
         setBackgroundColor(QColor(color))
         self.disable_enable_color_button(False)
-        self.change_active_color(getBackgroundColor())
+        self.change_active_color(old_color, False)
         self.update()
         self.update_backside_image()
 
