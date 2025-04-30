@@ -1569,8 +1569,16 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
         final_output_top = getUserOutputSVGFileName() + "_top.svg"
         final_output_bottom = getUserOutputSVGFileName() + "_bottom.svg"
 
-        combineStencils(stencil_1_classic_cuts, empty_stencil_1, final_output_top)
-        combineStencils(stencil_2_classic_cuts, empty_stencil_2, final_output_bottom)
+        converted_lines_to_rectangles_1 = f"{getFileStepCounter()}_converted_lines_to_rectangles_1.svg"
+        incrementFileStepCounter()
+        convertLinesToRectangles(stencil_1_classic_cuts, converted_lines_to_rectangles_1)
+
+        converted_lines_to_rectangles_2 = f"{getFileStepCounter()}_converted_lines_to_rectangles_2.svg"
+        incrementFileStepCounter()
+        convertLinesToRectangles(stencil_2_classic_cuts, converted_lines_to_rectangles_2)
+
+        combineStencils(converted_lines_to_rectangles_1, empty_stencil_1, final_output_top)
+        combineStencils(converted_lines_to_rectangles_2, empty_stencil_2, final_output_bottom)
 
         final_output_combined = getUserOutputSVGFileName() + "_combined.svg"
         combineStencils(final_output_top, final_output_bottom, final_output_combined)
