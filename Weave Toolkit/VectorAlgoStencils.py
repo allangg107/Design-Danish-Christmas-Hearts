@@ -19,6 +19,7 @@ from VectorAlgoUtils import (
     mirrorSVGOverYAxis,
     mirrorSVGOverYAxisWithX,
     mirrorSVGOverXAxisWithY,
+    mirrorSVGOver45DegreeLine,
     removeDuplicateLinesFromSVG,
     convertLinesToRectangles,
     convertLineToRectangle,
@@ -277,11 +278,11 @@ def create_and_combine_stencils_onesided(width, height, size, stencil_1_pattern,
         return -1, -1, -1
 
     # Combine all stencils first
-    stencil_1_combined = f"{getFileStepCounter()}stencil_1_combined.svg"
+    stencil_1_combined = f"{getFileStepCounter()}_stencil_1_combined.svg"
     incrementFileStepCounter()
     combineStencils(empty_stencil_1, stencil_1_inner_cuts, stencil_1_combined)
 
-    stencil_2_combined = f"{getFileStepCounter()}stencil_2_combined.svg"
+    stencil_2_combined = f"{getFileStepCounter()}_stencil_2_combined.svg"
     incrementFileStepCounter()
     combineStencils(empty_stencil_2, stencil_2_inner_cuts, stencil_2_combined)
 
@@ -633,6 +634,108 @@ def find_rightmost_vertical_line(svg_file):
     return (paths[rightmost_path_index], rightmost_path_index, rightmost_segment_index, rightmost_vertical_line)
 
 
+def find_bottommost_horizontal_line(svg_file):
+    """
+    Find the bottommost horizontal line in an SVG file.
+    
+    Args:
+        svg_file: Path to the SVG file
+        
+    Returns:
+        Tuple of (path, path_index, segment_index, line) for the bottommost horizontal line,
+        or None if no horizontal line is found
+    """
+    paths, attributes = svg2paths(svg_file)
+
+    bottommost_y = float('-inf')
+    bottommost_horizontal_line = None
+    bottommost_path_index = -1
+    bottommost_segment_index = -1
+
+    for path_index, path in enumerate(paths):
+        for segment_index, segment in enumerate(path):
+            # Check if the segment is a horizontal line (or nearly horizontal)
+            if isinstance(segment, Line):
+                # Calculate the angle of the line with the y-axis
+                dx = segment.end.real - segment.start.real
+                dy = segment.end.imag - segment.start.imag
+
+                # Check if line is horizontal (slope is close to zero)
+                if abs(dy) < 1e-10:  # Almost zero change in y direction
+                    # Find the y-coordinate of this horizontal line
+                    y_coord = segment.start.imag  # or segment.end.imag, they're the same
+
+                    # If this is the bottommost horizontal line found so far
+                    if y_coord > bottommost_y:
+                        bottommost_y = y_coord
+                        bottommost_horizontal_line = segment
+                        bottommost_path_index = path_index
+                        bottommost_segment_index = segment_index
+
+    if bottommost_horizontal_line is None:
+        return None
+
+    return (paths[bottommost_path_index], bottommost_path_index, bottommost_segment_index, bottommost_horizontal_line)
+
+
+def find_two_topmost_horizontal_lines(svg_file):
+    """
+    Find the topmost horizontal line in an SVG file.
+    
+    Args:
+        svg_file: Path to the SVG file
+        
+    Returns:
+        Tuple of (path, path_index, segment_index, line) for the topmost horizontal line,
+        or None if no horizontal line is found
+    """
+    paths, attributes = svg2paths(svg_file)
+
+    # List to store horizontal lines with their information
+    horizontal_lines = []
+
+    for path_index, path in enumerate(paths):
+        for segment_index, segment in enumerate(path):
+            # Check if the segment is a horizontal line (or nearly horizontal)
+            if isinstance(segment, Line):
+                # Calculate the angle of the line with the y-axis
+                dx = segment.end.real - segment.start.real
+                dy = segment.end.imag - segment.start.imag
+
+                # Check if line is horizontal (slope is close to zero)
+                if abs(dy) < 1e-10:  # Almost zero change in y direction
+                    # Find the y-coordinate of this horizontal line
+                    y_coord = segment.start.imag  # or segment.end.imag, they're the same
+
+                    # Store line info in our list
+                    horizontal_lines.append({
+                        'path': path,
+                        'path_index': path_index,
+                        'segment_index': segment_index,
+                        'line': segment,
+                        'y_coord': y_coord
+                    })
+    
+    # Sort by y-coordinate (ascending - lower y is higher in SVG)
+    horizontal_lines.sort(key=lambda x: x['y_coord'])
+    
+    # Return the two topmost lines (if we have them)
+    if len(horizontal_lines) == 0:
+        return None
+    elif len(horizontal_lines) == 1:
+        # Only one horizontal line found
+        line_info = horizontal_lines[0]
+        return (line_info['path'], line_info['path_index'], line_info['segment_index'], line_info['line'])
+    else:
+        # Two or more horizontal lines found
+        line_info1 = horizontal_lines[0]
+        line_info2 = horizontal_lines[1]
+        return (
+            (line_info1['path'], line_info1['path_index'], line_info1['segment_index'], line_info1['line']),
+            (line_info2['path'], line_info2['path_index'], line_info2['segment_index'], line_info2['line'])
+        )
+
+
 def get_vertical_line_endpoints(vertical_line):
     """
     Get the top and bottom points of a vertical line.
@@ -647,6 +750,22 @@ def get_vertical_line_endpoints(vertical_line):
         return (vertical_line.start, vertical_line.end)
     else:
         return (vertical_line.end, vertical_line.start)
+    
+
+def get_horizontal_line_endpoints(horizontal_line):
+    """
+    Get the left and right points of a horizontal line.
+    
+    Args:
+        horizontal_line: Line segment object
+        
+    Returns:
+        Tuple of (left_point, right_point)
+    """
+    if horizontal_line.start.real <= horizontal_line.end.real:
+        return (horizontal_line.start, horizontal_line.end)
+    else:
+        return (horizontal_line.end, horizontal_line.start)
 
 
 def rotatePoint(point, angle, center=None):
@@ -687,7 +806,7 @@ def rotatePoint(point, angle, center=None):
     return result
 
 
-def drawExtensionLines(combined_stencil, stencil_pattern, output_name, side_type, width, height, starting_y, margin_x=getMargin()):
+def drawExtensionLines(combined_stencil, stencil_pattern, output_name, side_type, is_asym_bot, width, height, starting_y, margin_x=getMargin()):
 
     square_size = (height // 1.5) - margin_x
     margin_y = margin_x + starting_y
@@ -713,31 +832,74 @@ def drawExtensionLines(combined_stencil, stencil_pattern, output_name, side_type
 
     # Combine overlapping paths
     combined_paths, combined_attrs = combine_overlapping_paths(pattern_paths, pattern_attrs)
-    wsvg(combined_paths, attributes=combined_attrs, filename="combined_shapes.svg", dimensions=(width, width))
+    combined_file_name = f"{getFileStepCounter()}_combined_shapes.svg"
+    incrementFileStepCounter()
+    wsvg(combined_paths, attributes=combined_attrs, filename=combined_file_name, dimensions=(width, width))
 
-    combined_paths_w_lines = copy.deepcopy(combined_paths)
-    combined_attrs_w_lines = copy.deepcopy(combined_attrs)
+    combined_shapes_mirrored_over_self = f"{getFileStepCounter()}_combined_shapes_mirrored_over_self.svg"
+    incrementFileStepCounter()
+    mirrorSVGOverXAxisWithY(combined_file_name, combined_shapes_mirrored_over_self, width, height, getMargin() + square_size // 2)
 
     # rotate "combined_shapes.svg" 45 degrees clockwise
     rotated_path_name = f"{getFileStepCounter()}_rotated_pattern_step.svg"
     incrementFileStepCounter()
-    rotateSVG("combined_shapes.svg", rotated_path_name, 45, width // 2, height // 2)
+    rotateSVG(combined_shapes_mirrored_over_self, rotated_path_name, 45, width // 2, height // 2)
 
     # find the right-most vertical line of the pattern. Grab the top and bottom points from it
-    rightmost_vertical_line = find_rightmost_vertical_line(rotated_path_name)
-    if rightmost_vertical_line is None:
-        print("No vertical line found.")
+    bottommost_horizontal_line = find_bottommost_horizontal_line(rotated_path_name)
+    bottommost_horizontal_line_2 = None
+    if is_asym_bot:
+        # the asymetric's LoS appears to be a combination of two horizontal lines instead of only one
+        bottommost_horizontal_line, bottommost_horizontal_line_2 = find_two_topmost_horizontal_lines(rotated_path_name)
+    if bottommost_horizontal_line is None:
+        print("Error: No horizontal line found.")
         return
+    
+    rotated_back_name = f"{getFileStepCounter()}_rotated_back.svg"
+    incrementFileStepCounter()
+    rotateSVG(rotated_path_name, rotated_back_name, -45, width // 2, height // 2)
 
     # extract the top point from the rightmost vertical line
-    path, path_index, segment_index, line = rightmost_vertical_line
-    top_point, bottom_point = get_vertical_line_endpoints(line)
+    path, path_index, segment_index, line = bottommost_horizontal_line
+    left_point, right_point = get_horizontal_line_endpoints(line)
+
+    path_index_2, segment_index_2, line_2 = None, None, None
+    if is_asym_bot:
+        # extract the top point from the rightmost vertical line
+        _, path_index_2, segment_index_2, line_2 = bottommost_horizontal_line_2
+        left_point_2, right_point_2 = get_horizontal_line_endpoints(line_2)
+
+        # set left point to the leftmost point of the two lines
+        left_point = left_point if left_point.real < left_point_2.real else left_point_2
+        # set right point to the rightmost point of the two lines
+        right_point = right_point if right_point.real > right_point_2.real else right_point_2
 
     # rotate the top and bottom points back to the original orientation
-    top_point_rotated = rotatePoint(top_point, -45, (width // 2, height // 2))
-    bottom_point_rotated = rotatePoint(bottom_point, -45, (width // 2, height // 2))
+    left_point_rotated = rotatePoint(left_point, -45, (width // 2, height // 2))
+    right_point_rotated = rotatePoint(right_point, -45, (width // 2, height // 2))
+
+    if is_asym_bot:
+        # flip combined_shapes_mirrored_over_self over the 45 degree line
+        mirrorSVGOver45DegreeLine(rotated_back_name, rotated_back_name, right_point_rotated, width, height)
+
+    mirrored_paths, mirrored_attrs = svg2paths(rotated_back_name)
+
+    combined_paths_w_lines = copy.deepcopy(mirrored_paths)
+    combined_attrs_w_lines = copy.deepcopy(mirrored_attrs)
 
     del combined_paths_w_lines[path_index][segment_index]
+    if is_asym_bot:
+        # If both segments are in the same path and the first deleted segment is before the second,
+        # we need to adjust the index for the second deletion
+        if path_index == path_index_2 and segment_index < segment_index_2:
+            segment_index_2 -= 1
+        
+        # find the line in the second path and remove it
+        del combined_paths_w_lines[path_index_2][segment_index_2]
+    
+
+    if is_asym_bot:
+        wsvg(combined_paths_w_lines, attributes=combined_attrs_w_lines, filename="test.svg", dimensions=(width, width))
 
     # Draw a line from the bottom most point to the left edge of the stencil and draw a line from the top most point to the right edge of the stencil
     for path, attr in zip(combined_paths, combined_attrs):
@@ -747,17 +909,17 @@ def drawExtensionLines(combined_stencil, stencil_pattern, output_name, side_type
 
         if side_type == SideType.OneSided:
             # Create a line from the top_point_rotated to the left edge of the stencil
-            top_of_los = Line(top_point_rotated, complex(stencil_square_start - extension, top_point_rotated.imag))
+            top_of_los = Line(left_point_rotated, complex(stencil_square_start - extension, left_point_rotated.imag))
 
             # Create a line from the bottom_point_rotated to the right edge of the stencil
-            bottom_of_los = Line(bottom_point_rotated, complex(stencil_square_start + square_size * 2 + extension, bottom_point_rotated.imag))
+            bottom_of_los = Line(right_point_rotated, complex(stencil_square_start + square_size * 2 + extension, right_point_rotated.imag))
 
         elif side_type == SideType.TwoSided:
             # Create a line from the top_point_rotated to the left edge of the stencil
-            top_of_los = Line(top_point_rotated, complex(stencil_square_start - extension, top_point_rotated.imag))
+            top_of_los = Line(left_point_rotated, complex(stencil_square_start - extension, left_point_rotated.imag))
 
             # Create a line from the bottom_point_rotated to the right edge of the stencil
-            bottom_of_los = Line(bottom_point_rotated, complex(margin_x + square_size * 1.5, bottom_point_rotated.imag))
+            bottom_of_los = Line(right_point_rotated, complex(margin_x + square_size * 1.5, right_point_rotated.imag))
 
         # Add the left_line and right_line to the final paths
         combined_paths_w_lines.append(convertLineToRectangle(top_of_los))
@@ -770,6 +932,9 @@ def drawExtensionLines(combined_stencil, stencil_pattern, output_name, side_type
 
 
 def mirrorLines(pattern_w_extended_lines, output_name, width, height, pattern_type):
+
+    temp_paths, temp_attrs = svg2paths(pattern_w_extended_lines)
+    wsvg(temp_paths, attributes=temp_attrs, filename="test_2.svg", dimensions=(width, height))
 
     # mirror the lines over the y-axis
     mirrored_lines = f"{getFileStepCounter()}_mirrored_lines.svg"
@@ -819,15 +984,20 @@ def create_simple_pattern_stencils(stencil_1_pattern, width, height, size, empty
     incrementFileStepCounter()
     processed_pattern = removeDuplicateLinesFromSVG(combined_simple_stencil_w_patt, combined_simple_stencil_no_patt)
 
+    mirrored_processed_pattern = f"{getFileStepCounter()}_combined_shapes_mirrored_over_self.svg"
+    incrementFileStepCounter()
+    square_size = (height // 1.5) - getMargin()
+    mirrorSVGOverXAxisWithY(processed_pattern, mirrored_processed_pattern, width, height, getMargin() + square_size // 2)
+
     final_output_top = getUserOutputSVGFileName() + "_top.svg"
     final_output_bottom = getUserOutputSVGFileName() + "_bottom.svg"
 
-    combineStencils(processed_pattern, simple_stencil_1, final_output_top)
+    combineStencils(mirrored_processed_pattern, simple_stencil_1, final_output_top)
 
     if side_type == SideType.TwoSided:
         mirrored_pattern = f"{getFileStepCounter()}_mirrored_pattern.svg"
         incrementFileStepCounter()
-        mirrorLines(processed_pattern, mirrored_pattern, width, 0, pattern_type)
+        mirrorLines(mirrored_processed_pattern, mirrored_pattern, width, 0, pattern_type)
 
         combineStencils(final_output_top, mirrored_pattern, final_output_top)
 
@@ -1738,7 +1908,7 @@ def create_symmetric_pattern_stencils(preprocessed_pattern, width, height, size,
     # Draw lines from shapes to the edges of the stencil
     pattern_w_extended_lines = f"{getFileStepCounter()}_pattern_w_extended_lines.svg"
     incrementFileStepCounter()
-    drawExtensionLines(combined_simple_stencil_w_patt, combined_simple_stencil_no_patt, pattern_w_extended_lines, side_type, width, height, 0)
+    drawExtensionLines(combined_simple_stencil_w_patt, combined_simple_stencil_no_patt, pattern_w_extended_lines, side_type, False, width, height, 0)
 
     mirrored_pattern_extended = f"{getFileStepCounter()}_mirrored_pattern_extended.svg"
     incrementFileStepCounter()
@@ -1806,7 +1976,7 @@ def create_asymmetric_pattern_stencils(preprocessed_pattern, width, height, size
 
     top_pattern_w_extended_lines = f"{getFileStepCounter()}_pattern_w_extended_lines.svg"
     incrementFileStepCounter()
-    drawExtensionLines(combined_simple_stencil_w_top_patt, combined_simple_stencil_no_patt, top_pattern_w_extended_lines, side_type, width, height, 0)
+    drawExtensionLines(combined_simple_stencil_w_top_patt, combined_simple_stencil_no_patt, top_pattern_w_extended_lines, side_type, False, width, height, 0)
     # ------
 
     # --- for bottom half ---
@@ -1814,8 +1984,11 @@ def create_asymmetric_pattern_stencils(preprocessed_pattern, width, height, size
 
     bottom_pattern_w_extended_lines = f"{getFileStepCounter()}_bottom_pattern_w_extended_lines.svg"
     incrementFileStepCounter()
-    drawExtensionLines(combined_simple_stencil_w_bot_patt, combined_simple_stencil_no_patt, bottom_pattern_w_extended_lines, side_type, width, height, 0)
+    drawExtensionLines(combined_simple_stencil_w_bot_patt, combined_simple_stencil_no_patt, bottom_pattern_w_extended_lines, side_type, True, width, height, 0)
     # ------
+
+    temp_paths, temp_attrs = svg2paths(top_pattern_w_extended_lines)
+    temp_paths, temp_attrs = svg2paths(bottom_pattern_w_extended_lines)
 
     mirrored_bottom_pattern_extended = f"{getFileStepCounter()}_mirrored_bottom_pattern_extended.svg"
     incrementFileStepCounter()

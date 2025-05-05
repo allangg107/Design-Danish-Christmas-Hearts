@@ -593,6 +593,59 @@ def mirrorSVGOverXAxisWithY(input_svg, output_svg, width, height, y_mirror):
     wsvg(mirrored_paths, attributes=attributes, filename=output_svg, dimensions=(width, height))
 
 
+def mirrorSVGOver45DegreeLine(input_svg, output_svg, point, width, height):
+    """
+    Mirrors SVG paths over a 45-degree line that travels downward (y = -x + c) through the given point.
+    
+    Args:
+        input_svg: Path to input SVG file
+        output_svg: Path to output SVG file
+        point: A complex number representing the point through which the 45-degree line passes
+        width: Width of the SVG
+        height: Height of the SVG
+    """
+    paths, attributes = svg2paths(input_svg)
+    
+    # Extract coordinates of the point
+    a = point.real
+    b = point.imag
+    const = a + b  # The constant in the line equation y = -x + const
+    
+    # Mirror each path over the 45-degree line y = -x + const
+    mirrored_paths = []
+    for path in paths:
+        mirrored_segments = []
+        for segment in path:
+            if isinstance(segment, Line):
+                mirrored_segments.append(
+                    Line(
+                        complex(const - segment.start.imag, const - segment.start.real),
+                        complex(const - segment.end.imag, const - segment.end.real)
+                    )
+                )
+            elif isinstance(segment, CubicBezier):
+                mirrored_segments.append(
+                    CubicBezier(
+                        complex(const - segment.start.imag, const - segment.start.real),
+                        complex(const - segment.control1.imag, const - segment.control1.real),
+                        complex(const - segment.control2.imag, const - segment.control2.real),
+                        complex(const - segment.end.imag, const - segment.end.real)
+                    )
+                )
+            elif isinstance(segment, QuadraticBezier):
+                mirrored_segments.append(
+                    QuadraticBezier(
+                        complex(const - segment.start.imag, const - segment.start.real),
+                        complex(const - segment.control.imag, const - segment.control.real),
+                        complex(const - segment.end.imag, const - segment.end.real)
+                    )
+                )
+        mirrored_paths.append(Path(*mirrored_segments))
+
+    # Write the mirrored paths to the output file
+    wsvg(mirrored_paths, attributes=attributes, filename=output_svg, dimensions=(width, height))
+
+
 def removeDuplicateLinesFromSVG(svg_with_pattern, svg_without_pattern, output_filename=None):
     """
     Extracts paths that exist in svg_with_pattern but not in svg_without_pattern.
