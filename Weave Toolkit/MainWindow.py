@@ -894,8 +894,12 @@ class MainWindow(QMainWindow):
             self.drawing_widget.end = QPoint()  # Reset end point
             self.drawing_widget.update()  # Trigger repaint of the drawing widget
             self.update_backside_image()  # Update the backside image
-            self.setPatternType(PatternType.Simple)  # Reset pattern type to default
+            if getCurrentPatternType() == PatternType.Classic:
 
+                self.setPatternType(PatternType.Classic)  # Reset pattern type to Classic
+            
+            else:
+                self.setPatternType(PatternType.Simple)  # Reset pattern type to default
 
     def setPatternType(self, pattern):
         setCurrentPatternType(pattern)
@@ -945,7 +949,7 @@ class MainWindow(QMainWindow):
         action_simple.triggered.connect(lambda: (self.setPatternType(PatternType.Simple)))
         action_symmetrical.triggered.connect(lambda: (self.setPatternType(PatternType.Symmetric)))
         action_asymmetrical.triggered.connect(lambda: (self.setPatternType(PatternType.Asymmetric)))
-        action_classic.triggered.connect(lambda: (self.setPatternType(PatternType.Classic)))
+        action_classic.triggered.connect(lambda: (self.setPatternType(PatternType.Classic), self.clear_canvas()))
 
         # Add actions to the menu
         weaving_pattern_menu.addAction(action_simple)
