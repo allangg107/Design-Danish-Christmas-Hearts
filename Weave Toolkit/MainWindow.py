@@ -115,7 +115,9 @@ from GlobalVariables import(
     setCurrentSideType,
     getCurrentSideType,
     getNumClassicLines,
-    setNumClassicLines
+    setNumClassicLines,
+    setClassicIndicesLineDeleteList,
+    getClassicIndicesLineDeleteList,
 )
 
 
@@ -162,7 +164,7 @@ class DrawingWidget(QWidget):
         if getCurrentPatternType() == PatternType.Classic:
             self.drawCheckerboard(qp, inner_coords)
             shape_color = self.flipSquareColor(shape_color)
-            
+
         # Redraw all the previous shapes
         self.redrawAllShapes(qp)
 
@@ -219,7 +221,7 @@ class DrawingWidget(QWidget):
         qp.setBrush(brush)
 
     def flipSquareColor(self, shape_color):
-       
+
         for polygon, cell_color in self.cells:
             if polygon.containsPoint(QPointF(self.end), Qt.FillRule.OddEvenFill):
                 if cell_color == shape_color:
@@ -228,7 +230,7 @@ class DrawingWidget(QWidget):
                     else:
                         shape_color = getBackgroundColor()
                     break
-       
+
         return shape_color
 
     # Redraws all the shapes, while removing the ones that are erased
@@ -386,27 +388,35 @@ class DrawingWidget(QWidget):
         line_distance = distance / 2
         # Draw 3 parallel dashed lines going from bottom left to top right
         classic_cuts = []
-        for i in range(1, num_classic_lines + 1):  # Lines 1, 2, 3
-            # Calculate start and end points for each line
-            start_x_bottom = inner_coords[3][0] + (i * offset)
-            start_y_bottom = inner_coords[3][1] + (i * offset)
+        current_index = 1
+        for i in range(1, num_classic_lines + 1):
+            if current_index not in getClassicIndicesLineDeleteList():
+                # Calculate start and end points for each line
+                start_x_bottom = inner_coords[3][0] + (i * offset)
+                start_y_bottom = inner_coords[3][1] + (i * offset)
 
-            end_x_bottom = start_x_bottom + line_distance
-            end_y_bottom = start_y_bottom - line_distance
+                end_x_bottom = start_x_bottom + line_distance
+                end_y_bottom = start_y_bottom - line_distance
 
-            # Draw the dashed line
-            qp.drawLine(int(start_x_bottom), int(start_y_bottom), int(end_x_bottom), int(end_y_bottom))
-            classic_cuts.append([start_x_bottom, start_y_bottom, end_x_bottom, end_y_bottom])
+                # Draw the dashed line
+                qp.drawLine(int(start_x_bottom), int(start_y_bottom), int(end_x_bottom), int(end_y_bottom))
+                classic_cuts.append(([start_x_bottom, start_y_bottom, end_x_bottom, end_y_bottom], current_index))
 
-            start_x_top = inner_coords[3][0] + (i * offset)
-            start_y_top = inner_coords[3][1] - (i * offset)
+            current_index += 1
 
-            end_x_top = start_x_top + line_distance
-            end_y_top = start_y_top + line_distance
+            if current_index not in getClassicIndicesLineDeleteList():
+                start_x_top = inner_coords[3][0] + (i * offset)
+                start_y_top = inner_coords[3][1] - (i * offset)
 
-            # Draw the dashed line
-            qp.drawLine(int(start_x_top), int(start_y_top), int(end_x_top), int(end_y_top))
-            classic_cuts.append([start_x_top, start_y_top, end_x_top, end_y_top])
+                end_x_top = start_x_top + line_distance
+                end_y_top = start_y_top + line_distance
+
+                # Draw the dashed line
+                qp.drawLine(int(start_x_top), int(start_y_top), int(end_x_top), int(end_y_top))
+                classic_cuts.append(([start_x_top, start_y_top, end_x_top, end_y_top], current_index))
+
+            current_index += 1
+
         self.classic_cuts = classic_cuts
 
         # Create a dynamic checkerboard pattern over the inner diamond
@@ -465,7 +475,7 @@ class DrawingWidget(QWidget):
                         ])
                         qp.drawPolygon(polygon)
                         self.cells.append([polygon, getBackgroundColor()])
-                    
+
 
                     else:
                         qp.setBrush(QBrush(getShapeColor()))
@@ -476,7 +486,7 @@ class DrawingWidget(QWidget):
         qp.setBrush(brush)
         pen = QPen(getShapeColor(), getPenWidth())
         qp.setPen(pen)
-        
+
 
 
 
@@ -654,10 +664,10 @@ class DrawingWidget(QWidget):
                 if getCurrentPatternType() == PatternType.Classic:
                     shape_color = self.flipSquareColor(shape_color)
                     self.begin, self.end = snapShapeToClassicCuts(self.classic_cuts, getShapeMode(), self.begin, self.end, self.width(), self.height())
-                
+
                 if getShapeMode() == ShapeMode.Line:
                     self.shapes.append([self.begin, self.end, getShapeMode(), shape_color, [], getPenWidth(), False])
-                
+
                 elif getShapeMode() == ShapeMode.Semicircle:
                     self.shapes.append([self.begin, self.end, getShapeMode(), shape_color, [], 2, getFilled()])
 
@@ -1214,10 +1224,10 @@ class MainWindow(QMainWindow):
              QColor("white").name(): "White"
         }
         return color_map.get(qcolor.name(), "Unkown")
-    
+
     def change_active_color(self, old_color, foreground_bool):
         if getCurrentPatternType() == PatternType.Classic:
-            for shape in self.drawing_widget.shapes: 
+            for shape in self.drawing_widget.shapes:
 
                 if shape[3] == old_color:
                     if foreground_bool:
@@ -1225,19 +1235,19 @@ class MainWindow(QMainWindow):
                         shape[3] = getShapeColor()
                     else:
                         shape[3] = getBackgroundColor()
-    
+
     def disable_enable_color_button(self, foreground_bool):
         if foreground_bool:
             color = self.get_color_name(getShapeColor())
             for color_name, button in self.background_buttons.items():
                 button.setEnabled(color_name != color)
-        
+
         else:
             color = self.get_color_name(getBackgroundColor())
             for color_name, button in self.foreground_buttons.items():
                 button.setEnabled(color_name != color)
-            
-                    
+
+
     def change_foreground_color(self, color):
         old_color = getShapeColor()
         setShapeColor(QColor(color))

@@ -13,8 +13,8 @@ from SideType import (
 
 """Standarised global variable values"""
 MARGIN = 31
-FILE_STEP_COUNTER = 1 
-HAS_IMAGE = True # Global variable for if stencil has a drawn image only matters for 
+FILE_STEP_COUNTER = 1
+HAS_IMAGE = True # Global variable for if stencil has a drawn image only matters for
                  # the classic case currently in GuideWindow
 SHAPE_MODE = ShapeMode.Cursor
 SHAPE_COLOR = QColor(0, 0, 0, 255)
@@ -27,6 +27,7 @@ CURRENT_PATTERN_TYPE = PatternType.Simple
 CURRENT_SIDE = SideType.OneSided
 NUM_CLASSIC_LINES = 3 # Number of lines for the classic pattern, only used in the classic case
 LINE_THICKNESS_AND_EXTENSION = 4
+CLASSIC_INDICES_LINE_DELETE_LIST = []
 
 """Functions to get the global values"""
 
@@ -75,6 +76,9 @@ def getNumClassicLines():
 def getLineThicknessAndExtension():
     return LINE_THICKNESS_AND_EXTENSION
 
+def getClassicIndicesLineDeleteList():
+    return CLASSIC_INDICES_LINE_DELETE_LIST
+
 """Functions to set global values"""
 
 def incrementFileStepCounter():
@@ -116,7 +120,7 @@ def setBackgroundColor(color):
         BACKGROUND_COLOR = color
     else:
         print("Error: ", color, "is not an instance of QColor")
-        
+
 
 def setPenWidth(width):
     global PEN_WIDTH
@@ -126,7 +130,7 @@ def setFilled(value):
     global FILLED
     if isinstance(value, bool):
         FILLED = value
-    
+
     else:
         print("Error: ", value, "is not an instance of a boolean value")
 
@@ -144,7 +148,7 @@ def setCurrentPatternType(pattern):
         CURRENT_PATTERN_TYPE = pattern
     else:
         print("Error: ", pattern, "is not an instance of ", PatternType)
-    
+
 
 def setCurrentSideType(side):
     global CURRENT_SIDE
@@ -166,3 +170,7 @@ def setLineThicknessAndExtension(value):
         LINE_THICKNESS_AND_EXTENSION = value
     else:
         print("Error: ", value, "is not a positive integer")
+
+def setClassicIndicesLineDeleteList(lst):
+    global CLASSIC_INDICES_LINE_DELETE_LIST
+    CLASSIC_INDICES_LINE_DELETE_LIST = lst

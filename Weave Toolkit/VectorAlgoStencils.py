@@ -29,7 +29,8 @@ from VectorAlgoUtils import (
     grabLeftMostPointOfPaths,
     grabRightMostPointOfPaths,
     combineStencils,
-    fileIsNonEmpty
+    fileIsNonEmpty,
+    findClassicLinesToDelete
 )
 
 from PatternType import (
@@ -53,7 +54,9 @@ from GlobalVariables import (
     getShapeColor,
     getNumClassicLines,
     getLineThicknessAndExtension,
-    getUserOutputSVGFileName
+    getUserOutputSVGFileName,
+    getClassicIndicesLineDeleteList,
+    setClassicIndicesLineDeleteList
 )
 
 
@@ -244,11 +247,20 @@ def createClassicInnerCuts(width, height, starting_y, n_lines, margin_x=getMargi
     paths = []
     attributes = []
 
-    new_paths = [Line(
-        start=complex(left_top_line_start[0] - 3, left_top_line_start[1] + offset * (i + 1)),
-        end=complex(right_top_line_end[0] + 3, left_top_line_start[1] + offset * (i + 1))
-    ) for i in range(n_lines)]
-    new_attributes = [{'stroke': line_color, 'stroke-width': 1, 'fill': 'none'} for _ in range(n_lines)]
+    new_paths = []
+    new_attributes = []
+    current_index = 1 if height == 0 else 2
+    for i in range(n_lines):
+        if current_index not in getClassicIndicesLineDeleteList():
+            line = Line(
+                start=complex(left_top_line_start[0] - 3, left_top_line_start[1] + offset * (i + 1)),
+                end=complex(right_top_line_end[0] + 3, left_top_line_start[1] + offset * (i + 1))
+            )
+            new_paths.append(line)
+            new_attributes.append({'stroke': line_color, 'stroke-width': 1, 'fill': 'none'})
+
+        current_index += 2 # increment by 2, not 1
+
     paths.extend(new_paths)
     attributes.extend(new_attributes)
 
@@ -715,10 +727,10 @@ def find_two_topmost_horizontal_lines(svg_file):
                         'line': segment,
                         'y_coord': y_coord
                     })
-    
+
     # Sort by y-coordinate (ascending - lower y is higher in SVG)
     horizontal_lines.sort(key=lambda x: x['y_coord'])
-    
+
     # Return the two topmost lines (if we have them)
     if len(horizontal_lines) == 0:
         return None
@@ -750,7 +762,7 @@ def get_vertical_line_endpoints(vertical_line):
         return (vertical_line.start, vertical_line.end)
     else:
         return (vertical_line.end, vertical_line.start)
-    
+
 
 def get_horizontal_line_endpoints(horizontal_line):
     """
@@ -854,7 +866,7 @@ def drawExtensionLines(combined_stencil, stencil_pattern, output_name, side_type
     if bottommost_horizontal_line is None:
         print("Error: No horizontal line found.")
         return
-    
+
     rotated_back_name = f"{getFileStepCounter()}_rotated_back.svg"
     incrementFileStepCounter()
     rotateSVG(rotated_path_name, rotated_back_name, -45, width // 2, height // 2)
@@ -893,10 +905,10 @@ def drawExtensionLines(combined_stencil, stencil_pattern, output_name, side_type
         # we need to adjust the index for the second deletion
         if path_index == path_index_2 and segment_index < segment_index_2:
             segment_index_2 -= 1
-        
+
         # find the line in the second path and remove it
         del combined_paths_w_lines[path_index_2][segment_index_2]
-    
+
 
     if is_asym_bot:
         wsvg(combined_paths_w_lines, attributes=combined_attrs_w_lines, filename="test.svg", dimensions=(width, width))
@@ -975,7 +987,7 @@ def create_simple_pattern_stencils(stencil_1_pattern, width, height, size, empty
 
     if is_blank:
         return
-    
+
     combined_simple_stencil_no_patt = f"{getFileStepCounter()}_combined_simple_stencil_no_patt.svg"
     incrementFileStepCounter()
     combineStencils(simple_stencil_1, simple_stencil_2, combined_simple_stencil_no_patt)
@@ -1002,7 +1014,7 @@ def create_simple_pattern_stencils(stencil_1_pattern, width, height, size, empty
         combineStencils(final_output_top, mirrored_pattern, final_output_top)
 
     bottom_paths, bottom_attrs = svg2paths(simple_stencil_2)
-    
+
     # Extract viewBox from simple_stencil_2
     tree = ET.parse(simple_stencil_2)
     root = tree.getroot()
@@ -1051,7 +1063,7 @@ def fitClassicCuts(classic_cuts, stencil_pattern, output_name, width, height, si
 
 def snapShapeToClassicCuts(classic_cuts, shape_type, begin_point, end_point, width, height):
     lines = []
-    for line_coords in classic_cuts:
+    for line_coords, _ in classic_cuts:
         line = LineString([(line_coords[0], line_coords[1]), (line_coords[2], line_coords[3])])
         lines.append(line)
 
@@ -1178,6 +1190,15 @@ def snapShapeToClassicCuts(classic_cuts, shape_type, begin_point, end_point, wid
                              key=lambda p: abs(p - end_complex))
 
         # Convert back to QPoint for return
+
+        if shape_type == ShapeMode.Semicircle:
+            # delete classic lines in between the two points
+            delete_list = getClassicIndicesLineDeleteList()
+            # find the classic lines that are between the two points
+            classic_lines_to_delete = findClassicLinesToDelete(closest_to_begin, closest_to_end, snap_points, classic_cuts)
+
+            delete_list.extend(classic_lines_to_delete)
+            setClassicIndicesLineDeleteList(delete_list)
 
         return QPoint(int(closest_to_begin.real), int(closest_to_begin.imag)), \
                QPoint(int(closest_to_end.real), int(closest_to_end.imag))

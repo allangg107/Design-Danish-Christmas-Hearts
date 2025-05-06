@@ -22,7 +22,9 @@ from GlobalVariables import (
     getShapeColor,
     getCurrentPatternType,
     getNumClassicLines,
-    getPenWidth
+    getPenWidth,
+    getClassicIndicesLineDeleteList,
+    setClassicIndicesLineDeleteList
 )
 
 from SideType import (
@@ -605,12 +607,12 @@ def mirrorSVGOver45DegreeLine(input_svg, output_svg, point, width, height):
         height: Height of the SVG
     """
     paths, attributes = svg2paths(input_svg)
-    
+
     # Extract coordinates of the point
     a = point.real
     b = point.imag
     const = a + b  # The constant in the line equation y = -x + const
-    
+
     # Mirror each path over the 45-degree line y = -x + const
     mirrored_paths = []
     for path in paths:
@@ -871,6 +873,7 @@ def calculate_distance(point1, point2):
         return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
 
 def drawCheckerboardOnPixmap(pixmap, painter):
+    classic_lines_indices = getClassicIndicesLineDeleteList()
     lines = getNumClassicLines() * 2
     # Draw standard checkerboard pattern
     size = pixmap.size()
@@ -897,7 +900,7 @@ def drawCheckerboardOnPixmap(pixmap, painter):
             x = col * square_size
             y = row * square_size
             checker_painter.fillRect(QRect(x, y, square_size, square_size), QBrush(color))
-    
+
     checker_painter.end()
 
     rotated = checker_pixmap.transformed(QTransform().rotate(-90), Qt.TransformationMode.SmoothTransformation)
@@ -916,7 +919,7 @@ def saveSvgFileAsPixmap(filepath, size=QSize(600, 600)):
     painter = QPainter(pixmap)
     if getCurrentPatternType() == PatternType.Classic:
         drawCheckerboardOnPixmap(pixmap, painter)
-        
+
     renderer.render(painter)
     painter.end()
 
@@ -1109,6 +1112,54 @@ def extractSemiCirclesFromPattern(mirrored_pattern, bottom_stencil_semi_circles,
         wsvg(top_stencil_semi_circle_paths, attributes=top_stencil_semi_circles_attributes, filename=top_stencil_semi_circles)
     if pattern_no_semi_circles_paths:
         wsvg(pattern_no_semi_circles_paths, attributes=pattern_no_semi_circles_attributes, filename=pattern_no_semi_circles)
+
+
+def findClassicLinesToDelete(left_snap_point, right_snap_point, snap_points, classic_cuts):
+    # Sort the points based on their x-coordinates
+    sorted_points = sorted(snap_points, key=lambda p: p.real)
+
+    # determine orientation of the line given left and right snap points
+    line_orientation_up = False
+    if left_snap_point.imag < right_snap_point.imag:
+        line_orientation_up = True
+
+    # Figure out the snapped classic line index
+    current_classic_line_index = classic_cuts[0][1] if line_orientation_up else classic_cuts[1][1]
+    current_classic_line = classic_cuts[0][0] if line_orientation_up else classic_cuts[1][0]
+    for i in range(current_classic_line_index - 1, len(classic_cuts) // 2 - 1):
+        current_classic_line = classic_cuts[i][0]
+
+        if left_snap_point in current_classic_line:
+            print("allan snap point found")
+            current_classic_line_index = classic_cuts[i][1]
+            break
+
+        i += 2
+
+    # Find number of intersections in between the left and right snap points
+    num_intersections_counter = 1
+    for i in range(len(sorted_points) - 1):
+        current_snap_point = sorted_points[i]
+
+        # Check if the current point is in between the left and right snap points on the current classic line
+        # if current_snap_point in current_classic_line:
+        if left_snap_point.real < current_snap_point.real < right_snap_point.real:
+            num_intersections_counter += 1
+
+    # Determine the indices to delete by looking at the num_intersections_counter and subtracting that from the classic line index
+    num_classic_lines_to_delete = math.floor(num_intersections_counter * 0.5)
+
+
+    # Figure out the indices to delete
+    indices_to_delete = []
+    for i in range(num_classic_lines_to_delete):
+        indices_to_delete.append(current_classic_line_index - i * 2)
+
+    print ("num intersections: ", num_intersections_counter)
+    print("num classic lines to delete: ", num_classic_lines_to_delete)
+    print("indices to delete: ", indices_to_delete)
+
+    return indices_to_delete
 
 
 def fileIsNonEmpty(file_path):
