@@ -2037,12 +2037,11 @@ def create_asymmetric_pattern_stencils(preprocessed_pattern, width, height, size
         attributes_copy = copy.deepcopy(attributes)
         wsvg(paths_copy, attributes=attributes_copy, filename=combined_patt_and_mirror_copy, dimensions=(width, height))
 
-        # INSTEAD OF THIS TRANSLATE MIGHT BE WHERE WE MIRROR OVER THE X AXIS
-        # translateSVGBy(combined_patt_and_mirror_copy, combined_patt_and_mirror_copy, 0, height)
-        mirrorSVGOverXAxisWithY(combined_patt_and_mirror_copy, combined_patt_and_mirror_copy, width, height, 500)
+        translateSVGBy(combined_patt_and_mirror_copy, combined_patt_and_mirror_copy, 0, height)
+        #mirrorSVGOverXAxisWithY(combined_patt_and_mirror_copy, combined_patt_and_mirror_copy2, width, height, 500)
 
         combined_patt_and_mirror = f"{getFileStepCounter()}_combined_patt_and_mirror.svg"
         incrementFileStepCounter()
-        combineStencils(combined_patt_and_mirror_top, combined_patt_and_mirror_copy, combined_patt_and_mirror)
+        combineStencils(combined_patt_and_mirror_top, combined_patt_and_mirror, combined_patt_and_mirror)
 
         combinePatternAndMirrorWithStencils(combined_patt_and_mirror, simple_stencil_1, combined_patt_and_mirror_copy, simple_stencil_2)
