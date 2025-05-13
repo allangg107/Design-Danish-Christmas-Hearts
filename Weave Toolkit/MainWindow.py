@@ -894,6 +894,7 @@ class MainWindow(QMainWindow):
             self.drawing_widget.free_form_points = []  # Clear all free form points
             self.drawing_widget.begin = QPoint()  # Reset begin point
             self.drawing_widget.end = QPoint()  # Reset end point
+            setClassicIndicesLineDeleteList([])  # Clear classic indices line delete list
             self.drawing_widget.update()  # Trigger repaint of the drawing widget
             self.update_backside_image()  # Update the backside image
             if getCurrentPatternType() == PatternType.Classic:
