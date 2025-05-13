@@ -24,7 +24,9 @@ from GlobalVariables import (
     getNumClassicLines,
     getPenWidth,
     getClassicIndicesLineDeleteList,
-    setClassicIndicesLineDeleteList
+    setClassicIndicesLineDeleteList,
+    getClassicPatternSnapPoints,
+    getClassicPatternClassicLines
 )
 
 from SideType import (
@@ -1107,34 +1109,78 @@ def extractSemiCirclesFromPattern(mirrored_pattern, bottom_stencil_semi_circles,
             top_stencil_semi_circles_attributes = all_attrs
 
     if bottom_stencil_semi_circle_paths:
-        wsvg(bottom_stencil_semi_circle_paths, attributes=bottom_stencil_semi_circles_attributes, filename=bottom_stencil_semi_circles, dimensions=(400, 400))
+        wsvg(bottom_stencil_semi_circle_paths, attributes=bottom_stencil_semi_circles_attributes, filename=bottom_stencil_semi_circles, dimensions=(width, height))
     if top_stencil_semi_circle_paths:
         wsvg(top_stencil_semi_circle_paths, attributes=top_stencil_semi_circles_attributes, filename=top_stencil_semi_circles)
     if pattern_no_semi_circles_paths:
         wsvg(pattern_no_semi_circles_paths, attributes=pattern_no_semi_circles_attributes, filename=pattern_no_semi_circles)
 
 
-def findClassicLinesToDelete(left_snap_point, right_snap_point, snap_points, classic_cuts):
+def is_point_on_line(point, line, tolerance=2):
+    """
+    Check if a point is on a given line segment within a small degree of tolerance.
+
+    :param point: A complex number representing the point (e.g., 187.5+312.5j).
+    :param line: A list of four numbers [x1, y1, x2, y2] representing the start and end points of the line segment.
+    :param tolerance: A small degree of tolerance to account for floating-point imprecision.
+    :return: True if the point is on the line segment, False otherwise.
+    """
+    x1, y1, x2, y2 = line
+    px, py = point.real, point.imag
+
+    # Calculate the squared length of the line segment
+    line_length_sq = (x2 - x1) ** 2 + (y2 - y1) ** 2
+
+    # Handle the case where the line segment is a single point
+    if line_length_sq == 0:
+        return abs(px - x1) <= tolerance and abs(py - y1) <= tolerance
+
+    # Calculate the projection of the point onto the line segment
+    t = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / line_length_sq
+
+    # Clamp t to the range [0, 1] to ensure the projection is on the segment
+    t = max(0, min(1, t))
+
+    # Find the closest point on the line segment to the given point
+    closest_x = x1 + t * (x2 - x1)
+    closest_y = y1 + t * (y2 - y1)
+
+    # Calculate the distance from the point to the closest point on the line segment
+    distance_sq = (closest_x - px) ** 2 + (closest_y - py) ** 2
+
+    # Check if the distance is within the tolerance
+    return distance_sq <= tolerance ** 2
+
+
+def findClassicLinesToDelete(left_snap_point, right_snap_point):
+    # INSTEAD OF PASSING AN UPDATED snap_points AND classic_cuts, PASS THE ORIGINAL snap_points and classic_cuts (as global variables)
     # Sort the points based on their x-coordinates
-    sorted_points = sorted(snap_points, key=lambda p: p.real)
+    sorted_points = sorted(getClassicPatternSnapPoints(), key=lambda p: p.real)
+    classic_cuts = getClassicPatternClassicLines()
 
     # determine orientation of the line given left and right snap points
     line_orientation_up = False
-    if left_snap_point.imag < right_snap_point.imag:
+    if left_snap_point.imag > right_snap_point.imag:
         line_orientation_up = True
+
+    print("line orientation up: ", line_orientation_up)
 
     # Figure out the snapped classic line index
     current_classic_line_index = classic_cuts[0][1] if line_orientation_up else classic_cuts[1][1]
     current_classic_line = classic_cuts[0][0] if line_orientation_up else classic_cuts[1][0]
-    for i in range(current_classic_line_index - 1, len(classic_cuts) // 2 - 1):
+
+    print("left snap point: ", left_snap_point)
+    print("starting classic line index: ", current_classic_line_index)
+    print("starting classic line: ", current_classic_line)
+
+    for i in range(current_classic_line_index - 1, len(classic_cuts), 2):
         current_classic_line = classic_cuts[i][0]
 
-        if left_snap_point in current_classic_line:
+        if is_point_on_line(left_snap_point, current_classic_line):
             print("allan snap point found")
             current_classic_line_index = classic_cuts[i][1]
+            print("current classic line index: ", current_classic_line_index)
             break
-
-        i += 2
 
     # Find number of intersections in between the left and right snap points
     num_intersections_counter = 1
@@ -1142,18 +1188,18 @@ def findClassicLinesToDelete(left_snap_point, right_snap_point, snap_points, cla
         current_snap_point = sorted_points[i]
 
         # Check if the current point is in between the left and right snap points on the current classic line
-        # if current_snap_point in current_classic_line:
-        if left_snap_point.real < current_snap_point.real < right_snap_point.real:
-            num_intersections_counter += 1
+        if is_point_on_line(current_snap_point, current_classic_line):
+            if left_snap_point.real < current_snap_point.real < right_snap_point.real:
+                num_intersections_counter += 1
 
     # Determine the indices to delete by looking at the num_intersections_counter and subtracting that from the classic line index
     num_classic_lines_to_delete = math.floor(num_intersections_counter * 0.5)
 
-
     # Figure out the indices to delete
     indices_to_delete = []
     for i in range(num_classic_lines_to_delete):
-        indices_to_delete.append(current_classic_line_index - i * 2)
+        incrementor = (1 + i) * 2 if line_orientation_up else (1 + i) * (-2)
+        indices_to_delete.append(current_classic_line_index - incrementor)
 
     print ("num intersections: ", num_intersections_counter)
     print("num classic lines to delete: ", num_classic_lines_to_delete)

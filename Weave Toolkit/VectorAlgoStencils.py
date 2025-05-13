@@ -56,7 +56,9 @@ from GlobalVariables import (
     getLineThicknessAndExtension,
     getUserOutputSVGFileName,
     getClassicIndicesLineDeleteList,
-    setClassicIndicesLineDeleteList
+    setClassicIndicesLineDeleteList,
+    setClassicPatternSnapPoints,
+    setClassicPatternClassicLines
 )
 
 
@@ -226,8 +228,8 @@ def drawInnerCutLines(width, height, starting_y, margin_x=getMargin(), line_colo
     return file_name
 
 
-def createClassicInnerCuts(width, height, starting_y, n_lines, margin_x=getMargin(), line_color='black'):
-    #define the square size
+def createClassicInnerCuts(width, height, starting_y, n_lines, side_type, margin_x=getMargin(), line_color='black'):
+    # define the square size
     square_size = (height // 1.5) - margin_x
     margin_y = margin_x + starting_y
 
@@ -236,7 +238,7 @@ def createClassicInnerCuts(width, height, starting_y, n_lines, margin_x=getMargi
     left_bottom_line_start = (left_top_line_start[0], left_top_line_start[1] + square_size)
     left_bottom_line_end = (left_bottom_line_start[0] + square_size, left_bottom_line_start[1])
 
-    #draw the right square
+    # draw the right square
     right_top_line_start = left_top_line_end
     right_top_line_end = (right_top_line_start[0] + square_size, right_top_line_start[1])
     right_bottom_line_start = left_bottom_line_end
@@ -249,17 +251,61 @@ def createClassicInnerCuts(width, height, starting_y, n_lines, margin_x=getMargi
 
     new_paths = []
     new_attributes = []
-    current_index = 1 if height == 0 else 2
+
+    current_index = n_lines * 2 - 1 if starting_y != 0 else 2
+    print(f"current_index: {current_index}")
     for i in range(n_lines):
         if current_index not in getClassicIndicesLineDeleteList():
+            start_of_line=complex(left_top_line_start[0] - 3, left_top_line_start[1] + offset * (i + 1))
+            end_of_line=complex(right_top_line_end[0] + 3, left_top_line_start[1] + offset * (i + 1))
+
+            if current_index % 2 == 1:
+                # if the current index is odd, add only the left side of the line
+                if side_type == SideType.TwoSided: # if two sided, don't add the other side of the respective line on the other stencil
+                    if (2) + (i * 2) in getClassicIndicesLineDeleteList():
+                        start_of_line=complex(left_top_line_end[0] + 3, left_top_line_start[1] + offset * (i + 1))
+            else:
+                if side_type == SideType.TwoSided:
+                    if (n_lines * 2 - 1) - (i * 2) in getClassicIndicesLineDeleteList():
+                        end_of_line=complex(right_top_line_start[0] - 3, left_top_line_start[1] + offset * (i + 1))
+                        
+
             line = Line(
-                start=complex(left_top_line_start[0] - 3, left_top_line_start[1] + offset * (i + 1)),
-                end=complex(right_top_line_end[0] + 3, left_top_line_start[1] + offset * (i + 1))
+                start=start_of_line,
+                end=end_of_line
             )
             new_paths.append(line)
             new_attributes.append({'stroke': line_color, 'stroke-width': 1, 'fill': 'none'})
+        else: # if the current index is in the delete list:
+            if current_index % 2 == 1: # if the current index is odd, add only the left side of the line
+                end_of_line=complex(left_bottom_line_end[0] + 3, left_top_line_start[1] + offset * (i + 1))
+                if side_type == SideType.TwoSided: # if two sided, don't add the other side of the respective line on the other stencil
+                    if (2) + (i * 2) in getClassicIndicesLineDeleteList():
+                        end_of_line=complex(left_top_line_start[0] - 3, left_top_line_start[1] + offset * (i + 1))
+                
+                line = Line(
+                    start=complex(left_top_line_start[0] - 3, left_top_line_start[1] + offset * (i + 1)),
+                    end=end_of_line
+                )
+                new_paths.append(line)
+                new_attributes.append({'stroke': line_color, 'stroke-width': 1, 'fill': 'none'})
+            else: # if the current index is even, add only the right side of the line
+                start_of_line=complex(right_top_line_start[0] - 3, left_top_line_start[1] + offset * (i + 1))
+                if side_type == SideType.TwoSided:
+                    if (n_lines * 2 - 1) - (i * 2) in getClassicIndicesLineDeleteList():
+                        start_of_line=complex(right_top_line_end[0] + 3, left_top_line_start[1] + offset * (i + 1))
+                
+                line = Line(
+                    start=start_of_line,
+                    end=complex(right_top_line_end[0] + 3, left_top_line_start[1] + offset * (i + 1))
+                )
+                new_paths.append(line)
+                new_attributes.append({'stroke': line_color, 'stroke-width': 1, 'fill': 'none'})
 
-        current_index += 2 # increment by 2, not 1
+        if starting_y != 0:
+            current_index -= 2 # increment by 2, not 1
+        else:
+            current_index += 2
 
     paths.extend(new_paths)
     attributes.extend(new_attributes)
@@ -1093,6 +1139,10 @@ def snapShapeToClassicCuts(classic_cuts, shape_type, begin_point, end_point, wid
                     intersection_points.append(complex(intersection.x, intersection.y))
 
     snap_points = intersection_points.copy()
+    
+    if len(classic_cuts) == getNumClassicLines() * 2:
+        setClassicPatternSnapPoints(snap_points)
+        setClassicPatternClassicLines(classic_cuts)
 
     # find the center point of each square formed by intersection points that are within close proximity
     center_points = []
@@ -1195,7 +1245,7 @@ def snapShapeToClassicCuts(classic_cuts, shape_type, begin_point, end_point, wid
             # delete classic lines in between the two points
             delete_list = getClassicIndicesLineDeleteList()
             # find the classic lines that are between the two points
-            classic_lines_to_delete = findClassicLinesToDelete(closest_to_begin, closest_to_end, snap_points, classic_cuts)
+            classic_lines_to_delete = findClassicLinesToDelete(closest_to_begin, closest_to_end)
 
             delete_list.extend(classic_lines_to_delete)
             setClassicIndicesLineDeleteList(delete_list)
@@ -1745,8 +1795,8 @@ def attach45DegreeLinesAndRemoveInbetween(quarters, classic_cuts, output_name):
 
 def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, empty_stencil_1, empty_stencil_2, side_type, n_lines, is_blank):
     # 1. create the classic inner cuts
-    stencil_1_classic_cuts_paths, stencil_1_classic_cuts_attr = createClassicInnerCuts(width, height, 0, n_lines)
-    stencil_2_classic_cuts_paths, stencil_2_classic_cuts_attr = createClassicInnerCuts(width, height, height, n_lines)
+    stencil_1_classic_cuts_paths, stencil_1_classic_cuts_attr = createClassicInnerCuts(width, height, 0, n_lines, side_type)
+    stencil_2_classic_cuts_paths, stencil_2_classic_cuts_attr = createClassicInnerCuts(width, height, height, n_lines, side_type)
 
     stencil_1_classic_cuts = f"{getFileStepCounter()}_stencil_1_classic_cuts.svg"
     incrementFileStepCounter()
@@ -1815,9 +1865,6 @@ def create_classic_pattern_stencils(preprocessed_pattern, width, height, size, e
     mirrored_pattern = f"{getFileStepCounter()}_mirrored_pattern.svg"
     incrementFileStepCounter()
     mirrorSVGOverXAxisWithY(unfilled_pattern, mirrored_pattern, width, height, getMargin() + square_size / 2)
-
-    combineStencils(stencil_1_classic_cuts, mirrored_pattern, "checkpoint.svg")
-    combineStencils("checkpoint.svg", empty_stencil_1, "checkpoint.svg")
 
     bottom_stencil_semi_circles = f"{getFileStepCounter()}_bottom_stencil_semi_circles.svg"
     incrementFileStepCounter()

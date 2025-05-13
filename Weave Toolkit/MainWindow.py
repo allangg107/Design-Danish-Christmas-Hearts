@@ -419,68 +419,70 @@ class DrawingWidget(QWidget):
 
         self.classic_cuts = classic_cuts
 
-        # Create a dynamic checkerboard pattern over the inner diamond
-        if inner_coords and len(inner_coords) == 4:
-            # Determine the grid size from the number of dashed lines
-            num_dashed_lines = len(self.classic_cuts) // 2  # Each line has two entries in classic_cuts
-            grid_size = num_dashed_lines + 1
+        # THIS DYNAMICALLY DRAWS THE CHECKERBOARD PATTERN, BUT DOES NOT WORK WITH DELETING LINES YET
 
-            # Draw a rotated checkerboard that matches the diamond orientation
-            qp.setBrush(QBrush(getBackgroundColor()))
+        # # Create a dynamic checkerboard pattern over the inner diamond
+        # if inner_coords and len(inner_coords) == 4:
+        #     # Determine the grid size from the number of dashed lines
+        #     num_dashed_lines = len(self.classic_cuts) // 2  # Each line has two entries in classic_cuts
+        #     grid_size = num_dashed_lines + 1
 
-            # Calculate all grid points for an NxN grid within the diamond
-            grid_points = []
-            for i in range(4):  # For each corner
-                start = inner_coords[i]
-                end = inner_coords[(i+1) % 4]  # Next corner
+        #     # Draw a rotated checkerboard that matches the diamond orientation
+        #     qp.setBrush(QBrush(getBackgroundColor()))
 
-                # Create grid_size+1 points along each edge (including corners)
-                for j in range(grid_size + 1):
-                    t = j / grid_size  # Parameter from 0 to 1
-                    x = start[0] + t * (end[0] - start[0])
-                    y = start[1] + t * (end[1] - start[1])
-                    grid_points.append((i, j, (x, y)))  # Store edge index, position, and coordinates
+        #     # Calculate all grid points for an NxN grid within the diamond
+        #     grid_points = []
+        #     for i in range(4):  # For each corner
+        #         start = inner_coords[i]
+        #         end = inner_coords[(i+1) % 4]  # Next corner
 
-            # Create the internal grid points using bilinear interpolation
-            for row in range(grid_size + 1):
-                for col in range(grid_size + 1):
-                    # Calculate the four corners of this cell
-                    top_left = (inner_coords[0][0] + col/grid_size * (inner_coords[1][0] - inner_coords[0][0]) +
-                                row/grid_size * (inner_coords[3][0] - inner_coords[0][0]),
-                                inner_coords[0][1] + col/grid_size * (inner_coords[1][1] - inner_coords[0][1]) +
-                                row/grid_size * (inner_coords[3][1] - inner_coords[0][1]))
+        #         # Create grid_size+1 points along each edge (including corners)
+        #         for j in range(grid_size + 1):
+        #             t = j / grid_size  # Parameter from 0 to 1
+        #             x = start[0] + t * (end[0] - start[0])
+        #             y = start[1] + t * (end[1] - start[1])
+        #             grid_points.append((i, j, (x, y)))  # Store edge index, position, and coordinates
 
-                    top_right = (inner_coords[0][0] + (col+1)/grid_size * (inner_coords[1][0] - inner_coords[0][0]) +
-                                    row/grid_size * (inner_coords[3][0] - inner_coords[0][0]),
-                                    inner_coords[0][1] + (col+1)/grid_size * (inner_coords[1][1] - inner_coords[0][1]) +
-                                    row/grid_size * (inner_coords[3][1] - inner_coords[0][1]))
+        #     # Create the internal grid points using bilinear interpolation
+        #     for row in range(grid_size + 1):
+        #         for col in range(grid_size + 1):
+        #             # Calculate the four corners of this cell
+        #             top_left = (inner_coords[0][0] + col/grid_size * (inner_coords[1][0] - inner_coords[0][0]) +
+        #                         row/grid_size * (inner_coords[3][0] - inner_coords[0][0]),
+        #                         inner_coords[0][1] + col/grid_size * (inner_coords[1][1] - inner_coords[0][1]) +
+        #                         row/grid_size * (inner_coords[3][1] - inner_coords[0][1]))
 
-                    bottom_left = (inner_coords[0][0] + col/grid_size * (inner_coords[1][0] - inner_coords[0][0]) +
-                                    (row+1)/grid_size * (inner_coords[3][0] - inner_coords[0][0]),
-                                    inner_coords[0][1] + col/grid_size * (inner_coords[1][1] - inner_coords[0][1]) +
-                                    (row+1)/grid_size * (inner_coords[3][1] - inner_coords[0][1]))
+        #             top_right = (inner_coords[0][0] + (col+1)/grid_size * (inner_coords[1][0] - inner_coords[0][0]) +
+        #                             row/grid_size * (inner_coords[3][0] - inner_coords[0][0]),
+        #                             inner_coords[0][1] + (col+1)/grid_size * (inner_coords[1][1] - inner_coords[0][1]) +
+        #                             row/grid_size * (inner_coords[3][1] - inner_coords[0][1]))
 
-                    bottom_right = (inner_coords[0][0] + (col+1)/grid_size * (inner_coords[1][0] - inner_coords[0][0]) +
-                                    (row+1)/grid_size * (inner_coords[3][0] - inner_coords[0][0]),
-                                    inner_coords[0][1] + (col+1)/grid_size * (inner_coords[1][1] - inner_coords[0][1]) +
-                                    (row+1)/grid_size * (inner_coords[3][1] - inner_coords[0][1]))
+        #             bottom_left = (inner_coords[0][0] + col/grid_size * (inner_coords[1][0] - inner_coords[0][0]) +
+        #                             (row+1)/grid_size * (inner_coords[3][0] - inner_coords[0][0]),
+        #                             inner_coords[0][1] + col/grid_size * (inner_coords[1][1] - inner_coords[0][1]) +
+        #                             (row+1)/grid_size * (inner_coords[3][1] - inner_coords[0][1]))
 
-                    # Only fill cells where (row + col) is even (checkerboard pattern)
-                    if (row + col) % 2 == 0:
-                        polygon = QPolygonF([
-                            QPointF(top_left[0], top_left[1]),
-                            QPointF(top_right[0], top_right[1]),
-                            QPointF(bottom_right[0], bottom_right[1]),
-                            QPointF(bottom_left[0], bottom_left[1])
-                        ])
-                        qp.drawPolygon(polygon)
-                        self.cells.append([polygon, getBackgroundColor()])
+        #             bottom_right = (inner_coords[0][0] + (col+1)/grid_size * (inner_coords[1][0] - inner_coords[0][0]) +
+        #                             (row+1)/grid_size * (inner_coords[3][0] - inner_coords[0][0]),
+        #                             inner_coords[0][1] + (col+1)/grid_size * (inner_coords[1][1] - inner_coords[0][1]) +
+        #                             (row+1)/grid_size * (inner_coords[3][1] - inner_coords[0][1]))
+
+        #             # Only fill cells where (row + col) is even (checkerboard pattern)
+        #             if (row + col) % 2 == 0:
+        #                 polygon = QPolygonF([
+        #                     QPointF(top_left[0], top_left[1]),
+        #                     QPointF(top_right[0], top_right[1]),
+        #                     QPointF(bottom_right[0], bottom_right[1]),
+        #                     QPointF(bottom_left[0], bottom_left[1])
+        #                 ])
+        #                 qp.drawPolygon(polygon)
+        #                 self.cells.append([polygon, getBackgroundColor()])
 
 
-                    else:
-                        qp.setBrush(QBrush(getShapeColor()))
-                        qp.drawPolygon(polygon)
-                        self.cells.append([polygon, getShapeColor()])
+        #             else:
+        #                 qp.setBrush(QBrush(getShapeColor()))
+        #                 qp.drawPolygon(polygon)
+        #                 self.cells.append([polygon, getShapeColor()])
 
         brush = QBrush(getShapeColor())
         qp.setBrush(brush)

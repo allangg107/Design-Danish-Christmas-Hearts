@@ -28,6 +28,8 @@ CURRENT_SIDE = SideType.OneSided
 NUM_CLASSIC_LINES = 3 # Number of lines for the classic pattern, only used in the classic case
 LINE_THICKNESS_AND_EXTENSION = 4
 CLASSIC_INDICES_LINE_DELETE_LIST = []
+CLASSIC_PATTERN_SNAP_POINTS = []
+CLASSIC_PATTERN_CLASSIC_LINES = [] 
 
 """Functions to get the global values"""
 
@@ -78,6 +80,12 @@ def getLineThicknessAndExtension():
 
 def getClassicIndicesLineDeleteList():
     return CLASSIC_INDICES_LINE_DELETE_LIST
+
+def getClassicPatternSnapPoints():
+    return CLASSIC_PATTERN_SNAP_POINTS
+
+def getClassicPatternClassicLines():
+    return CLASSIC_PATTERN_CLASSIC_LINES
 
 """Functions to set global values"""
 
@@ -174,3 +182,11 @@ def setLineThicknessAndExtension(value):
 def setClassicIndicesLineDeleteList(lst):
     global CLASSIC_INDICES_LINE_DELETE_LIST
     CLASSIC_INDICES_LINE_DELETE_LIST = lst
+
+def setClassicPatternSnapPoints(lst):
+    global CLASSIC_PATTERN_SNAP_POINTS
+    CLASSIC_PATTERN_SNAP_POINTS = lst
+
+def setClassicPatternClassicLines(lst):
+    global CLASSIC_PATTERN_CLASSIC_LINES
+    CLASSIC_PATTERN_CLASSIC_LINES = lst
