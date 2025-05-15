@@ -30,6 +30,7 @@ LINE_THICKNESS_AND_EXTENSION = 4
 CLASSIC_INDICES_LINE_DELETE_LIST = []
 CLASSIC_PATTERN_SNAP_POINTS = []
 CLASSIC_PATTERN_CLASSIC_LINES = [] 
+SYMMETRY_LINE = None
 
 """Functions to get the global values"""
 
@@ -87,6 +88,8 @@ def getClassicPatternSnapPoints():
 def getClassicPatternClassicLines():
     return CLASSIC_PATTERN_CLASSIC_LINES
 
+def getSymmetryLine():
+    return SYMMETRY_LINE
 """Functions to set global values"""
 
 def incrementFileStepCounter():
@@ -190,3 +193,7 @@ def setClassicPatternSnapPoints(lst):
 def setClassicPatternClassicLines(lst):
     global CLASSIC_PATTERN_CLASSIC_LINES
     CLASSIC_PATTERN_CLASSIC_LINES = lst
+
+def setSymmetryLine(val):
+    global SYMMETRY_LINE
+    SYMMETRY_LINE = val

@@ -75,10 +75,6 @@ from PyQt6.QtGui import (
     QPolygonF
 )
 
-from Algorithm import (
-    mainAlgorithm
-)
-
 from VectorAlgo import (
     mainAlgorithmSvg
 )
@@ -118,6 +114,11 @@ from GlobalVariables import(
     setNumClassicLines,
     setClassicIndicesLineDeleteList,
     getClassicIndicesLineDeleteList,
+    setSymmetryLine
+)
+
+from ErrorHandling import (
+    shapeNotTouchingSymmetrylineError
 )
 
 
@@ -366,6 +367,7 @@ class DrawingWidget(QWidget):
             pen.setStyle(Qt.PenStyle.DashLine)
             qp.setPen(pen)
             qp.drawLine(int(inner_coords[0][0]), int(y1), int(inner_coords[0][0]), int(y2))
+            setSymmetryLine([int(inner_coords[0][0]), int(y1), int(y2)])
 
         brush = QBrush(getShapeColor())
         qp.setBrush(brush)
@@ -1005,31 +1007,6 @@ class MainWindow(QMainWindow):
         self.drawing_backside.setPixmap(scaled_pixmap)
         self.drawing_backside.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-
-    def updateDisplay(self, write_to_image = False):
-
-        self.backside_label.setText("Front Side final product:")
-
-        arr = self.pixmapToCvImage()
-        heart = self.cvImageToPixmap(mainAlgorithm(arr, 'show'))
-
-        if write_to_image:
-            cv.imwrite('image.png', heart)
-
-        # Shows the design created by the users on the heart
-        pixmap = QPixmap(heart)
-
-        scaled_pixmap = pixmap.scaled(
-            self.drawing_backside.width() * 2,
-            self.drawing_backside.height() * 2,
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation
-            )
-
-        self.drawing_backside.setPixmap(scaled_pixmap)
-        self.drawing_backside.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-
     def editDisplay(self):
         self.backside_label.setText(f"Back Side (not modifiable) - {getCurrentPatternType()}:")
         self.stacked_widget.setCurrentWidget(self.drawing_widget)
@@ -1301,11 +1278,6 @@ class MainWindow(QMainWindow):
         pixmap.save(filename, "PNG")  # Save as PNG
 
 
-    def exportHeart(self):
-        arr = self.pixmapToCvImage()
-        mainAlgorithm(arr,'create')
-
-
     def save_as_svg(self, file_name, canvas_size):
         # calculate the min/max x/y of the inner square
         width = canvas_size.width()
@@ -1391,8 +1363,13 @@ class MainWindow(QMainWindow):
 
 
     def exportSVG(self):
-        svg_file_path = getUserOutputSVGFileName() + ".svg"
-        mainAlgorithmSvg(svg_file_path, getCurrentSideType(), getCurrentPatternType(), function=' ', n_lines=3)
+        if getCurrentPatternType() == PatternType.Asymmetric or getCurrentPatternType() == PatternType.Symmetric:
+            if shapeNotTouchingSymmetrylineError(self.drawing_widget.shapes): 
+                svg_file_path = getUserOutputSVGFileName() + ".svg"
+                mainAlgorithmSvg(svg_file_path, getCurrentSideType(), getCurrentPatternType(), function=' ', n_lines=3)
+        else:
+            svg_file_path = getUserOutputSVGFileName() + ".svg"
+            mainAlgorithmSvg(svg_file_path, getCurrentSideType(), getCurrentPatternType(), function=' ', n_lines=3)
 
 
     def pixmapToCvImage(self):
