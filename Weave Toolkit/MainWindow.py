@@ -679,7 +679,10 @@ class DrawingWidget(QWidget):
                     self.shapes.append([self.begin, self.end, getShapeMode(), shape_color, [], 1, getFilled()])
 
             if getCurrentPatternType() == PatternType.Symmetric:
-                self.shapes.append([QPoint(self.width() - self.begin.x(), self.begin.y()), QPoint(self.width() - self.end.x(), self.end.y()), getShapeMode(), getShapeColor(), [], 1, getFilled()])
+                if getShapeMode() == ShapeMode.Heart:
+                    self.shapes.append([QPoint(self.width() - self.begin.x() - (self.end.x() - self.begin.x()), self.begin.y()), QPoint(self.width() - self.end.x() - (self.end.x() - self.begin.x()), self.end.y()), getShapeMode(), getShapeColor(), [], 1, getFilled()])
+                else:
+                    self.shapes.append([QPoint(self.width() - self.begin.x(), self.begin.y()), QPoint(self.width() - self.end.x(), self.end.y()), getShapeMode(), getShapeColor(), [], 1, getFilled()])
 
             self.begin = event.pos()
             self.end = event.pos()
