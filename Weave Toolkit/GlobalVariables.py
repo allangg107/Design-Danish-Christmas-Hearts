@@ -14,8 +14,6 @@ from SideType import (
 """Standarised global variable values"""
 MARGIN = 31
 FILE_STEP_COUNTER = 1
-HAS_IMAGE = True # Global variable for if stencil has a drawn image only matters for
-                 # the classic case currently in GuideWindow
 SHAPE_MODE = ShapeMode.Cursor
 SHAPE_COLOR = QColor(0, 0, 0, 255)
 BACKGROUND_COLOR = QColor(255, 255, 255, 255)
@@ -42,9 +40,6 @@ def getFileStepCounter():
 
 def getDrawingSquareSize():
     return DRAWING_SQUARE_SIZE
-
-def getHasImage():
-    return HAS_IMAGE
 
 def getShapeMode():
     return SHAPE_MODE
@@ -103,14 +98,7 @@ def setDrawingSquareSize(value):
 def setMargin(value):
     global MARGIN
     MARGIN = value
-
-def setHasImage(value):
-    global HAS_IMAGE
-    if isinstance(value, bool):
-        HAS_IMAGE = value
-    else:
-        print("Error: ", value, "is not an instance of a boolean value")
-
+    
 def setShapeMode(value):
     global SHAPE_MODE
     if isinstance(value, ShapeMode):
