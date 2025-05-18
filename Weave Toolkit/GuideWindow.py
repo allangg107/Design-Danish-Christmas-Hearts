@@ -18,19 +18,16 @@ class GuideWindow(QDialog):
 
     def createGifList(self, pattern_type):
         if pattern_type == PatternType.Simple:
-            return ["step.gif","step.gif","step.gif","step.gif","step.gif"]
+            return ["gifs/simple_step1.gif","gifs/simple_step2.gif","gifs/simple_step3.gif","gifs/simple_step4.gif","gifs/simple_step5.gif"]
         
         elif pattern_type == PatternType.Symmetric:
-            return ["step.gif","step.gif","step.gif","step.gif","step.gif"]
+            return ["gifs/sym_step1.gif","gifs/sym_step2.gif","gifs/sym_step3.gif","gifs/sym_step4.gif","gifs/sym_step5.gif"]
                  
         elif pattern_type == PatternType.Asymmetric:
-            return ["step.gif","step.gif","step.gif","step.gif","step.gif"]
+            return ["gifs/sym_step1.gif","gifs/sym_step2.gif","gifs/sym_step3.gif","gifs/sym_step4.gif","gifs/sym_step5.gif"]
         
         elif pattern_type == PatternType.Classic:
-            return ["step.gif","step.gif","step.gif","step.gif","step.gif"]
-        
-        else:
-            return ["step.gif","step.gif","step.gif","step.gif","step.gif"]
+            return ["gifs/classic_step1.gif","gifs/classic_step2.gif","gifs/classic_step3.gif","gifs/classic_step4.gif","gifs/classic_step5.gif"]
         
 
 
@@ -70,7 +67,7 @@ class GuideWindow(QDialog):
             Before weaving, we must fold the stencils. The left stencil is the one with the circle and the right stencil is the one with the cross.
             Take the left stencil and fold it in half, such that the left half is on top of the right half. 
             Take the right stencil and fold it in half, such that the right half is on top of the left half.
-            Follow the images below to see how the stencils should be folded.
+            Follow the gifs below to see how the stencils should be folded.
             </p>
         </div>"""
 
@@ -80,7 +77,7 @@ class GuideWindow(QDialog):
             <p> 
             Before we start weaving, we must ensure that the stencils are folded properly and oriented in the correct starting position.
             This will ensure that the weaving process is smooth and easy to follow, and will always weave correctly if oriented properly.
-            As per the image in this section, we want the stencil with the circle to have the circle in the top right corner and the
+            As per the gif in this section, we want the stencil with the circle to have the circle in the top right corner and the
             stencil with the cross to have the cross in the top left corner.
             </p>
         </div>"""
@@ -103,10 +100,10 @@ class GuideWindow(QDialog):
             Take the first strip of the stencil with the circle, this strip should have the circle on it and place it in one hand. Take the 
             first strip of the stencil with the cross, this strip should have the cross on it and place it in the other hand. We now want to take the 
             strip with the cross on it and put it through the strip with the circle on it. If done correctly, the circle should be on the outer side of the weave
-            and the cross should be visible inside the circle. You will know you have done it correctly if it looks like the image below. 
+            and the cross should be visible inside the circle. You will know you have done it correctly if it looks like the gif below. 
             Now continue the weaving process for this strip, next the strip with the circle should be put inside the other stencil strip, in that direction.
             This is typically described as over and under. However, this weave is inside a strip and outside a strip. (Explain this better)
-            To continue the weave, finish each strip in order, maintaining the weave pattern. At the end of the weave, you should have the image shown below.
+            To continue the weave, finish each strip in order, maintaining the weave pattern. At the end of the weave, you should have the gif shown below.
             Congratulations! You have completed weaving your customized Danish Christmas heart. 
 
 
