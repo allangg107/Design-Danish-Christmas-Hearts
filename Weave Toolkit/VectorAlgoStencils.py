@@ -779,11 +779,12 @@ def find_two_topmost_horizontal_lines(svg_file):
 
     # Return the two topmost lines (if we have them)
     if len(horizontal_lines) == 0:
-        return None
+        return (None, None)
     elif len(horizontal_lines) == 1:
         # Only one horizontal line found
         line_info = horizontal_lines[0]
-        return (line_info['path'], line_info['path_index'], line_info['segment_index'], line_info['line'])
+        return ((line_info['path'], line_info['path_index'], line_info['segment_index'], line_info['line']), 
+                (line_info['path'], line_info['path_index'], line_info['segment_index'], line_info['line']))
     else:
         # Two or more horizontal lines found
         line_info1 = horizontal_lines[0]
