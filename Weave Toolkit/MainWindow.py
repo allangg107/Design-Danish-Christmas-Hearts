@@ -91,6 +91,11 @@ from VectorAlgoUtils import (
 from GuideWindow import (
     GuideWindow
 )
+
+from TutorialWindow import (
+    TutorialWindow
+)
+
 from GlobalVariables import(
     getShapeMode,
     setShapeMode,
@@ -863,6 +868,8 @@ class MainWindow(QMainWindow):
         action_save_svg.triggered.connect(lambda: self.exportSVG())
         action_guide_export = QAction("Export Guide", self)
         action_guide_export.triggered.connect(lambda: self.exportGuide())
+        action_tutorial = QAction("Tutorial", self)
+        action_tutorial.triggered.connect(lambda: self.tutorial())
         action_undo = QAction("Undo (ctrl + z)", self)
         action_undo.triggered.connect(self.undo_last_shape)
         action_undo.setShortcut("Ctrl+Z")
@@ -873,6 +880,7 @@ class MainWindow(QMainWindow):
         file_menu.addAction(action_save)
         file_menu.addAction(action_save_svg)
         file_menu.addAction(action_guide_export)
+        file_menu.addAction(action_tutorial)
         file_menu.addAction(action_undo)
 
         return file_menu
@@ -906,7 +914,7 @@ class MainWindow(QMainWindow):
             if getCurrentPatternType() == PatternType.Classic:
 
                 self.setPatternType(PatternType.Classic)  # Reset pattern type to Classic
-            
+
             else:
                 self.setPatternType(PatternType.Simple)  # Reset pattern type to default
 
@@ -921,7 +929,7 @@ class MainWindow(QMainWindow):
             shapes_toolbar = self.findChild(QToolBar, "Shapes toolbar")
             if shapes_toolbar:
                 shapes_toolbar.adjustSize()
-                
+
         elif pattern == PatternType.Symmetric or pattern == PatternType.Asymmetric:
             self.line_button.setVisible(False)
             self.free_form_button.setVisible(False)
@@ -1375,12 +1383,16 @@ class MainWindow(QMainWindow):
         guide_window = GuideWindow(getCurrentPatternType())
         guide_window.exec()
 
+    def tutorial(self):
+        tutorial_window = TutorialWindow()
+        tutorial_window.exec()
+
 
     def exportSVG(self):
         # Comment the if staements out to remove constraints from the symmetric and asymmetric cases
         if getCurrentPatternType() == PatternType.Asymmetric or getCurrentPatternType() == PatternType.Symmetric:
             if shapeNotTouchingSymmetrylineError(self.drawing_widget.shapes):
-                if allShapesOverlapError(self.drawing_widget.shapes): 
+                if allShapesOverlapError(self.drawing_widget.shapes):
                     svg_file_path = getUserOutputSVGFileName() + ".svg"
                     mainAlgorithmSvg(svg_file_path, getCurrentSideType(), getCurrentPatternType(), function=' ', n_lines=3)
         else:
