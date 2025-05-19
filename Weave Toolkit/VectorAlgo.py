@@ -137,29 +137,79 @@ def close_line_with_corners(coords, width, height, tol=1e-6):
     #new_coords.append(first)
     return new_coords
 
-def createFinalHeartDisplayBaseCase(mask, points, foreground_color, background_color):
+def createFinalHeartDisplaySimpleCase(mask, points, foreground_color, background_color):
+    if background_color != (255,255,255):
+        cv.fillPoly(mask, [points], foreground_color)
+
+    # Draw diamonds at each corner
+    corner_diamond_size = math.ceil(math.sqrt(31**2 / 2) / 2)
+    corner_diamond_diagonal = math.ceil(math.sqrt(31**2 * 2) / 2)
+    
+    left_x, left_y = points[0][0], points[0][1]
+    top_x, top_y = points[1][0], points[1][1]
+    right_x, right_y = points[2][0], points[2][1]
+    bottom_x, bottom_y = points[3][0], points[3][1]
+    
+    upper_left_rect = np.array([
+        [left_x + corner_diamond_size, left_y - corner_diamond_size],  # Top Left
+        [top_x - corner_diamond_size, top_y + corner_diamond_size],  # Top Right
+        [top_x - 1.5, top_y + corner_diamond_diagonal - 1.5],  # Bottom Right
+        [left_x + corner_diamond_diagonal - 1.5, left_y - 1.5]  # Bottom Left
+    ], dtype=np.int32)
+
+    cv.fillPoly(mask, [upper_left_rect], background_color)
+
+    upper_right_rect = np.array([
+        [top_x + corner_diamond_size, top_y + corner_diamond_size],  # Top Left
+        [right_x - corner_diamond_size, right_y - corner_diamond_size],  # Top Right
+        [right_x - corner_diamond_diagonal, right_y],  # Bottom Right
+        [top_x, top_y + corner_diamond_diagonal]  # Bottom Left
+    ], dtype=np.int32)
+
+    cv.fillPoly(mask, [upper_right_rect], background_color)
+
+    lower_left_rect = np.array([
+        [left_x + corner_diamond_diagonal - 1.5, left_y + 1.5],  # Top Left
+        [bottom_x - 1.5, bottom_y - corner_diamond_diagonal + 1.5],  # Top Right
+        [bottom_x - corner_diamond_size, bottom_y - corner_diamond_size + 1],  # Bottom Right
+        [left_x + corner_diamond_size, left_y + corner_diamond_size + 1]  # Bottom Left
+    ], dtype=np.int32)
+
+    cv.fillPoly(mask, [lower_left_rect], background_color)
+
+    lower_right_rect = np.array([
+        [bottom_x, bottom_y - corner_diamond_diagonal],  # Top Left
+        [right_x - corner_diamond_diagonal, right_y],  # Top Right
+        [right_x - corner_diamond_size, right_y + corner_diamond_size],  # Bottom Right
+        [bottom_x + corner_diamond_size, bottom_y - corner_diamond_size]  # Bottom Left
+    ], dtype=np.int32)
+
+    cv.fillPoly(mask, [lower_right_rect], background_color)
+
+def createFinalHeartDisplaySymAsymCase(mask, points, foreground_color, background_color):
     if background_color != (255,255,255):
         cv.fillPoly(mask,[points],background_color)
 
     # Draw diamonds at each corner
-    diamond_size = 3
-    symmetric_asymmetric_case = False
+    corner_diamond_size = math.sqrt(31**2 // 2)
+    # distance_of_pattern_top_from_top_diamond = ?
+    # distance_of_pattern_bottom_from_bottom_diamond = ?
+    
     counter = 1
-    if getCurrentPatternType() == PatternType.Symmetric or getCurrentPatternType() == PatternType.Asymmetric:
-        symmetric_asymmetric_case = True
     for (x, y) in points:
         diamond = np.array([
-            [x, y - diamond_size],  # Top
-            [x + diamond_size, y],  # Right
-            [x, y + diamond_size],  # Bottom
-            [x - diamond_size, y]   # Left
+            [x, y - corner_diamond_size],  # Top
+            [x + corner_diamond_size, y],  # Right
+            [x, y + corner_diamond_size],  # Bottom
+            [x - corner_diamond_size, y]   # Left
         ], dtype=np.int32)
 
-        if symmetric_asymmetric_case and counter == 2 or counter == 4:
+        if counter == 2 or counter == 4:
             cv.fillPoly(mask, [diamond], background_color)  
         
-        elif symmetric_asymmetric_case:  
+        else:  
             cv.fillPoly(mask, [diamond], foreground_color)
+
         counter += 1
 
 def creatFinalHeartDisplayClassicCase(mask, points, foreground_color, background_color):
@@ -206,10 +256,10 @@ def createFinalHeartDisplay(image, pattern_type):
     # Define square corners
     half_size = square_size // 2
     points = np.array([
-        [center[0] - half_size, center[1]],
-        [center[0], center[1] - half_size],
-        [center[0] + half_size, center[1]],
-        [center[0], center[1] + half_size]
+        [center[0] - half_size, center[1]], # Left
+        [center[0], center[1] - half_size], # Top
+        [center[0] + half_size, center[1]], # Right
+        [center[0], center[1] + half_size]  # Bottom
     ])
     
     foreground_color = get_rgb_from_qcolor(getShapeColor())
@@ -240,13 +290,17 @@ def createFinalHeartDisplay(image, pattern_type):
     
     if pattern_type == PatternType.Classic:
         creatFinalHeartDisplayClassicCase(mask, points, foreground_color, background_color)
+    elif pattern_type == PatternType.Simple:
+        createFinalHeartDisplaySimpleCase(mask, points, foreground_color, background_color)
     else:
-        createFinalHeartDisplayBaseCase(mask, points, foreground_color, background_color)
+        createFinalHeartDisplaySymAsymCase(mask, points, foreground_color, background_color)
     
     rotated_mask = rotateImage(mask, -45)
 
     # scale the pattern to fit inside the square of the heart
-    square_width_rounded = math.floor(square_width) - 15
+    square_width_rounded = math.floor(square_width)
+    if pattern_type != PatternType.Classic:
+        square_width_rounded = square_width_rounded - 31 # and use padding if not Classic
     scaled_pattern = cv.resize(image, (square_width_rounded, square_width_rounded), interpolation=cv.INTER_LANCZOS4)
 
     # Calculate coordinates to overlay scaled_pattern on the square portion of the heart
