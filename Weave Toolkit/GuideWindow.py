@@ -35,9 +35,9 @@ class GuideWindow(QDialog):
         if pattern_type == PatternType.Simple:
             image_file = "gifs/batman_simple_heart.jpg"
         elif pattern_type == PatternType.Symmetric:
-            image_file = "gifs/SnowmanHM.jpg"
+            image_file = "gifs/Snowman.jpg"
         elif pattern_type == PatternType.Asymmetric:
-            image_file = "gifs/SnowmanHM.jpg"
+            image_file = "gifs/Snowman.jpg"
         elif pattern_type == PatternType.Classic:
             image_file = "gifs/ClassicHM.jpg"
         step1_text = """
