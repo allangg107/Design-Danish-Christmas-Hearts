@@ -57,8 +57,6 @@ from GlobalVariables import(
     incrementFileStepCounter,
     getDrawingSquareSize,
     setDrawingSquareSize,
-    getHasImage,
-    setHasImage,
     getNumClassicLines,
     getShapeColor,
     getBackgroundColor,
@@ -337,7 +335,6 @@ def createFinalHeartCutoutPatternExport(size, side_type, pattern_type, n_lines=0
             is_blank = False
         else:
             is_blank = True
-            setHasImage(False)
     except:
         is_blank = True
         print("Error: Preprocessed pattern is blank or not found.")

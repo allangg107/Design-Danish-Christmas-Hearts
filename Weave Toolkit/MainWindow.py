@@ -118,7 +118,8 @@ from GlobalVariables import(
 )
 
 from ErrorHandling import (
-    shapeNotTouchingSymmetrylineError
+    shapeNotTouchingSymmetrylineError,
+    allShapesOverlapError
 )
 
 
@@ -915,9 +916,19 @@ class MainWindow(QMainWindow):
         self.classic_lines_container.setVisible(pattern == PatternType.Classic)
         if pattern == PatternType.Classic:
             self.classic_lines_container.adjustSize()
+            self.free_form_button.setVisible(False)
+            self.line_button.setVisible(False)
             shapes_toolbar = self.findChild(QToolBar, "Shapes toolbar")
             if shapes_toolbar:
                 shapes_toolbar.adjustSize()
+                
+        elif pattern == PatternType.Symmetric or pattern == PatternType.Asymmetric:
+            self.line_button.setVisible(False)
+            self.free_form_button.setVisible(False)
+
+        elif pattern == PatternType.Simple:
+            self.line_button.setVisible(True)
+            self.free_form_button.setVisible(True)
 
         self.update()
         self.update_backside_image()
@@ -1366,10 +1377,12 @@ class MainWindow(QMainWindow):
 
 
     def exportSVG(self):
+        # Comment the if staements out to remove constraints from the symmetric and asymmetric cases
         if getCurrentPatternType() == PatternType.Asymmetric or getCurrentPatternType() == PatternType.Symmetric:
-            if shapeNotTouchingSymmetrylineError(self.drawing_widget.shapes): 
-                svg_file_path = getUserOutputSVGFileName() + ".svg"
-                mainAlgorithmSvg(svg_file_path, getCurrentSideType(), getCurrentPatternType(), function=' ', n_lines=3)
+            if shapeNotTouchingSymmetrylineError(self.drawing_widget.shapes):
+                if allShapesOverlapError(self.drawing_widget.shapes): 
+                    svg_file_path = getUserOutputSVGFileName() + ".svg"
+                    mainAlgorithmSvg(svg_file_path, getCurrentSideType(), getCurrentPatternType(), function=' ', n_lines=3)
         else:
             svg_file_path = getUserOutputSVGFileName() + ".svg"
             mainAlgorithmSvg(svg_file_path, getCurrentSideType(), getCurrentPatternType(), function=' ', n_lines=3)
