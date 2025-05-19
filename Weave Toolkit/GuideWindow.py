@@ -117,7 +117,7 @@ class GuideWindow(QDialog):
             <p> 
             Now continue the weaving process for this strip, next the strip with the circle on it should be put through 
             the next strip on the stencil with the cross on it.
-            This is typically described as over and under weaving. However, this weave is inside a strip and outside the next strip and is therfore called under over weaving.
+            This is typically described as over and under weaving. However, this weave is inside a strip and outside the next strip and is therefore called under over weaving.
             To continue the weave, finish each strip in order, maintaining the weave pattern. At the end of the weave, you should have the image shown below.
             <br>
             </p>
