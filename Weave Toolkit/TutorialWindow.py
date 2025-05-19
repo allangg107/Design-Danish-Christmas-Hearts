@@ -3,8 +3,6 @@ from PyQt6.QtGui import QPalette, QColor
 from PyQt6.QtCore import QSize
 from PatternType import PatternType
 from GlobalVariables import(
-    setHasImage,
-    getHasImage,
     getUserOutputSVGFileName
 )
 
