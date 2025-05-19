@@ -12,7 +12,7 @@ class GuideWindow(QDialog):
     def __init__(self, pattern_type):
         super().__init__()
         self.setWindowTitle("Guide Window")
-        self.text_list = self.saveTextInList()
+        self.text_list = self.saveTextInList(pattern_type)
         self.gif_list = self.createGifList(pattern_type)
         self.createLayout(self.text_list, self.gif_list)
 
@@ -31,7 +31,15 @@ class GuideWindow(QDialog):
         
 
 
-    def saveTextInList(self):
+    def saveTextInList(self, pattern_type):
+        if pattern_type == PatternType.Simple:
+            image_file = "gifs/batman_simple_heart.jpg"
+        elif pattern_type == PatternType.Symmetric:
+            image_file = "gifs/SnowmanHM.jpg"
+        elif pattern_type == PatternType.Asymmetric:
+            image_file = "gifs/SnowmanHM.jpg"
+        elif pattern_type == PatternType.Classic:
+            image_file = "gifs/ClassicHM.jpg"
         step1_text = """
         <h1 style="color: red;">Danish Christmas Hearts Weaving Guide</h1>
 
@@ -100,22 +108,32 @@ class GuideWindow(QDialog):
             Take the first strip of the stencil with the circle, this strip should have the circle on it and place it in one hand. Take the 
             first strip of the stencil with the cross, this strip should have the cross on it and place it in the other hand. We now want to take the 
             strip with the cross on it and put it through the strip with the circle on it. If done correctly, the circle should be on the outer side of the weave
-            and the cross should be visible inside the circle. You will know you have done it correctly if it looks like the gif below. 
-            Now continue the weaving process for this strip, next the strip with the circle should be put inside the other stencil strip, in that direction.
-            This is typically described as over and under. However, this weave is inside a strip and outside a strip. (Explain this better)
-            To continue the weave, finish each strip in order, maintaining the weave pattern. At the end of the weave, you should have the gif shown below.
-            Congratulations! You have completed weaving your customized Danish Christmas heart. 
-
-
-
+            and the cross should be visible inside the circle. You will know you have done it correctly if it looks like the gif below.  
             </div>
         """
-        return [step1_text,step2_text,step3_text,step4_text,step5_text,step6_text]
+        step7_text = f"""
+        
+        <div>
+            <p> 
+            Now continue the weaving process for this strip, next the strip with the circle on it should be put through 
+            the next strip on the stencil with the cross on it.
+            This is typically described as over and under weaving. However, this weave is inside a strip and outside the next strip and is therfore called under over weaving.
+            To continue the weave, finish each strip in order, maintaining the weave pattern. At the end of the weave, you should have the image shown below.
+            <br>
+            </p>
+            <img src="{image_file}" width="300">
+            <p>
+            Congratulations! You have completed weaving your customized Danish Christmas heart.
+            </p>
+            </div>
+        """
+        
+        return [step1_text,step2_text,step3_text,step4_text,step5_text,step6_text,step7_text]
     
     def createLayout(self, text_lst, gif_lst):
         guide_layout = QVBoxLayout()
         for i in range(len(text_lst)):
-            if i == 0:
+            if i == 0 or i == 6:
                 # Adds text without gif
                 guide_layout.addWidget(TextWidget(text_lst[i]))
             
