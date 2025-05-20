@@ -137,7 +137,7 @@ def close_line_with_corners(coords, width, height, tol=1e-6):
 
 def createFinalHeartDisplaySimpleCase(mask, points, foreground_color, background_color):
     if background_color != (255,255,255):
-        cv.fillPoly(mask, [points], foreground_color)
+        cv.fillPoly(mask, [points], background_color)
 
     # Draw diamonds at each corner
     corner_diamond_size = math.ceil(math.sqrt(31**2 / 2) / 2)
@@ -155,7 +155,7 @@ def createFinalHeartDisplaySimpleCase(mask, points, foreground_color, background
         [left_x + corner_diamond_diagonal - 1.5, left_y - 1.5]  # Bottom Left
     ], dtype=np.int32)
 
-    cv.fillPoly(mask, [upper_left_rect], background_color)
+    cv.fillPoly(mask, [upper_left_rect], foreground_color)
 
     upper_right_rect = np.array([
         [top_x + corner_diamond_size, top_y + corner_diamond_size],  # Top Left
@@ -164,7 +164,7 @@ def createFinalHeartDisplaySimpleCase(mask, points, foreground_color, background
         [top_x, top_y + corner_diamond_diagonal]  # Bottom Left
     ], dtype=np.int32)
 
-    cv.fillPoly(mask, [upper_right_rect], background_color)
+    cv.fillPoly(mask, [upper_right_rect], foreground_color)
 
     lower_left_rect = np.array([
         [left_x + corner_diamond_diagonal - 1.5, left_y + 1.5],  # Top Left
@@ -173,7 +173,7 @@ def createFinalHeartDisplaySimpleCase(mask, points, foreground_color, background
         [left_x + corner_diamond_size, left_y + corner_diamond_size + 1]  # Bottom Left
     ], dtype=np.int32)
 
-    cv.fillPoly(mask, [lower_left_rect], background_color)
+    cv.fillPoly(mask, [lower_left_rect], foreground_color)
 
     lower_right_rect = np.array([
         [bottom_x, bottom_y - corner_diamond_diagonal],  # Top Left
@@ -182,7 +182,8 @@ def createFinalHeartDisplaySimpleCase(mask, points, foreground_color, background
         [bottom_x + corner_diamond_size, bottom_y - corner_diamond_size]  # Bottom Left
     ], dtype=np.int32)
 
-    cv.fillPoly(mask, [lower_right_rect], background_color)
+    cv.fillPoly(mask, [lower_right_rect], foreground_color)
+    
 
 def createFinalHeartDisplaySymAsymCase(mask, points, foreground_color, background_color):
     if background_color != (255,255,255):
@@ -278,10 +279,10 @@ def createFinalHeartDisplay(image, pattern_type):
     cv.ellipse(mask, halfway_point_upper_right, (radius, radius), 0, -135, 45, line_color, 3)
     
     if getShapeColor() != QColor("black"):
-        cv.ellipse(mask, halfway_point_upper_left, (radius, radius), 0, -225, -45, foreground_color, thickness=-1)
+        cv.ellipse(mask, halfway_point_upper_left, (radius, radius), 0, -225, -45, background_color, thickness=-1)
         
     if getBackgroundColor() != QColor("white"):
-        cv.ellipse(mask, halfway_point_upper_right, (radius, radius), 0, -135, 45, background_color , -1)
+        cv.ellipse(mask, halfway_point_upper_right, (radius, radius), 0, -135, 45, foreground_color , -1)
         
     # Draw the rotated square (diamond)
     cv.polylines(mask, [points], isClosed=True, color=line_color, thickness=3)
