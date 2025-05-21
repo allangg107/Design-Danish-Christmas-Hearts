@@ -29,6 +29,8 @@ CLASSIC_INDICES_LINE_DELETE_LIST = []
 CLASSIC_PATTERN_SNAP_POINTS = []
 CLASSIC_PATTERN_CLASSIC_LINES = [] 
 SYMMETRY_LINE = None
+DEGREE_LINE_LEFT = None
+DEGREE_LINE_RIGHT = None
 
 """Functions to get the global values"""
 
@@ -85,6 +87,12 @@ def getClassicPatternClassicLines():
 
 def getSymmetryLine():
     return SYMMETRY_LINE
+
+def getDegreeLineLeft():
+    return DEGREE_LINE_LEFT
+
+def getDegreeLineRight():
+    return DEGREE_LINE_RIGHT
 """Functions to set global values"""
 
 def incrementFileStepCounter():
@@ -185,3 +193,11 @@ def setClassicPatternClassicLines(lst):
 def setSymmetryLine(val):
     global SYMMETRY_LINE
     SYMMETRY_LINE = val
+
+def SetDegreeLineLeft(val):
+    global DEGREE_LINE_LEFT
+    DEGREE_LINE_LEFT = val
+
+def SetDegreeLineRight(val):
+    global DEGREE_LINE_RIGHT
+    DEGREE_LINE_RIGHT = val

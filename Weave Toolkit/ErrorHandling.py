@@ -11,10 +11,16 @@ from PyQt6.QtCore import (
 from PyQt6.QtGui import (
     QCursor,
     QPainterPath,
-    QPen
+    QPen,
+    QPainterPathStroker
 )
 from GlobalVariables import (
-    getSymmetryLine
+    getSymmetryLine,
+    getDegreeLineLeft,
+    getDegreeLineRight,
+    SetDegreeLineLeft,
+    SetDegreeLineRight,
+    getShapeMode
 )
 import math
 from ShapeMode import ShapeMode
@@ -58,63 +64,66 @@ def any_shape_intersects_symmetry_line(shapes, x_symmetry, y1_line, y2_line):
 ##  and more than 45 degrees to upper-right for the bottommost point
 
 def MoreThan45DegreesError(shapes):
-    topmost_point, bottommost_point = find_top_and_bottommost_points(shapes)
+    start_top, end_top = getDegreeLineLeft()
+    start_bottom, end_bottom = getDegreeLineRight()
+
+    top_45_path = make_angled_line_path(start_top, end_top)
+    bottom_45_path = make_angled_line_path(start_bottom, end_bottom)
+    
     if len(shapes) < 2:
         return True
-    for shape in shapes:
-        center = shape_to_path(shape).boundingRect().center()
-
-        if is_lower_left_of_topmost_point(center, topmost_point) and is_upper_right_of_bottommost_point(center, bottommost_point):
-            return True
     
-    showWarningTooltip("A shape is placed more than 45 degrees from either the top or bottom point")
-    return False
+    for shape in shapes:
+        path = shape_to_path(shape)
 
-def find_top_and_bottommost_points(shape_list):
+        if path.intersects(top_45_path):
+            showWarningTooltip("A shape is placed more than 45 degrees from either the top or bottom point")
+            return False
+        
+        elif path.intersects(bottom_45_path):
+            showWarningTooltip("A shape is placed more than 45 degrees from either the top or bottom point")
+            return False
+    
+    return True
+
+def find_top_and_bottommost_points(shape_list, error_margin=5):
     topmost_point = None
-    bottomost_point = None
+    bottommost_point = None
     min_y = float('inf')
     max_y = float('-inf')
 
     for shape in shape_list:
         path = shape_to_path(shape)
 
-        for i in range(path.elementCount()):
-            pt = path.elementAt(i)
+        if ShapeMode.Circle == getShapeMode():
+            for i in range(path.elementCount()):
+                pt = path.elementAt(i)
+                
+                if pt.y < min_y:
+                    min_y = pt.y
+                    topmost_point = QPointF(pt.x, pt.y)
+                
+                if pt.y > max_y:
+                    max_y = pt.y
+                    bottommost_point = QPointF(pt.x, pt.y)
+        else: 
+            bounding_rect = path.boundingRect()
+            top_candidate = QPointF(bounding_rect.left() - error_margin, bounding_rect.top() - error_margin)
+            bottom_candidate = QPointF(bounding_rect.right() + error_margin, bounding_rect.bottom() + error_margin)
             
-            if pt.y < min_y:
-                min_y = pt.y
-                topmost_point = QPointF(pt.x, pt.y)
+            if top_candidate.y() < min_y:
+                min_y = top_candidate.y()
+                topmost_point = top_candidate
+
+            if bottom_candidate.y() > max_y:
+                max_y = bottom_candidate.y()
+                bottommost_point = bottom_candidate
             
-            if pt.y > max_y:
-                max_y = pt.y
-                bottomost_point = QPointF(pt.x, pt.y)
 
-    return topmost_point, bottomost_point
-
-def is_lower_left_of_topmost_point(shape_point, top_point):
-    dx = shape_point.x() - top_point.x()
-    dy = shape_point.y() - top_point.y()
-
-    if dx >= 0 or dy <= 0:
-        return False  # Not lower-left
-
-    slope = abs(dy / dx) if dx != 0 else float('inf')
-    return slope > 1  # More vertical than diagonal (45° down-left)
-
-
-def is_upper_right_of_bottommost_point(shape_point, bottom_point):
-    dx = shape_point.x() - bottom_point.x()
-    dy = shape_point.y() - bottom_point.y()
-
-    if dx <= 0 or dy >= 0:
-        return False  # Not upper-right
-
-    slope = abs(dy / dx) if dx != 0 else float('inf')
-    return slope > 1  # More vertical than diagonal (45° up-right)
+    return topmost_point, bottommost_point
 
 # Draws dotted lines at 45 degrees to inform the users of where they are allowed to draw for the pattern to work
-def draw_dotted_45_lines(qp, shapes, width, height):
+def draw_dotted_45degree_lines(qp, shapes, width, height):
     if len(shapes) < 1:
         return None
     top, bottom = find_top_and_bottommost_points(shapes)
@@ -129,6 +138,8 @@ def draw_dotted_45_lines(qp, shapes, width, height):
     )
     end_top = QPointF(top.x() + scale_top * dx_top, top.y() + scale_top * dy_top)
     qp.drawLine(top, end_top)
+    SetDegreeLineLeft([top, end_top])
+    
 
     # 2. Line from bottommost point up-right (45°)
     angle_rad_bottom = math.radians(-45)  # -45° = up-right
@@ -140,6 +151,7 @@ def draw_dotted_45_lines(qp, shapes, width, height):
     )
     end_bottom = QPointF(bottom.x() + scale_bottom * dx_bottom, bottom.y() + scale_bottom * dy_bottom)
     qp.drawLine(bottom, end_bottom)
+    SetDegreeLineRight([bottom, end_bottom])
 
 ## Detects if all shapes are connected together
 
@@ -258,6 +270,13 @@ def createSemicirclePath(start, end, rotation_angle=0):
         path = transform.map(path)
 
     return path
+
+def make_angled_line_path(start_point: QPointF, end_point: QPointF) -> QPainterPath:
+    path = QPainterPath()
+    path.moveTo(start_point)
+    path.lineTo(end_point)
+    return path
+
 
 
 

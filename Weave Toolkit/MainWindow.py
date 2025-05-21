@@ -126,7 +126,7 @@ from ErrorHandling import (
     shapeNotTouchingSymmetrylineError,
     allShapesOverlapError,
     MoreThan45DegreesError,
-    draw_dotted_45_lines
+    draw_dotted_45degree_lines
 )
 
 
@@ -375,7 +375,7 @@ class DrawingWidget(QWidget):
             pen.setStyle(Qt.PenStyle.DashLine)
             qp.setPen(pen)
             if getCurrentPatternType() == PatternType.Asymmetric:
-                draw_dotted_45_lines(qp, self.shapes, width, height)
+                draw_dotted_45degree_lines(qp, self.shapes, width, height)
 
             qp.drawLine(int(inner_coords[0][0]), int(y1), int(inner_coords[0][0]), int(y2))
             setSymmetryLine([int(inner_coords[0][0]), int(y1), int(y2)])
