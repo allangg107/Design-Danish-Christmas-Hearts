@@ -124,7 +124,9 @@ from GlobalVariables import(
 
 from ErrorHandling import (
     shapeNotTouchingSymmetrylineError,
-    allShapesOverlapError
+    allShapesOverlapError,
+    MoreThan45DegreesError,
+    draw_dotted_45_lines
 )
 
 
@@ -372,6 +374,9 @@ class DrawingWidget(QWidget):
             # draw a dashed line in the middle of the canvas
             pen.setStyle(Qt.PenStyle.DashLine)
             qp.setPen(pen)
+            if getCurrentPatternType() == PatternType.Asymmetric:
+                draw_dotted_45_lines(qp, self.shapes, width, height)
+
             qp.drawLine(int(inner_coords[0][0]), int(y1), int(inner_coords[0][0]), int(y2))
             setSymmetryLine([int(inner_coords[0][0]), int(y1), int(y2)])
 
@@ -1393,8 +1398,14 @@ class MainWindow(QMainWindow):
         if getCurrentPatternType() == PatternType.Asymmetric or getCurrentPatternType() == PatternType.Symmetric:
             if shapeNotTouchingSymmetrylineError(self.drawing_widget.shapes):
                 if allShapesOverlapError(self.drawing_widget.shapes):
-                    svg_file_path = getUserOutputSVGFileName() + ".svg"
-                    mainAlgorithmSvg(svg_file_path, getCurrentSideType(), getCurrentPatternType(), function=' ', n_lines=3)
+                    if getCurrentPatternType() == PatternType.Asymmetric and MoreThan45DegreesError(self.drawing_widget.shapes):
+                        svg_file_path = getUserOutputSVGFileName() + ".svg"
+                        mainAlgorithmSvg(svg_file_path, getCurrentSideType(), getCurrentPatternType(), function=' ', n_lines=3)
+                    
+                    elif getCurrentPatternType() == PatternType.Symmetric:
+                        svg_file_path = getUserOutputSVGFileName() + ".svg"
+                        mainAlgorithmSvg(svg_file_path, getCurrentSideType(), getCurrentPatternType(), function=' ', n_lines=3)
+                    
         else:
             svg_file_path = getUserOutputSVGFileName() + ".svg"
             mainAlgorithmSvg(svg_file_path, getCurrentSideType(), getCurrentPatternType(), function=' ', n_lines=3)

@@ -5,16 +5,18 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import (
     QPoint,
     QPointF,
-    QRectF
+    QRectF,
+    Qt
 )
 from PyQt6.QtGui import (
     QCursor,
-    QPainterPath
+    QPainterPath,
+    QPen
 )
 from GlobalVariables import (
     getSymmetryLine
 )
-
+import math
 from ShapeMode import ShapeMode
 
 # Message when user draws out of bounds
@@ -31,15 +33,8 @@ def showWarningTooltip(message, position = None):
         position = QCursor.pos()
     QToolTip.showText(position, message, msecShowTime=3000)
 
-def any_shape_intersects_symmetry_line(shapes, x_symmetry, y1_line, y2_line):
-    symmetry_path = symmetryLineToPath(x_symmetry, y1_line, y2_line)
-    
-    for shape in shapes:
-        shape_path = shape_to_path(shape)
-        if shape_path.intersects(symmetry_path):
-            return True  # At least one shape intersects
-    return False
 
+## Detects if shapes do not touch the symmetryline
 
 def shapeNotTouchingSymmetrylineError(shapes):
     symmetry_line = getSymmetryLine()
@@ -50,23 +45,114 @@ def shapeNotTouchingSymmetrylineError(shapes):
     showWarningTooltip("At least one shape needs to touch the line of symmetry")
     return False
 
-def shape_to_path(shape):
+def any_shape_intersects_symmetry_line(shapes, x_symmetry, y1_line, y2_line):
+    symmetry_path = symmetryLineToPath(x_symmetry, y1_line, y2_line)
+    
+    for shape in shapes:
+        shape_path = shape_to_path(shape)
+        if shape_path.intersects(symmetry_path):
+            return True  # At least one shape intersects
+    return False
 
-    if isinstance(shape, list):
-        begin, end, shape_type, color, _, pen_width, filled = shape
+## Detects if a shape is more than 45 degrees to the lower-left for the topmost point
+##  and more than 45 degrees to upper-right for the bottommost point
+
+def MoreThan45DegreesError(shapes):
+    topmost_point, bottommost_point = find_top_and_bottommost_points(shapes)
+    if len(shapes) < 2:
+        return True
+    for shape in shapes:
+        center = shape_to_path(shape).boundingRect().center()
+
+        if is_lower_left_of_topmost_point(center, topmost_point) and is_upper_right_of_bottommost_point(center, bottommost_point):
+            return True
     
-    if shape_type == ShapeMode.Circle:
-        return createCirclePath(begin, end)
+    showWarningTooltip("A shape is placed more than 45 degrees from either the top or bottom point")
+    return False
+
+def find_top_and_bottommost_points(shape_list):
+    topmost_point = None
+    bottomost_point = None
+    min_y = float('inf')
+    max_y = float('-inf')
+
+    for shape in shape_list:
+        path = shape_to_path(shape)
+
+        for i in range(path.elementCount()):
+            pt = path.elementAt(i)
+            
+            if pt.y < min_y:
+                min_y = pt.y
+                topmost_point = QPointF(pt.x, pt.y)
+            
+            if pt.y > max_y:
+                max_y = pt.y
+                bottomost_point = QPointF(pt.x, pt.y)
+
+    return topmost_point, bottomost_point
+
+def is_lower_left_of_topmost_point(shape_point, top_point):
+    dx = shape_point.x() - top_point.x()
+    dy = shape_point.y() - top_point.y()
+
+    if dx >= 0 or dy <= 0:
+        return False  # Not lower-left
+
+    slope = abs(dy / dx) if dx != 0 else float('inf')
+    return slope > 1  # More vertical than diagonal (45° down-left)
+
+
+def is_upper_right_of_bottommost_point(shape_point, bottom_point):
+    dx = shape_point.x() - bottom_point.x()
+    dy = shape_point.y() - bottom_point.y()
+
+    if dx <= 0 or dy >= 0:
+        return False  # Not upper-right
+
+    slope = abs(dy / dx) if dx != 0 else float('inf')
+    return slope > 1  # More vertical than diagonal (45° up-right)
+
+# Draws dotted lines at 45 degrees to inform the users of where they are allowed to draw for the pattern to work
+def draw_dotted_45_lines(qp, shapes, width, height):
+    if len(shapes) < 1:
+        return None
+    top, bottom = find_top_and_bottommost_points(shapes)
+
+    # 1. Line from topmost point down-left (45°)
+    angle_rad_top = math.radians(135)  # 135° = down-left
+    dx_top = math.cos(angle_rad_top)
+    dy_top = math.sin(angle_rad_top)
+    scale_top = max(
+        (top.x() / abs(dx_top)) if dx_top != 0 else float('inf'),
+        ((height - top.y()) / abs(dy_top)) if dy_top != 0 else float('inf')
+    )
+    end_top = QPointF(top.x() + scale_top * dx_top, top.y() + scale_top * dy_top)
+    qp.drawLine(top, end_top)
+
+    # 2. Line from bottommost point up-right (45°)
+    angle_rad_bottom = math.radians(-45)  # -45° = up-right
+    dx_bottom = math.cos(angle_rad_bottom)
+    dy_bottom = math.sin(angle_rad_bottom)
+    scale_bottom = max(
+        ((width - bottom.x()) / abs(dx_bottom)) if dx_bottom != 0 else float('inf'),
+        (bottom.y() / abs(dy_bottom)) if dy_bottom != 0 else float('inf')
+    )
+    end_bottom = QPointF(bottom.x() + scale_bottom * dx_bottom, bottom.y() + scale_bottom * dy_bottom)
+    qp.drawLine(bottom, end_bottom)
+
+## Detects if all shapes are connected together
+
+def allShapesOverlapError(shapes):
+    if len(shapes) < 2:
+        return True
     
-    elif shape_type == ShapeMode.Square:
-        return createSquarePath(begin, end)
+    if check_all_shapes_overlap(shapes):
+        return True
     
-    elif shape_type == ShapeMode.Heart:
-        return createHeartPath(begin, end)
-    
-    elif shape_type == ShapeMode.Semicircle:
-        return createSemicirclePath(begin, end)
-    
+    showWarningTooltip("All shapes needs to be combined into one shape")
+    return False
+  
 
 def check_all_shapes_overlap(shape_list):
     if len(shape_list) < 2:
@@ -94,19 +180,24 @@ def check_all_shapes_overlap(shape_list):
 
     return len(visited) == n
 
+## Converts shapes and the symmetry line into QPainterPaths for intersection detection
 
-def allShapesOverlapError(shapes):
-    if len(shapes) < 2:
-        return True
-    
-    if check_all_shapes_overlap(shapes):
-        return True
-    
-    
-    showWarningTooltip("All shapes needs to be combined into one shape")
-    return False
+def shape_to_path(shape):
 
-# Converts shapes and the symmetry line into QPainterPaths for intersection detection
+    if isinstance(shape, list):
+        begin, end, shape_type, color, _, pen_width, filled = shape
+    
+    if shape_type == ShapeMode.Circle:
+        return createCirclePath(begin, end)
+    
+    elif shape_type == ShapeMode.Square:
+        return createSquarePath(begin, end)
+    
+    elif shape_type == ShapeMode.Heart:
+        return createHeartPath(begin, end)
+    
+    elif shape_type == ShapeMode.Semicircle:
+        return createSemicirclePath(begin, end)
 
 def symmetryLineToPath(x, y1, y2):
     path = QPainterPath()
