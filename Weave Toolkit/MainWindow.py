@@ -120,7 +120,9 @@ from GlobalVariables import(
     setClassicIndicesLineDeleteList,
     getClassicIndicesLineDeleteList,
     setSymmetryLine,
-    setClassicCells
+    setClassicCells,
+    getEnableConstraints,
+    setEnableConstraints
 )
 
 from ErrorHandling import (
@@ -757,16 +759,16 @@ class DrawingWidget(QWidget):
 
                     shape_preview = [self.begin, self.end, getShapeMode(), shape_color, [], getPenWidth(), getFilled()]
     
-                    
-                    if getNumClassicLines() > 1:
-                        # Validate against occupied cells
-                        if not is_shape_placement_valid(shape_preview, self.shapes):
-                            return  # Don't place shape
-                    
-                        elif shape_preview[2] == ShapeMode.Semicircle and does_semicircle_snap_to_border_error(shape_preview, self.border):
-                            return # Don't place shape
-                    else: 
-                        return
+                    if getEnableConstraints():
+                        if getNumClassicLines() > 1:
+                            # Validate against occupied cells
+                            if not is_shape_placement_valid(shape_preview, self.shapes):
+                                return  # Don't place shape
+                        
+                            elif shape_preview[2] == ShapeMode.Semicircle and does_semicircle_snap_to_border_error(shape_preview, self.border):
+                                return # Don't place shape
+                        else: 
+                            return
                 if getShapeMode() == ShapeMode.Line:
                     self.shapes.append([self.begin, self.end, getShapeMode(), shape_color, [], getPenWidth(), False])
 
@@ -965,6 +967,10 @@ class MainWindow(QMainWindow):
         action_undo = QAction("Undo (ctrl + z)", self)
         action_undo.triggered.connect(self.undo_last_shape)
         action_undo.setShortcut("Ctrl+Z")
+        action_toggle_constraints = QAction("Toggle constraints", self)
+        action_toggle_constraints.setCheckable(True)
+        action_toggle_constraints.setChecked(True)
+        action_toggle_constraints.toggled.connect(self.toggleConstraints)
 
         # Add actions to the menu
         file_menu.addAction(action_new)
@@ -974,6 +980,7 @@ class MainWindow(QMainWindow):
         file_menu.addAction(action_guide_export)
         file_menu.addAction(action_tutorial)
         file_menu.addAction(action_undo)
+        file_menu.addAction(action_toggle_constraints)
 
         return file_menu
 
@@ -1041,6 +1048,11 @@ class MainWindow(QMainWindow):
         self.update()
         self.update_backside_image()
 
+    def toggleConstraints(self, checked):
+        if checked:
+            setEnableConstraints(True)
+        else:
+            setEnableConstraints(False)
 
     def createWeavingPatternDropdownMenu(self):
         weaving_pattern_menu = QMenu("Weaving Pattern", self)
@@ -1482,7 +1494,7 @@ class MainWindow(QMainWindow):
 
     def exportSVG(self):
         # Comment the if staements out to remove constraints from the symmetric and asymmetric cases
-        if getCurrentPatternType() == PatternType.Asymmetric or getCurrentPatternType() == PatternType.Symmetric:
+        if getEnableConstraints() or getCurrentPatternType() == PatternType.Asymmetric or getCurrentPatternType() == PatternType.Symmetric:
             if shapeNotTouchingSymmetrylineError(self.drawing_widget.shapes):
                 if allShapesOverlapError(self.drawing_widget.shapes):
                     if getCurrentPatternType() == PatternType.Asymmetric and MoreThan45DegreesError(self.drawing_widget.shapes):

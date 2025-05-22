@@ -32,6 +32,7 @@ SYMMETRY_LINE = None
 DEGREE_LINE_LEFT = None
 DEGREE_LINE_RIGHT = None
 CLASSIC_CELLS = [] # A list of the classic cells on the canvas
+ENABLE_CONSTRAINTS = True
 
 """Functions to get the global values"""
 
@@ -97,6 +98,10 @@ def getDegreeLineRight():
 
 def getClassicCells():
     return CLASSIC_CELLS
+
+def getEnableConstraints():
+    return ENABLE_CONSTRAINTS
+
 """Functions to set global values"""
 
 def incrementFileStepCounter():
@@ -209,3 +214,7 @@ def setDegreeLineRight(val):
 def setClassicCells(lst):
     global CLASSIC_CELLS
     CLASSIC_CELLS = lst
+
+def setEnableConstraints(boolval):
+    global ENABLE_CONSTRAINTS
+    ENABLE_CONSTRAINTS = boolval
