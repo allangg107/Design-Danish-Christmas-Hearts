@@ -1494,7 +1494,7 @@ class MainWindow(QMainWindow):
 
     def exportSVG(self):
         # Comment the if staements out to remove constraints from the symmetric and asymmetric cases
-        if getEnableConstraints() or getCurrentPatternType() == PatternType.Asymmetric or getCurrentPatternType() == PatternType.Symmetric:
+        if getEnableConstraints() and (getCurrentPatternType() == PatternType.Asymmetric or getCurrentPatternType() == PatternType.Symmetric):
             if shapeNotTouchingSymmetrylineError(self.drawing_widget.shapes):
                 if allShapesOverlapError(self.drawing_widget.shapes):
                     if getCurrentPatternType() == PatternType.Asymmetric and MoreThan45DegreesError(self.drawing_widget.shapes):
