@@ -12,18 +12,21 @@ from PyQt6.QtGui import (
     QCursor,
     QPainterPath,
     QPen,
-    QPainterPathStroker
+    QPainterPathStroker,
+    QTransform
 )
 from GlobalVariables import (
     getSymmetryLine,
     getDegreeLineLeft,
     getDegreeLineRight,
-    SetDegreeLineLeft,
-    SetDegreeLineRight,
-    getShapeMode
+    setDegreeLineLeft,
+    setDegreeLineRight,
+    getShapeMode,
+    getClassicCells
 )
 import math
 from ShapeMode import ShapeMode
+from shapely.geometry import LineString
 
 # Message when user draws out of bounds
 def outOfBoundDrawingMessage():
@@ -39,6 +42,194 @@ def showWarningTooltip(message, position = None):
         position = QCursor.pos()
     QToolTip.showText(position, message, msecShowTime=3000)
 
+## Detects if any shapes intersect with each other
+#def shapesIntersectError(shapes):
+#    if len(shapes) < 2:
+#        return (False, None)
+#    paths = [shape_to_path(shape) for shape in shapes]
+#    n = len(paths)
+
+#    for i in range(n):
+#        for j in range(i + 1, n):  # Avoid duplicate pairs and self-checks
+#            if paths[i].intersects(paths[j]):
+#                showWarningTooltip("Shapes cannot intersect in the classic pattern")
+#                return (True, j)  # Found a pair that intersects
+            
+#    return (False, None)
+
+
+#def semiCircleIntersect(shapes):
+#    if len(shapes) < 2:
+#        return True
+
+#    for i in range(len(shapes)):
+#        for j in range(i + 1, len(shapes)):
+#            shape_i = shapes[i]
+#            shape_j = shapes[j]
+
+            # Check if both shapes are semicircles
+#            if shape_i[2] == ShapeMode.Semicircle and shape_j[2] == ShapeMode.Semicircle:
+#                path_i = shape_to_path(shape_i)
+#                path_j = shape_to_path(shape_j)
+
+                #if path_i.intersects(path_j) and are_facing_same_direction(shape_i, shape_j):
+                #    return True
+
+#                if path_i.intersects(path_j):
+#                    showWarningTooltip("SemiCircles cannot intersect in the outermost cells")
+#                    print(path_i, " ", path_j)
+#                    return False
+
+#    return True
+
+
+# Utility function for debugging will be removed at some point
+def get_shape_cell_indices(shape_path):
+    """
+    Returns a list of cell indices that the given shape path intersects with.
+    """
+    cells = getClassicCells()
+    print("length: ", len(getClassicCells()))
+    print("the cells: ", getClassicCells())
+    
+    indices = []
+
+    for polygon, index in cells:
+        cell_path = QPainterPath()
+        cell_path.addPolygon(polygon)
+
+        if shape_path.intersects(cell_path):
+            indices.append(index)
+
+    print(indices)
+
+
+#def get_outermost_cell_indices():
+#    cells = getClassicCells()
+#    if not cells:
+#        return []
+
+    # Gather all x and y coordinates from all cell vertices
+#    all_x = []
+#    all_y = []
+
+#    for polygon, _ in cells:
+#        for point in polygon:
+#            all_x.append(point.x())
+#            all_y.append(point.y())
+
+#    min_x = min(all_x)
+#    max_x = max(all_x)
+#    min_y = min(all_y)
+#    max_y = max(all_y)
+
+#    margin = 1e-3  # Allow small numerical tolerance
+#    outermost_indices = []
+
+#    for polygon, index in cells:
+#        for point in polygon:
+#            if (
+#                abs(point.x() - min_x) < margin or
+#                abs(point.x() - max_x) < margin or
+#                abs(point.y() - min_y) < margin or
+#                abs(point.y() - max_y) < margin
+#            ):
+#                outermost_indices.append(index)
+#                break  # One corner is enough to classify as outermost
+
+#    return outermost_indices
+
+
+
+
+## Detects if the semicircle is about to get snapped to the border
+def does_semicircle_snap_to_border_error(semicircle_shape, borders):
+    semi_path = semicircle_to_path(semicircle_shape[0], semicircle_shape[1])
+    border_paths = convert_borders_to_paths(borders)
+    return semicircle_intersects_border(semi_path, border_paths)
+
+def semicircle_intersects_border(semicircle_path, border_paths):
+    for cut_path in border_paths:
+        if semicircle_path.intersects(cut_path):
+            showWarningTooltip("Semicircles cannot be placed on the border")
+            return True  # Intersects the border
+    return False
+
+
+## Detects if a shape can be placed in a cell as well as prevent shapes from being placed in the same cell
+def is_shape_placement_valid(shape, shapes):
+    new_path = shape_to_path(shape)
+    new_index = get_shape_cell_index(new_path)
+    shape_type = shape[2]
+    cell_height = get_cell_size()["height"]
+    
+    
+    if new_index is None and shape_type != ShapeMode.Semicircle:   
+        showWarningTooltip("Only semicircles can be placed in the outermost cells")
+        return False  # Not in a valid cell
+    
+    elif new_index is None and shape_type == ShapeMode.Semicircle:
+        semicircle_height = get_semicircle_size(shape[0], shape[1])["height"]
+        if abs(semicircle_height) > cell_height-1:
+            showWarningTooltip("Semicircles in the outermost cells cannot be larger than one cell")
+            return False
+
+    
+    #outermost_cells = get_outermost_cell_indices()
+    #if new_index in outermost_cells and shape_type != ShapeMode.Semicircle:
+    #    showWarningTooltip("Only semicircles can be placed in the outermost cells")
+    #    return False
+    
+    
+    #get_shape_cell_indices(new_path)
+    #if new_index == [] and shape_type != ShapeMode.Semicircle:
+        
+    #    return False
+
+    for existing_shape in shapes:
+        existing_path = shape_to_path(existing_shape)
+        existing_index = get_shape_cell_index(existing_path)
+        if existing_index == new_index and None == new_index and existing_shape[2] == ShapeMode.Semicircle:
+            # needs to have an intersection check here
+            return True
+        if existing_index == new_index:
+            showWarningTooltip("Shapes cannot be placed in the same cell")
+            return False  # Same cell occupied
+
+    return True
+
+# Gets the index of the cell of a shape
+def get_shape_cell_index(shape_path):
+    cells = getClassicCells()
+    shape_center = shape_path.boundingRect().center()
+    for cell, index in cells:
+        if cell.containsPoint(shape_center, Qt.FillRule.OddEvenFill):
+            return index
+    return None
+
+def get_semicircle_size(start_point, end_point):
+    rect = QRectF(QPointF(start_point), QPointF(end_point))
+    width = rect.width()
+    height = rect.height()
+    radius_x = width / 2
+    radius_y = height / 2
+    return {
+        "width": width,
+        "height": height,
+        "radius_x": radius_x,
+        "radius_y": radius_y
+    }
+
+def get_cell_size():
+    cells = getClassicCells()
+    sizes = []
+    polygon = cells[0][0]   
+    rect = polygon.boundingRect()
+    return {
+            "width": rect.width(),
+            "height": rect.height(),
+            "area": rect.width() * rect.height()
+        }
 
 ## Detects if shapes do not touch the symmetryline
 
@@ -138,7 +329,7 @@ def draw_dotted_45degree_lines(qp, shapes, width, height):
     )
     end_top = QPointF(top.x() + scale_top * dx_top, top.y() + scale_top * dy_top)
     qp.drawLine(top, end_top)
-    SetDegreeLineLeft([top, end_top])
+    setDegreeLineLeft([top, end_top])
     
 
     # 2. Line from bottommost point up-right (45°)
@@ -151,7 +342,7 @@ def draw_dotted_45degree_lines(qp, shapes, width, height):
     )
     end_bottom = QPointF(bottom.x() + scale_bottom * dx_bottom, bottom.y() + scale_bottom * dy_bottom)
     qp.drawLine(bottom, end_bottom)
-    SetDegreeLineRight([bottom, end_bottom])
+    setDegreeLineRight([bottom, end_bottom])
 
 ## Detects if all shapes are connected together
 
@@ -192,7 +383,7 @@ def check_all_shapes_overlap(shape_list):
 
     return len(visited) == n
 
-## Converts shapes and the symmetry line into QPainterPaths for intersection detection
+## Converts shapes, borders, 45 degree lines and the symmetry line into QPainterPaths for intersection detection
 
 def shape_to_path(shape):
 
@@ -277,6 +468,39 @@ def make_angled_line_path(start_point: QPointF, end_point: QPointF) -> QPainterP
     path.lineTo(end_point)
     return path
 
+#def polygon_to_path(polygon):
+#    path = QPainterPath()
+#    if not polygon.isEmpty():
+#        path.moveTo(polygon[0])
+#        for point in polygon[1:]:
+#            path.lineTo(point)
+#        path.closeSubpath()
+#    return path
 
+#def line_to_path(x1, y1, x2, y2):
+#    path = QPainterPath()
+#    path.moveTo(QPointF(x1, y1))
+#    path.lineTo(QPointF(x2, y2))
+#    return path
+
+def convert_borders_to_paths(borders):
+    path_list = []
+    for cut in borders:
+        x1, y1, x2, y2 = cut
+        path = QPainterPath()
+        path.moveTo(QPointF(x1, y1))
+        path.lineTo(QPointF(x2, y2))
+        path_list.append(path)
+    return path_list
+
+
+# A semicircle to path method, which needs to exist for border collison detection, since the other one cannot be used for that
+
+def semicircle_to_path(start_point, end_point):
+    rect = QRectF(QPointF(start_point), QPointF(end_point))
+    path = QPainterPath()
+    path.moveTo(rect.center())
+    path.arcTo(rect, 0, 180)  # You might need to adjust the start angle and span
+    return path
 
 

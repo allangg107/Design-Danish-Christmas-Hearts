@@ -31,6 +31,7 @@ CLASSIC_PATTERN_CLASSIC_LINES = []
 SYMMETRY_LINE = None
 DEGREE_LINE_LEFT = None
 DEGREE_LINE_RIGHT = None
+CLASSIC_CELLS = [] # A list of the classic cells on the canvas
 
 """Functions to get the global values"""
 
@@ -93,6 +94,9 @@ def getDegreeLineLeft():
 
 def getDegreeLineRight():
     return DEGREE_LINE_RIGHT
+
+def getClassicCells():
+    return CLASSIC_CELLS
 """Functions to set global values"""
 
 def incrementFileStepCounter():
@@ -194,10 +198,14 @@ def setSymmetryLine(val):
     global SYMMETRY_LINE
     SYMMETRY_LINE = val
 
-def SetDegreeLineLeft(val):
+def setDegreeLineLeft(val):
     global DEGREE_LINE_LEFT
     DEGREE_LINE_LEFT = val
 
-def SetDegreeLineRight(val):
+def setDegreeLineRight(val):
     global DEGREE_LINE_RIGHT
     DEGREE_LINE_RIGHT = val
+
+def setClassicCells(lst):
+    global CLASSIC_CELLS
+    CLASSIC_CELLS = lst

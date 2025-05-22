@@ -119,14 +119,17 @@ from GlobalVariables import(
     setNumClassicLines,
     setClassicIndicesLineDeleteList,
     getClassicIndicesLineDeleteList,
-    setSymmetryLine
+    setSymmetryLine,
+    setClassicCells
 )
 
 from ErrorHandling import (
     shapeNotTouchingSymmetrylineError,
     allShapesOverlapError,
     MoreThan45DegreesError,
-    draw_dotted_45degree_lines
+    draw_dotted_45degree_lines,
+    is_shape_placement_valid,
+    does_semicircle_snap_to_border_error
 )
 
 
@@ -143,6 +146,8 @@ class DrawingWidget(QWidget):
         self.begin = QPoint()
         self.end = QPoint()
         self.drawing_mode = False
+        self.border = []
+        self.temp_index = 0
         self.show()
 
 
@@ -173,6 +178,12 @@ class DrawingWidget(QWidget):
         if getCurrentPatternType() == PatternType.Classic:
             self.drawCheckerboard(qp, inner_coords)
             shape_color = self.flipSquareColor(shape_color)
+            #temp_classic_cuts = copy.deepcopy(self.classic_cuts)
+            #temp_classic_index = self.classic_cuts[-1][1]
+            #for i in range(len(self.border)):
+            #    temp_classic_index+=1
+            #    temp_classic_cuts.append([self.border[i], temp_classic_index])
+            self.set_classic_cells(self.classic_cuts)
 
         # Redraw all the previous shapes
         self.redrawAllShapes(qp)
@@ -218,12 +229,20 @@ class DrawingWidget(QWidget):
         path.closeSubpath()
         qp.drawPath(path)
 
+       
         # Draw the edges of the inner rotated square
         for i in range(len(inner_coords)):
             qp.drawLine(int(inner_coords[i][0]), int(inner_coords[i][1]),
                              int(inner_coords[(i+1) % len(inner_coords)][0]),
                              int(inner_coords[(i+1) % len(inner_coords)][1]))
-
+            
+            # Creates a list of the canvas border once for usage in ErrorHandling
+            if self.temp_index < 4:
+                self.border.append([int(inner_coords[i][0]), int(inner_coords[i][1]),
+                             int(inner_coords[(i+1) % len(inner_coords)][0]),
+                             int(inner_coords[(i+1) % len(inner_coords)][1])])
+                self.temp_index +=1
+            
         pen = QPen(getShapeColor(), getPenWidth())
         qp.setPen(pen)
         brush = QBrush(getShapeColor())
@@ -249,6 +268,7 @@ class DrawingWidget(QWidget):
             shape_color = getShapeColor()
             if getCurrentPatternType() == PatternType.Classic:
                 shape_color = shape[3]
+                    
             qp.setBrush(shape_color) # set to shape[3] if we want to change color to stored shape color instead of global color
             qp.setPen(QPen(shape_color, getPenWidth(), Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin)) # pen width should needs to be saved in the shape list
 
@@ -502,7 +522,62 @@ class DrawingWidget(QWidget):
         pen = QPen(getShapeColor(), getPenWidth())
         qp.setPen(pen)
 
+    # Utility function for setting classic cells
+    def line_intersection(self, p1, p2, q1, q2):
+        # Line-line intersection using determinant method
+        a1 = p2.y() - p1.y()
+        b1 = p1.x() - p2.x()
+        c1 = a1 * p1.x() + b1 * p1.y()
 
+        a2 = q2.y() - q1.y()
+        b2 = q1.x() - q2.x()
+        c2 = a2 * q1.x() + b2 * q1.y()
+
+        determinant = a1 * b2 - a2 * b1
+        if abs(determinant) < 1e-5:
+            return None  # Lines are parallel or too close
+
+        x = (b2 * c1 - b1 * c2) / determinant
+        y = (a1 * c2 - a2 * c1) / determinant
+        return QPointF(x, y)
+
+    def set_classic_cells(self, classic_cuts):
+        """
+        Given classic_cuts (a list of 2-point line segments), set a global variable to a list of QPolygonF cell shapes (usually diamonds).
+        Each classic_cut is a tuple: ([x1, y1, x2, y2], index)
+        """
+        # Convert cuts to line segments (QPointF pairs)
+        lines = []
+        for line_data, _ in classic_cuts:
+            p1 = QPointF(line_data[0], line_data[1])
+            p2 = QPointF(line_data[2], line_data[3])
+            lines.append((p1, p2))
+
+        # Split lines into alternating diagonals
+        left_to_right = lines[::2]
+        right_to_left = lines[1::2]
+
+        # Build cells by intersecting 2x2 grid blocks from the diagonals
+        cells = []
+        index = 0
+        for i in range(len(left_to_right) - 1):
+            for j in range(len(right_to_left) - 1):
+                a1 = left_to_right[i]
+                a2 = left_to_right[i + 1]
+                b1 = right_to_left[j]
+                b2 = right_to_left[j + 1]
+
+                p1 = self.line_intersection(*a1, *b1)
+                p2 = self.line_intersection(*a1, *b2)
+                p3 = self.line_intersection(*a2, *b2)
+                p4 = self.line_intersection(*a2, *b1)
+
+                if all([p1, p2, p3, p4]):
+                    polygon = QPolygonF([p1, p2, p3, p4])
+                    cells.append((polygon, index))
+                    index += 1
+
+        setClassicCells(cells)
 
 
     def get_drawing_image(self):
@@ -680,6 +755,18 @@ class DrawingWidget(QWidget):
                     shape_color = self.flipSquareColor(shape_color)
                     self.begin, self.end = snapShapeToClassicCuts(self.classic_cuts, getShapeMode(), self.begin, self.end, self.width(), self.height())
 
+                    shape_preview = [self.begin, self.end, getShapeMode(), shape_color, [], getPenWidth(), getFilled()]
+    
+                    
+                    if getNumClassicLines() > 1:
+                        # Validate against occupied cells
+                        if not is_shape_placement_valid(shape_preview, self.shapes):
+                            return  # Don't place shape
+                    
+                        elif shape_preview[2] == ShapeMode.Semicircle and does_semicircle_snap_to_border_error(shape_preview, self.border):
+                            return # Don't place shape
+                    else: 
+                        return
                 if getShapeMode() == ShapeMode.Line:
                     self.shapes.append([self.begin, self.end, getShapeMode(), shape_color, [], getPenWidth(), False])
 
