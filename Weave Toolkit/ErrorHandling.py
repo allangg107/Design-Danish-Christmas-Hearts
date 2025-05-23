@@ -68,21 +68,21 @@ def get_shape_cell_indices(shape_path):
 
 # Gets the outermost cell indices
 def get_outer_cell_indices(rows, cols):
-        outer_indices = set()
+    outer_indices = set()
 
-        # Top row
-        outer_indices.update(range(cols))
+    # Top row
+    outer_indices.update(range(cols))
 
-        # Bottom row
-        outer_indices.update(range((rows - 1) * cols, rows * cols))
+    # Bottom row
+    outer_indices.update(range((rows - 1) * cols, rows * cols))
 
-        # Left column
-        outer_indices.update(i * cols for i in range(rows))
+    # Left column
+    outer_indices.update(i * cols for i in range(rows))
 
-        # Right column
-        outer_indices.update((i + 1) * cols - 1 for i in range(rows))
+    # Right column
+    outer_indices.update((i + 1) * cols - 1 for i in range(rows))
 
-        return sorted(outer_indices)
+    return sorted(outer_indices)
 
 ## Detects if the semicircle is about to get snapped to the border
 def does_semicircle_snap_to_border_error(semicircle_shape, borders):
