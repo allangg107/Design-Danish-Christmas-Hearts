@@ -485,7 +485,7 @@ def createSemicirclePath(start_point, end_point):
     rect = QRectF(QPointF(start_point), QPointF(end_point))
     path = QPainterPath()
     path.moveTo(rect.center())
-    path.arcTo(rect, 0, 180)  # You might need to adjust the start angle and span
+    path.arcTo(rect, 0, 180)
     return path
 
 
