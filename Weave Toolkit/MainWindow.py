@@ -123,7 +123,6 @@ from GlobalVariables import(
     setClassicCells,
     getEnableConstraints,
     setEnableConstraints,
-    setIsOuterIndicesFirstTime,
     setCellAdjacencyCheck
 )
 
@@ -1350,7 +1349,6 @@ class MainWindow(QMainWindow):
         """Update the classic lines count when slider changes"""
         self.classic_lines_label.setText(f'Classic Lines: {value}')
         setNumClassicLines(value)
-        setIsOuterIndicesFirstTime(True)
         setCellAdjacencyCheck(0)
         self.drawing_widget.update()  # Refresh the drawing
 

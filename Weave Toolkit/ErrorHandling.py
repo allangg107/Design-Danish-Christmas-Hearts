@@ -25,8 +25,6 @@ from GlobalVariables import (
     getClassicCells,
     setCellAdjacencyMap,
     getCellAdjacencyMap,
-    getIsOuterIndicesFirstTime,
-    setIsOuterIndicesFirstTime,
     getCellAdjacencyCheck,
     setCellAdjacencyCheck
 )
@@ -69,8 +67,7 @@ def get_shape_cell_indices(shape_path):
     print(indices)
 
 # Gets the outermost cell indices
-def get_outer_cell_indices(rows, cols, old_outer_indices=None):
-    if getIsOuterIndicesFirstTime:
+def get_outer_cell_indices(rows, cols):
         outer_indices = set()
 
         # Top row
@@ -85,11 +82,7 @@ def get_outer_cell_indices(rows, cols, old_outer_indices=None):
         # Right column
         outer_indices.update((i + 1) * cols - 1 for i in range(rows))
 
-        setIsOuterIndicesFirstTime(False)
-
         return sorted(outer_indices)
-    else:
-        return old_outer_indices
 
 ## Detects if the semicircle is about to get snapped to the border
 def does_semicircle_snap_to_border_error(semicircle_shape, borders):
@@ -121,6 +114,9 @@ def is_shape_placement_valid(shape, shapes):
     rows = cols = int(total_cells**0.5)  # assumes square
     outer_cells = get_outer_cell_indices(rows, cols)
 
+    if getCellAdjacencyCheck() >= 2:
+        return True
+
     # Checks if a non-semicircle is about to be placed in the outermost cells
     if new_index in outer_cells and shape_type != ShapeMode.Semicircle:   
         showWarningTooltip("Only semicircles can be placed in the outermost cells")
@@ -137,7 +133,9 @@ def is_shape_placement_valid(shape, shapes):
     # Updates the rules for nesting purposes
     elif shape_type == ShapeMode.Semicircle:
         semicircle_height = get_semicircle_size(shape[0], shape[1])["height"]
-        if abs(semicircle_height) > cell_height:
+        semicircle_direction = get_semicircle_size(shape[0], shape[1])["direction"]
+        #print(semicircle_direction)
+        if abs(semicircle_height) > cell_height and semicircle_direction == "down":
             print("here")
             setCellAdjacencyCheck(getCellAdjacencyCheck() + 1) 
 
@@ -156,7 +154,7 @@ def is_shape_placement_valid(shape, shapes):
             if 2 > getCellAdjacencyCheck():
                 showWarningTooltip("Shapes cannot be placed in adjacent cells")
                 return False
-        
+            
         # Checks if shapes are about to be placed in the same cell
         elif existing_index == new_index:
             showWarningTooltip("Shapes cannot be placed in the same cell")
@@ -206,6 +204,20 @@ def get_shape_cell_index(shape_path, shape_type=None, shape_points=None):
 
     return None
 
+# Utility function for get_semicircle_size
+def find_direction(start_point, end_point):
+    # Calculates the angle
+    dx = end_point.x() - start_point.x()
+    dy = end_point.y() - start_point.y()
+    angle_rad = math.atan2(dy, dx)  # angle in radians
+    angle_deg = math.degrees(angle_rad) % 360  # normalize angle
+
+    # Return only 'up' or 'down' based on vertical orientation
+    if 90 < angle_deg < 270:
+        return "up"
+    else:
+        return "down"
+
 # Gets the size of semicircles and cells to use for checking if a semicircle is too large in the outermost cells
 def get_semicircle_size(start_point, end_point):
     rect = QRectF(QPointF(start_point), QPointF(end_point))
@@ -213,11 +225,13 @@ def get_semicircle_size(start_point, end_point):
     height = rect.height()
     radius_x = width / 2
     radius_y = height / 2
+    direction = find_direction(start_point,end_point)
     return {
         "width": width,
         "height": height,
         "radius_x": radius_x,
-        "radius_y": radius_y
+        "radius_y": radius_y,
+        "direction": direction
     }
 
 def get_cell_size():
