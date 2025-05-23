@@ -122,7 +122,9 @@ from GlobalVariables import(
     setSymmetryLine,
     setClassicCells,
     getEnableConstraints,
-    setEnableConstraints
+    setEnableConstraints,
+    setIsOuterIndicesFirstTime,
+    setCellAdjacencyCheck
 )
 
 from ErrorHandling import (
@@ -131,7 +133,9 @@ from ErrorHandling import (
     MoreThan45DegreesError,
     draw_dotted_45degree_lines,
     is_shape_placement_valid,
-    does_semicircle_snap_to_border_error
+    does_semicircle_snap_to_border_error,
+    build_cell_adjacency_map,
+
 )
 
 
@@ -180,12 +184,8 @@ class DrawingWidget(QWidget):
         if getCurrentPatternType() == PatternType.Classic:
             self.drawCheckerboard(qp, inner_coords)
             shape_color = self.flipSquareColor(shape_color)
-            #temp_classic_cuts = copy.deepcopy(self.classic_cuts)
-            #temp_classic_index = self.classic_cuts[-1][1]
-            #for i in range(len(self.border)):
-            #    temp_classic_index+=1
-            #    temp_classic_cuts.append([self.border[i], temp_classic_index])
             self.set_classic_cells(self.classic_cuts)
+            build_cell_adjacency_map()
 
         # Redraw all the previous shapes
         self.redrawAllShapes(qp)
@@ -524,7 +524,39 @@ class DrawingWidget(QWidget):
         pen = QPen(getShapeColor(), getPenWidth())
         qp.setPen(pen)
 
-    # Utility function for setting classic cells
+    # Utility functions for setting classic cells
+    #
+    #  adds the border lines virtually to the cell generation
+    def add_virtual_border_lines(self, diagonals):
+        """
+        Takes a list of (p1, p2) diagonal lines and returns a new list including
+        virtual lines added before the first and after the last.
+        """
+        if len(diagonals) < 2:
+            return diagonals  # Not enough to calculate spacing
+
+        # Estimate direction and spacing
+        first = diagonals[0]
+        second = diagonals[1]
+
+        # Vector difference
+        dx1 = second[0].x() - first[0].x()
+        dy1 = second[0].y() - first[0].y()
+        dx2 = second[1].x() - first[1].x()
+        dy2 = second[1].y() - first[1].y()
+
+        # Create virtual first and last lines
+        before_start = (
+            QPointF(first[0].x() - dx1, first[0].y() - dy1),
+            QPointF(first[1].x() - dx2, first[1].y() - dy2)
+        )
+        after_end = (
+            QPointF(diagonals[-1][0].x() + dx1, diagonals[-1][0].y() + dy1),
+            QPointF(diagonals[-1][1].x() + dx2, diagonals[-1][1].y() + dy2)
+        )
+
+        return [before_start] + diagonals + [after_end]
+
     def line_intersection(self, p1, p2, q1, q2):
         # Line-line intersection using determinant method
         a1 = p2.y() - p1.y()
@@ -544,22 +576,17 @@ class DrawingWidget(QWidget):
         return QPointF(x, y)
 
     def set_classic_cells(self, classic_cuts):
-        """
-        Given classic_cuts (a list of 2-point line segments), set a global variable to a list of QPolygonF cell shapes (usually diamonds).
-        Each classic_cut is a tuple: ([x1, y1, x2, y2], index)
-        """
-        # Convert cuts to line segments (QPointF pairs)
-        lines = []
+        classic_lines = []
         for line_data, _ in classic_cuts:
             p1 = QPointF(line_data[0], line_data[1])
             p2 = QPointF(line_data[2], line_data[3])
-            lines.append((p1, p2))
+            classic_lines.append((p1, p2))
 
-        # Split lines into alternating diagonals
-        left_to_right = lines[::2]
-        right_to_left = lines[1::2]
+        left_to_right = classic_lines[::2]
+        right_to_left = classic_lines[1::2]
+        left_to_right = self.add_virtual_border_lines(left_to_right)
+        right_to_left = self.add_virtual_border_lines(right_to_left)
 
-        # Build cells by intersecting 2x2 grid blocks from the diagonals
         cells = []
         index = 0
         for i in range(len(left_to_right) - 1):
@@ -569,16 +596,15 @@ class DrawingWidget(QWidget):
                 b1 = right_to_left[j]
                 b2 = right_to_left[j + 1]
 
-                p1 = self.line_intersection(*a1, *b1)
-                p2 = self.line_intersection(*a1, *b2)
-                p3 = self.line_intersection(*a2, *b2)
-                p4 = self.line_intersection(*a2, *b1)
+                p1 = self.line_intersection(a1[0], a1[1], b1[0], b1[1])
+                p2 = self.line_intersection(a1[0], a1[1], b2[0], b2[1])
+                p3 = self.line_intersection(a2[0], a2[1], b2[0], b2[1])
+                p4 = self.line_intersection(a2[0], a2[1], b1[0], b1[1])
 
                 if all([p1, p2, p3, p4]):
                     polygon = QPolygonF([p1, p2, p3, p4])
                     cells.append((polygon, index))
                     index += 1
-
         setClassicCells(cells)
 
 
@@ -1010,6 +1036,7 @@ class MainWindow(QMainWindow):
             setClassicIndicesLineDeleteList([])  # Clear classic indices line delete list
             self.drawing_widget.update()  # Trigger repaint of the drawing widget
             self.update_backside_image()  # Update the backside image
+            setCellAdjacencyCheck(0) # Resets cellAdjacencyCheck
             if getCurrentPatternType() == PatternType.Classic:
 
                 self.setPatternType(PatternType.Classic)  # Reset pattern type to Classic
@@ -1323,6 +1350,8 @@ class MainWindow(QMainWindow):
         """Update the classic lines count when slider changes"""
         self.classic_lines_label.setText(f'Classic Lines: {value}')
         setNumClassicLines(value)
+        setIsOuterIndicesFirstTime(True)
+        setCellAdjacencyCheck(0)
         self.drawing_widget.update()  # Refresh the drawing
 
     def get_color_name(self, qcolor):

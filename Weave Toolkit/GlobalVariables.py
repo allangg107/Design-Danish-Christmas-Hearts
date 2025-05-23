@@ -32,7 +32,11 @@ SYMMETRY_LINE = None
 DEGREE_LINE_LEFT = None
 DEGREE_LINE_RIGHT = None
 CLASSIC_CELLS = [] # A list of the classic cells on the canvas
-ENABLE_CONSTRAINTS = True
+ENABLE_CONSTRAINTS = True # constraints enabling
+CELL_ADJACENCY_MAP = None # A map of adjacent cells
+IS_OUTER_INDICES_FIRST_TIME = True # Bool used to prevent outer indicies from changing unless amount of lines is updated
+CELL_ADJACENCY_CHECK = 0
+
 
 """Functions to get the global values"""
 
@@ -101,6 +105,15 @@ def getClassicCells():
 
 def getEnableConstraints():
     return ENABLE_CONSTRAINTS
+
+def getCellAdjacencyMap():
+    return CELL_ADJACENCY_MAP
+
+def getIsOuterIndicesFirstTime():
+    return IS_OUTER_INDICES_FIRST_TIME
+
+def getCellAdjacencyCheck():
+    return CELL_ADJACENCY_CHECK
 
 """Functions to set global values"""
 
@@ -218,3 +231,15 @@ def setClassicCells(lst):
 def setEnableConstraints(boolval):
     global ENABLE_CONSTRAINTS
     ENABLE_CONSTRAINTS = boolval
+
+def setCellAdjacencyMap(val):
+    global CELL_ADJACENCY_MAP
+    CELL_ADJACENCY_MAP = val
+
+def setIsOuterIndicesFirstTime(boolval):
+    global IS_OUTER_INDICES_FIRST_TIME 
+    IS_OUTER_INDICES_FIRST_TIME = boolval
+
+def setCellAdjacencyCheck(iter):
+    global CELL_ADJACENCY_CHECK
+    CELL_ADJACENCY_CHECK = (iter)
