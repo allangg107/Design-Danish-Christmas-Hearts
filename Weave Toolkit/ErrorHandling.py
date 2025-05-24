@@ -17,20 +17,21 @@ from PyQt6.QtGui import (
 )
 from GlobalVariables import (
     getSymmetryLine,
-    getDegreeLineLeft,
-    getDegreeLineRight,
-    setDegreeLineLeft,
-    setDegreeLineRight,
+    getDegreeLinesTop,
+    setDegreeLinesTop,
+    setDegreeLinesBot,
+    getDegreeLinesBot,
     getShapeMode,
     getClassicCells,
     setCellAdjacencyMap,
     getCellAdjacencyMap,
     getCellAdjacencyCheck,
-    setCellAdjacencyCheck
+    setCellAdjacencyCheck,
+    getCurrentPatternType
 )
 import math
 from ShapeMode import ShapeMode
-from shapely.geometry import LineString
+from PatternType import PatternType 
 
 # Message when user draws out of bounds
 def outOfBoundDrawingMessage():
@@ -296,11 +297,14 @@ def any_shape_intersects_symmetry_line(shapes, x_symmetry, y1_line, y2_line):
 ##  and more than 45 degrees to upper-right for the bottommost point
 
 def MoreThan45DegreesError(shapes):
-    start_top, end_top = getDegreeLineLeft()
-    start_bottom, end_bottom = getDegreeLineRight()
-
-    top_45_path = make_angled_line_path(start_top, end_top)
-    bottom_45_path = make_angled_line_path(start_bottom, end_bottom)
+    top_line_left, top_line_right = getDegreeLinesTop()
+    top_45_path_left = make_angled_line_path(top_line_left[0], top_line_left[1])
+    top_45_path_right = make_angled_line_path(top_line_right[0], top_line_right[1])
+    
+    if getCurrentPatternType() == PatternType.Asymmetric:
+        bot_line_left, bot_line_right = getDegreeLinesBot()
+        bottom_45_path_left = make_angled_line_path(bot_line_left[0], bot_line_left[1])
+        bottom_45_path_right = make_angled_line_path(bot_line_right[0], bot_line_right[1])
     
     if len(shapes) < 2:
         return True
@@ -308,82 +312,129 @@ def MoreThan45DegreesError(shapes):
     for shape in shapes:
         path = shape_to_path(shape)
 
-        if path.intersects(top_45_path):
-            showWarningTooltip("A shape is placed more than 45 degrees from either the top or bottom point")
+        if path.intersects(top_45_path_left) or path.intersects(top_45_path_right):
+            showWarningTooltip("A shape is placed more than 45 degrees from the topmost points")
             return False
         
-        elif path.intersects(bottom_45_path):
-            showWarningTooltip("A shape is placed more than 45 degrees from either the top or bottom point")
+        elif getCurrentPatternType() == PatternType.Asymmetric and (path.intersects(bottom_45_path_left) or path.intersects(bottom_45_path_right)):
+            showWarningTooltip("A shape is placed more than 45 degrees from the bottommost points")
             return False
     
     return True
 
-def find_top_and_bottommost_points(shape_list, error_margin=5):
-    topmost_point = None
-    bottommost_point = None
-    min_y = float('inf')
-    max_y = float('-inf')
+def find_top_and_bottommost_points(shape_list, error_margin=2):
+    top_y = float('inf')
+    bottom_y = float('-inf')
+    top_left = None
+    top_right = None
+    bottom_left = None
+    bottom_right = None
 
     for shape in shape_list:
-        path = shape_to_path(shape)
+        if shape[2] == ShapeMode.Semicircle:
+            path = semicircle_to_path(shape[0], shape[1])
+        
+        else:
+            path = shape_to_path(shape)
 
-        if ShapeMode.Circle == getShapeMode():
+        # For circles and semicircles, inspect individual path elements
+        if getShapeMode() == ShapeMode.Circle or getShapeMode() == ShapeMode.Semicircle:
             for i in range(path.elementCount()):
                 pt = path.elementAt(i)
-                
-                if pt.y < min_y:
-                    min_y = pt.y
-                    topmost_point = QPointF(pt.x, pt.y)
-                
-                if pt.y > max_y:
-                    max_y = pt.y
-                    bottommost_point = QPointF(pt.x, pt.y)
-        else: 
-            bounding_rect = path.boundingRect()
-            top_candidate = QPointF(bounding_rect.left() - error_margin, bounding_rect.top() - error_margin)
-            bottom_candidate = QPointF(bounding_rect.right() + error_margin, bounding_rect.bottom() + error_margin)
-            
-            if top_candidate.y() < min_y:
-                min_y = top_candidate.y()
-                topmost_point = top_candidate
+                point = QPointF(pt.x, pt.y)
 
-            if bottom_candidate.y() > max_y:
-                max_y = bottom_candidate.y()
-                bottommost_point = bottom_candidate
-            
+                # Top
+                if abs(pt.y - top_y) <= error_margin:
+                    if top_left is None or pt.x < top_left.x():
+                        top_left = point
+                    if top_right is None or pt.x > top_right.x():
+                        top_right = point
+                elif pt.y < top_y:
+                    top_y = pt.y
+                    top_left = top_right = point
 
-    return topmost_point, bottommost_point
+                # Bottom
+                if abs(pt.y - bottom_y) <= error_margin:
+                    if bottom_left is None or pt.x < bottom_left.x():
+                        bottom_left = point
+                    if bottom_right is None or pt.x > bottom_right.x():
+                        bottom_right = point
+                elif pt.y > bottom_y:
+                    bottom_y = pt.y
+                    bottom_left = bottom_right = point
 
-# Draws dotted lines at 45 degrees to inform the users of where they are allowed to draw for the pattern to work
-def draw_dotted_45degree_lines(qp, shapes, width, height):
+        else:
+            rect = path.boundingRect()
+            # Top candidates
+            t_left = QPointF(rect.left() - error_margin, rect.top() - error_margin)
+            t_right = QPointF(rect.right() + error_margin, rect.top() - error_margin)
+            # Bottom candidates
+            b_left = QPointF(rect.left() - error_margin, rect.bottom() + error_margin)
+            b_right = QPointF(rect.right() + error_margin, rect.bottom() + error_margin)
+
+            if rect.top() < top_y - error_margin:
+                top_y = rect.top()
+                top_left = t_left
+                top_right = t_right
+            elif abs(rect.top() - top_y) <= error_margin:
+                if top_left is None or t_left.x() < top_left.x():
+                    top_left = t_left
+                if top_right is None or t_right.x() > top_right.x():
+                    top_right = t_right
+
+            if rect.bottom() > bottom_y + error_margin:
+                bottom_y = rect.bottom()
+                bottom_left = b_left
+                bottom_right = b_right
+            elif abs(rect.bottom() - bottom_y) <= error_margin:
+                if bottom_left is None or b_left.x() < bottom_left.x():
+                    bottom_left = b_left
+                if bottom_right is None or b_right.x() > bottom_right.x():
+                    bottom_right = b_right
+
+    return top_left, top_right, bottom_left, bottom_right
+
+def draw_dotted_45degree_lines(qp, shapes):
     if len(shapes) < 1:
         return None
-    top, bottom = find_top_and_bottommost_points(shapes)
-
-    # 1. Line from topmost point down-left (45°)
-    angle_rad_top = math.radians(135)  # 135° = down-left
-    dx_top = math.cos(angle_rad_top)
-    dy_top = math.sin(angle_rad_top)
-    scale_top = max(
-        (top.x() / abs(dx_top)) if dx_top != 0 else float('inf'),
-        ((height - top.y()) / abs(dy_top)) if dy_top != 0 else float('inf')
-    )
-    end_top = QPointF(top.x() + scale_top * dx_top, top.y() + scale_top * dy_top)
-    qp.drawLine(top, end_top)
-    setDegreeLineLeft([top, end_top])
     
+    symmetry_x, sym_y1, sym_y2 = getSymmetryLine()
+    
+    # Filter shapes that intersect the symmetry line
+    def intersects_symmetry_line(shape):
+        path = shape_to_path(shape)
+        rect = path.boundingRect()
+        return rect.left() <= symmetry_x <= rect.right()
 
-    # 2. Line from bottommost point up-right (45°)
-    angle_rad_bottom = math.radians(-45)  # -45° = up-right
-    dx_bottom = math.cos(angle_rad_bottom)
-    dy_bottom = math.sin(angle_rad_bottom)
-    scale_bottom = max(
-        ((width - bottom.x()) / abs(dx_bottom)) if dx_bottom != 0 else float('inf'),
-        (bottom.y() / abs(dy_bottom)) if dy_bottom != 0 else float('inf')
-    )
-    end_bottom = QPointF(bottom.x() + scale_bottom * dx_bottom, bottom.y() + scale_bottom * dy_bottom)
-    qp.drawLine(bottom, end_bottom)
-    setDegreeLineRight([bottom, end_bottom])
+    touching_shapes = [s for s in shapes if intersects_symmetry_line(s)]
+
+    if not touching_shapes:
+        return  # No shapes touch the symmetry line, so don't draw lines
+
+    # Get extreme points only from shapes that touch the symmetry line
+    top_left, top_right, bottom_left, bottom_right = find_top_and_bottommost_points(touching_shapes)
+
+    def draw_angle_line(origin_point, angle_deg, length=400):
+        angle_rad = math.radians(angle_deg)
+        dx = math.cos(angle_rad)
+        dy = math.sin(angle_rad)
+
+        end_point = QPointF(origin_point.x() + length * dx, origin_point.y() + length * dy)
+        qp.drawLine(origin_point, end_point)
+        return [origin_point, end_point]
+    
+    
+    # --- Lines from topmost corners ---
+    left_top_line = draw_angle_line(top_left, 225)   # 225° = up-left
+    right_top_line = draw_angle_line(top_right, 315)  # 315° = up-right
+    
+    if PatternType.Asymmetric == getCurrentPatternType():
+        # --- Lines from bottommost corners ---
+        left_bottom_line = draw_angle_line(bottom_left, 135)  # 135° = down-left
+        right_bottom_line = draw_angle_line(bottom_right, 45)  # 45° = down-right
+        setDegreeLinesBot(left_bottom_line, right_bottom_line)
+    
+    setDegreeLinesTop(left_top_line, right_top_line)
 
 ## Detects if all shapes are connected together
 
@@ -501,5 +552,32 @@ def createSemicirclePath(start_point, end_point):
     path.moveTo(rect.center())
     path.arcTo(rect, 0, 180)
     return path
+
+# An alternative version of createSemiCirclePath, which is only used to find the topmost and bottommost points
+def semicircle_to_path(start, end, rotation_angle=0):
+    from PyQt6.QtGui import QTransform
+
+    dx = end.x() - start.x()
+    dy = end.y() - start.y()
+    size = (dx**2 + dy**2) ** 0.5
+
+    center_x = (start.x() + end.x()) / 2
+    center_y = (start.y() + end.y()) / 2
+    rect = QRectF(center_x - size / 2, center_y - size / 2, size, size)
+
+    path = QPainterPath()
+    path.moveTo(center_x, center_y)
+    path.arcTo(rect, 0, 180)
+    path.lineTo(center_x, center_y)
+
+    if rotation_angle != 0:
+        transform = QTransform()
+        transform.translate(center_x, center_y)
+        transform.rotate(rotation_angle)
+        transform.translate(-center_x, -center_y)
+        path = transform.map(path)
+
+    return path
+
 
 

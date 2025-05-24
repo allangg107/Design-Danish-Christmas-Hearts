@@ -395,8 +395,8 @@ class DrawingWidget(QWidget):
             # draw a dashed line in the middle of the canvas
             pen.setStyle(Qt.PenStyle.DashLine)
             qp.setPen(pen)
-            if getCurrentPatternType() == PatternType.Asymmetric:
-                draw_dotted_45degree_lines(qp, self.shapes, width, height)
+ 
+            draw_dotted_45degree_lines(qp, self.shapes)
 
             qp.drawLine(int(inner_coords[0][0]), int(y1), int(inner_coords[0][0]), int(y2))
             setSymmetryLine([int(inner_coords[0][0]), int(y1), int(y2)])
@@ -1524,14 +1524,9 @@ class MainWindow(QMainWindow):
         if getEnableConstraints() and (getCurrentPatternType() == PatternType.Asymmetric or getCurrentPatternType() == PatternType.Symmetric):
             if shapeNotTouchingSymmetrylineError(self.drawing_widget.shapes):
                 if allShapesOverlapError(self.drawing_widget.shapes):
-                    if getCurrentPatternType() == PatternType.Asymmetric and MoreThan45DegreesError(self.drawing_widget.shapes):
+                    if MoreThan45DegreesError(self.drawing_widget.shapes):
                         svg_file_path = getUserOutputSVGFileName() + ".svg"
                         mainAlgorithmSvg(svg_file_path, getCurrentSideType(), getCurrentPatternType(), function=' ', n_lines=3)
-                    
-                    elif getCurrentPatternType() == PatternType.Symmetric:
-                        svg_file_path = getUserOutputSVGFileName() + ".svg"
-                        mainAlgorithmSvg(svg_file_path, getCurrentSideType(), getCurrentPatternType(), function=' ', n_lines=3)
-                    
         else:
             svg_file_path = getUserOutputSVGFileName() + ".svg"
             mainAlgorithmSvg(svg_file_path, getCurrentSideType(), getCurrentPatternType(), function=' ', n_lines=3)

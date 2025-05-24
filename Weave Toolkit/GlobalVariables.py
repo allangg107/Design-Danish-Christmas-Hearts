@@ -29,8 +29,8 @@ CLASSIC_INDICES_LINE_DELETE_LIST = []
 CLASSIC_PATTERN_SNAP_POINTS = []
 CLASSIC_PATTERN_CLASSIC_LINES = [] 
 SYMMETRY_LINE = None
-DEGREE_LINE_LEFT = None
-DEGREE_LINE_RIGHT = None
+DEGREE_LINES_TOP = None
+DEGREE_LINES_BOT = None
 CLASSIC_CELLS = [] # A list of the classic cells on the canvas
 ENABLE_CONSTRAINTS = True # constraints enabling
 CELL_ADJACENCY_MAP = None # A map of adjacent cells
@@ -93,11 +93,11 @@ def getClassicPatternClassicLines():
 def getSymmetryLine():
     return SYMMETRY_LINE
 
-def getDegreeLineLeft():
-    return DEGREE_LINE_LEFT
+def getDegreeLinesTop():
+    return DEGREE_LINES_TOP[0], DEGREE_LINES_TOP[1]
 
-def getDegreeLineRight():
-    return DEGREE_LINE_RIGHT
+def getDegreeLinesBot():
+    return DEGREE_LINES_BOT[0], DEGREE_LINES_BOT[1]
 
 def getClassicCells():
     return CLASSIC_CELLS
@@ -212,13 +212,13 @@ def setSymmetryLine(val):
     global SYMMETRY_LINE
     SYMMETRY_LINE = val
 
-def setDegreeLineLeft(val):
-    global DEGREE_LINE_LEFT
-    DEGREE_LINE_LEFT = val
+def setDegreeLinesTop(val1, val2):
+    global DEGREE_LINES_TOP
+    DEGREE_LINES_TOP = (val1, val2)
 
-def setDegreeLineRight(val):
-    global DEGREE_LINE_RIGHT
-    DEGREE_LINE_RIGHT = val
+def setDegreeLinesBot(val1, val2):
+    global DEGREE_LINES_BOT
+    DEGREE_LINES_BOT = (val1, val2) 
 
 def setClassicCells(lst):
     global CLASSIC_CELLS
