@@ -183,7 +183,7 @@ class DrawingWidget(QWidget):
         if getCurrentPatternType() == PatternType.Classic:
             self.drawCheckerboard(qp, inner_coords)
             shape_color = self.flipSquareColor(shape_color)
-            self.set_classic_cells(self.classic_cuts)
+            self.set_classic_cells(self.static_classic_cuts)
             build_cell_adjacency_map()
 
         # Redraw all the previous shapes
@@ -422,28 +422,33 @@ class DrawingWidget(QWidget):
         line_distance = distance / 2
         # Draw 3 parallel dashed lines going from bottom left to top right
         classic_cuts = []
+        static_classic_cuts = []
         current_index = 1
         for i in range(1, num_classic_lines + 1):
+             # Calculate start and end points for each line
+            start_x_bottom = inner_coords[3][0] + (i * offset)
+            start_y_bottom = inner_coords[3][1] + (i * offset)
+
+            end_x_bottom = start_x_bottom + line_distance
+            end_y_bottom = start_y_bottom - line_distance
+            static_classic_cuts.append(([start_x_bottom, start_y_bottom, end_x_bottom, end_y_bottom], current_index))
+                
             if current_index not in getClassicIndicesLineDeleteList():
-                # Calculate start and end points for each line
-                start_x_bottom = inner_coords[3][0] + (i * offset)
-                start_y_bottom = inner_coords[3][1] + (i * offset)
-
-                end_x_bottom = start_x_bottom + line_distance
-                end_y_bottom = start_y_bottom - line_distance
-
                 # Draw the dashed line
                 qp.drawLine(int(start_x_bottom), int(start_y_bottom), int(end_x_bottom), int(end_y_bottom))
                 classic_cuts.append(([start_x_bottom, start_y_bottom, end_x_bottom, end_y_bottom], current_index))
 
             current_index += 1
 
-            if current_index not in getClassicIndicesLineDeleteList():
-                start_x_top = inner_coords[3][0] + (i * offset)
-                start_y_top = inner_coords[3][1] - (i * offset)
+            start_x_top = inner_coords[3][0] + (i * offset)
+            start_y_top = inner_coords[3][1] - (i * offset)
 
-                end_x_top = start_x_top + line_distance
-                end_y_top = start_y_top + line_distance
+            end_x_top = start_x_top + line_distance
+            end_y_top = start_y_top + line_distance
+            static_classic_cuts.append(([start_x_top, start_y_top, end_x_top, end_y_top], current_index))
+
+            if current_index not in getClassicIndicesLineDeleteList():
+                
 
                 # Draw the dashed line
                 qp.drawLine(int(start_x_top), int(start_y_top), int(end_x_top), int(end_y_top))
@@ -452,6 +457,7 @@ class DrawingWidget(QWidget):
             current_index += 1
 
         self.classic_cuts = classic_cuts
+        self.static_classic_cuts = static_classic_cuts
 
         # THIS DYNAMICALLY DRAWS THE CHECKERBOARD PATTERN, BUT DOES NOT WORK WITH DELETING LINES YET
 
