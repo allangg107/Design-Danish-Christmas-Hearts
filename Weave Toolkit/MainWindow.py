@@ -183,7 +183,7 @@ class DrawingWidget(QWidget):
         if getCurrentPatternType() == PatternType.Classic:
             self.drawCheckerboard(qp, inner_coords)
             shape_color = self.flipSquareColor(shape_color)
-            self.set_classic_cells(self.static_classic_cuts)
+            self.set_classic_cells(self.classic_cuts)
             build_cell_adjacency_map()
 
         # Redraw all the previous shapes
@@ -422,7 +422,6 @@ class DrawingWidget(QWidget):
         line_distance = distance / 2
         # Draw 3 parallel dashed lines going from bottom left to top right
         classic_cuts = []
-        static_classic_cuts = []
         current_index = 1
         for i in range(1, num_classic_lines + 1):
              # Calculate start and end points for each line
@@ -431,8 +430,8 @@ class DrawingWidget(QWidget):
 
             end_x_bottom = start_x_bottom + line_distance
             end_y_bottom = start_y_bottom - line_distance
-            static_classic_cuts.append(([start_x_bottom, start_y_bottom, end_x_bottom, end_y_bottom], current_index))
-                
+
+
             if current_index not in getClassicIndicesLineDeleteList():
                 # Draw the dashed line
                 qp.drawLine(int(start_x_bottom), int(start_y_bottom), int(end_x_bottom), int(end_y_bottom))
@@ -445,11 +444,10 @@ class DrawingWidget(QWidget):
 
             end_x_top = start_x_top + line_distance
             end_y_top = start_y_top + line_distance
-            static_classic_cuts.append(([start_x_top, start_y_top, end_x_top, end_y_top], current_index))
+
 
             if current_index not in getClassicIndicesLineDeleteList():
                 
-
                 # Draw the dashed line
                 qp.drawLine(int(start_x_top), int(start_y_top), int(end_x_top), int(end_y_top))
                 classic_cuts.append(([start_x_top, start_y_top, end_x_top, end_y_top], current_index))
@@ -457,7 +455,6 @@ class DrawingWidget(QWidget):
             current_index += 1
 
         self.classic_cuts = classic_cuts
-        self.static_classic_cuts = static_classic_cuts
 
         # THIS DYNAMICALLY DRAWS THE CHECKERBOARD PATTERN, BUT DOES NOT WORK WITH DELETING LINES YET
 
@@ -581,19 +578,32 @@ class DrawingWidget(QWidget):
         return QPointF(x, y)
 
     def set_classic_cells(self, classic_cuts):
-        classic_lines = []
+        def is_positive_slope(p1, p2):
+            dx = p2.x() - p1.x()
+            dy = p2.y() - p1.y()
+            if dx == 0:
+                return False  # vertical line case, can adjust if needed
+            return dy / dx > 0
+
+        left_to_right = []
+        right_to_left = []
+
+        # Classify lines by slope sign
         for line_data, _ in classic_cuts:
             p1 = QPointF(line_data[0], line_data[1])
             p2 = QPointF(line_data[2], line_data[3])
-            classic_lines.append((p1, p2))
+            if is_positive_slope(p1, p2):
+                left_to_right.append((p1, p2))
+            else:
+                right_to_left.append((p1, p2))
 
-        left_to_right = classic_lines[::2]
-        right_to_left = classic_lines[1::2]
+        # Add virtual border lines to each set
         left_to_right = self.add_virtual_border_lines(left_to_right)
         right_to_left = self.add_virtual_border_lines(right_to_left)
 
         cells = []
         index = 0
+
         for i in range(len(left_to_right) - 1):
             for j in range(len(right_to_left) - 1):
                 a1 = left_to_right[i]
@@ -613,6 +623,7 @@ class DrawingWidget(QWidget):
         setClassicCells(cells)
 
 
+
     def get_drawing_image(self):
         image = QImage(self.size(), QImage.Format.Format_ARGB32)
         image.fill(Qt.GlobalColor.transparent)  # Fill with transparent color
@@ -621,7 +632,7 @@ class DrawingWidget(QWidget):
         self.render(painter)  # Render the current drawing to the image
         return image
 
-
+    
     def drawSquare(self, qp, start, end, color, pen_width, filled):
         self.penAndBrushSetup(qp, color, pen_width, filled)
 
