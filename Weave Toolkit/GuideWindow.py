@@ -1,6 +1,8 @@
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QTextEdit, QWidget, QApplication, QPushButton, QTextBrowser, QScrollArea
 from PyQt6.QtGui import QPalette, QColor, QMovie
-from PyQt6.QtCore import QSize, Qt
+from PyQt6.QtCore import QSize, Qt, QUrl
+from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
+from PyQt6.QtMultimediaWidgets import QVideoWidget
 from PatternType import PatternType
 from GlobalVariables import(
     getUserOutputSVGFileName
@@ -13,34 +15,32 @@ class GuideWindow(QDialog):
         super().__init__()
         self.setWindowTitle("Guide Window")
         self.text_list = self.saveTextInList(pattern_type)
-        self.gif_list = self.createGifList(pattern_type)
-        self.createLayout(self.text_list, self.gif_list)
+        self.video_list = self.createVideoList(pattern_type)
+        self.createLayout(self.text_list, self.video_list)
 
-    def createGifList(self, pattern_type):
+    def createVideoList(self, pattern_type):
         if pattern_type == PatternType.Simple:
-            return ["gifs/simple_step1.gif","gifs/simple_step2.gif","gifs/simple_step3.gif","gifs/simple_step4.gif","gifs/simple_step5.gif"]
+            return ["guide_assets/simple_step_2.mp4","guide_assets/simple_step_4.mp4","guide_assets/simple_step_5.mp4","guide_assets/simple_step_7.mp4"]
         
-        elif pattern_type == PatternType.Symmetric:
-            return ["gifs/sym_step1.gif","gifs/sym_step2.gif","gifs/sym_step3.gif","gifs/sym_step4.gif","gifs/sym_step5.gif"]
-                 
-        elif pattern_type == PatternType.Asymmetric:
-            return ["gifs/sym_step1.gif","gifs/sym_step2.gif","gifs/sym_step3.gif","gifs/sym_step4.gif","gifs/sym_step5.gif"]
+        elif pattern_type == PatternType.Symmetric or pattern_type == PatternType.Asymmetric:
+            return ["guide_assets/sym_step_2.mp4","guide_assets/sym_step_4.mp4","guide_assets/sym_step_5.mp4","guide_assets/sym_step_7.mp4"]
         
         elif pattern_type == PatternType.Classic:
-            return ["gifs/classic_step1.gif","gifs/classic_step2.gif","gifs/classic_step3.gif","gifs/classic_step4.gif","gifs/classic_step5.gif"]
+            return ["guide_assets/classic_step_2.mp4","guide_assets/classic_step_4.mp4","guide_assets/classic_step_5.mp4","guide_assets/classic_step_7.mp4"]
         
-
+    def createImageList(self, pattern_type):
+        if pattern_type == PatternType.Simple:
+            return ["guide_assets/simple_step_1.jpg","guide_assets/simple_step_3.jpg","guide_assets/simple_step_6.jpg"]
+        
+        elif pattern_type == PatternType.Symmetric or pattern_type == PatternType.Asymmetric:
+            return ["guide_assets/sym_step_1.jpg","guide_assets/sym_step_3.jpg","guide_assets/sym_step_6.jpg"]
+        
+        elif pattern_type == PatternType.Classic:
+            return ["guide_assets/classic_step_1.jpg","guide_assets/classic_step_3.jpg","guide_assets/classic_step_6.jpg"]
 
     def saveTextInList(self, pattern_type):
-        if pattern_type == PatternType.Simple:
-            image_file = "gifs/batman_simple_heart.jpg"
-        elif pattern_type == PatternType.Symmetric:
-            image_file = "gifs/Snowman.jpg"
-        elif pattern_type == PatternType.Asymmetric:
-            image_file = "gifs/Snowman.jpg"
-        elif pattern_type == PatternType.Classic:
-            image_file = "gifs/ClassicHM.jpg"
-        step1_text = """
+        image_list = self.createImageList(pattern_type)
+        step0_text = f"""
         <h1 style="color: red;">Danish Christmas Hearts Weaving Guide</h1>
 
         <h2>Pre-Weaving/Cricut Design Guide</h2>
@@ -56,19 +56,21 @@ class GuideWindow(QDialog):
             your own paper types, and choose blade length in accordance to the paper type of your choosing to ensure a proper cut.
             After you have cut out the stencils using the Cricut machine and Cricut Design Space, you will have two stencils,
             one with a circle and one with a cross. In Step 1, we will go over how to orient the stencils properly to begin weaving.
-            </p>
         </div>"""
-        step2_text = """
+
+        step1_text = f"""
         <h2>Step 1</h2>
         <div>
             <p>
             Place the stencil with the circle, on the flat surface with the circle on the bottom left side of the stencil.
             Place the other stencil, the one with the cross, on the flat surface with the cross on the bottom right side of the stencil.
             The stencil with the circle is on the left hand side of the flat surface the stencil with the cross is on the right hand side of the flat surface.
+            <br>
             </p>
+            <img src="{image_list[0]}" width="300">
         </div>"""
 
-        step3_text = """
+        step2_text = """
         <h2>Step 2</h2>
         <div>
             <p>
@@ -76,30 +78,32 @@ class GuideWindow(QDialog):
             Take the left stencil and fold it in half, such that the left half is on top of the right half. 
             Take the right stencil and fold it in half, such that the right half is on top of the left half.
             Follow the gifs below to see how the stencils should be folded.
-            </p>
+            
         </div>"""
 
-        step4_text = """
+        step3_text = f"""
         <h2>Step 3</h2>
         <div>
             <p> 
             Before we start weaving, we must ensure that the stencils are folded properly and oriented in the correct starting position.
             This will ensure that the weaving process is smooth and easy to follow, and will always weave correctly if oriented properly.
-            As per the gif in this section, we want the stencil with the circle to have the circle in the top right corner and the
-            stencil with the cross to have the cross in the top left corner.
+            As per the image in this section, we want the stencil with the circle to have the circle in the top left corner and the
+            stencil with the cross to have the cross in the top right corner.
+            <br>
             </p>
+            <img src="{image_list[1]}" width="300">
         </div>"""
 
-        step5_text = """
+        step4_text = """
         <h2>Step 4</h2>
         <div>
             <p>
             Before we weave, we want to show the correct orientation that will occur after the first weave is completed. We want to rotate the stencil with
-            the circle 90 degrees counter-clockwise and the stencil with the cross 90 degrees clockwise. Now the stencils are in the correct starting position.
+            the circle 135 degrees counter-clockwise and the stencil with the cross 135 degrees clockwise. Now the stencils are in the correct starting position.
             </p>
         </div>"""
 
-        step6_text = """
+        step5_text = """
         <h2>Step 5</h2>
         <div>
             <p> 
@@ -109,9 +113,9 @@ class GuideWindow(QDialog):
             first strip of the stencil with the cross, this strip should have the cross on it and place it in the other hand. We now want to take the 
             strip with the cross on it and put it through the strip with the circle on it. If done correctly, the circle should be on the outer side of the weave
             and the cross should be visible inside the circle. You will know you have done it correctly if it looks like the gif below.  
-            </div>
+        </div>
         """
-        step7_text = f"""
+        step6_text = """
         
         <div>
             <p> 
@@ -119,27 +123,37 @@ class GuideWindow(QDialog):
             the next strip on the stencil with the cross on it.
             This is typically described as over and under weaving. However, this weave is inside a strip and outside the next strip and is therefore called under over weaving.
             To continue the weave, finish each strip in order, maintaining the weave pattern. At the end of the weave, you should have the image shown below.
-            <br>
-            </p>
-            <img src="{image_file}" width="300">
+        </div>
+        """
+        step7_text = f"""
+        
+        <div>
             <p>
+            <img src="{image_list[2]}" width="300">
+            <br>
             Congratulations! You have completed weaving your customized Danish Christmas heart.
             </p>
-            </div>
+        </div>
         """
         
-        return [step1_text,step2_text,step3_text,step4_text,step5_text,step6_text,step7_text]
+        return [step0_text, step1_text,step2_text,step3_text,step4_text,step5_text,step6_text,step7_text]
     
-    def createLayout(self, text_lst, gif_lst):
+    def createLayout(self, text_lst, video_lst):
         guide_layout = QVBoxLayout()
+        video_step_index = 0
         for i in range(len(text_lst)):
-            if i == 0 or i == 6:
-                # Adds text without gif
+            if i in (0,1,3,7):
+                # Adds text without video
                 guide_layout.addWidget(TextWidget(text_lst[i]))
             
             else:
-                # Adds text with gif
-                guide_layout.addWidget(StepWidget(text_lst[i],gif_lst[i-1]))
+                # Adds text with video
+                if video_step_index < len(video_lst):
+                    #print(video_lst[i])
+                    guide_layout.addWidget(StepWidget(text_lst[i],video_lst[video_step_index]))
+                    video_step_index +=1
+                else:
+                    guide_layout.addWidget(TextWidget(text_lst[i]))
         
         container = QWidget()
         container.setLayout(guide_layout)
@@ -159,7 +173,7 @@ class GuideWindow(QDialog):
 
 # Used for creating displays text with a gif when called
 class StepWidget(QWidget):
-    def __init__(self, html, gif_file, parent=None):
+    def __init__(self, html, video_file, parent=None):
         super().__init__(parent)
         v = QVBoxLayout(self)
         text = QTextBrowser()
@@ -177,12 +191,19 @@ class StepWidget(QWidget):
         palette.setColor(QPalette.ColorRole.Text, QColor("black"))
         text.setPalette(palette)
         v.addWidget(text)
-        gif = QLabel()
-        m = QMovie(gif_file)
-        m.setScaledSize(QSize(300,300))
-        gif.setMovie(m)
-        m.start()
-        v.insertWidget(1,gif)
+        
+        video_widget = QVideoWidget()
+        
+        video_widget.setMinimumSize(300,300)
+        
+        self.player = QMediaPlayer(self)
+        self.audio_output = QAudioOutput()
+        self.player.setAudioOutput(self.audio_output)
+        self.player.setVideoOutput(video_widget)
+        self.player.setSource(QUrl.fromLocalFile(video_file))
+        self.player.setLoops(-1)
+        self.player.play()
+        v.insertWidget(1,video_widget)
 
 # Used for creating displays text without a gif when called
 class TextWidget(QWidget):
