@@ -126,7 +126,7 @@ from GlobalVariables import(
     setCellAdjacencyCheck
 )
 
-from ErrorHandling import (
+from ConstraintHandling import (
     shapeNotTouchingSymmetrylineError,
     allShapesOverlapError,
     MoreThan45DegreesError,

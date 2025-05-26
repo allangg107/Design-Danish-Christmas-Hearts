@@ -33,15 +33,8 @@ import math
 from ShapeMode import ShapeMode
 from PatternType import PatternType 
 
-# Message when user draws out of bounds
-def outOfBoundDrawingMessage():
-    msg = QMessageBox()
-    msg.setIcon(QMessageBox.Icon.Warning)
-    msg.setWindowTitle("Warning")
-    msg.setText("This is a warning message.")
-    msg.setStandardButtons(QMessageBox.StandardButton.Ok)
-    msg.exec()
 
+# Shows a warning as a tooltip
 def showWarningTooltip(message, position = None):
     if position == None:
         position = QCursor.pos()
