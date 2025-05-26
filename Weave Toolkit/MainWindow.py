@@ -230,20 +230,20 @@ class DrawingWidget(QWidget):
         path.closeSubpath()
         qp.drawPath(path)
 
-       
+
         # Draw the edges of the inner rotated square
         for i in range(len(inner_coords)):
             qp.drawLine(int(inner_coords[i][0]), int(inner_coords[i][1]),
                              int(inner_coords[(i+1) % len(inner_coords)][0]),
                              int(inner_coords[(i+1) % len(inner_coords)][1]))
-            
+
             # Creates a list of the canvas border once for usage in ErrorHandling
             if self.temp_index < 4:
                 self.border.append([int(inner_coords[i][0]), int(inner_coords[i][1]),
                              int(inner_coords[(i+1) % len(inner_coords)][0]),
                              int(inner_coords[(i+1) % len(inner_coords)][1])])
                 self.temp_index +=1
-            
+
         pen = QPen(getShapeColor(), getPenWidth())
         qp.setPen(pen)
         brush = QBrush(getShapeColor())
@@ -269,7 +269,7 @@ class DrawingWidget(QWidget):
             shape_color = getShapeColor()
             if getCurrentPatternType() == PatternType.Classic:
                 shape_color = shape[3]
-                    
+
             qp.setBrush(shape_color) # set to shape[3] if we want to change color to stored shape color instead of global color
             qp.setPen(QPen(shape_color, getPenWidth(), Qt.PenStyle.SolidLine, Qt.PenCapStyle.SquareCap, Qt.PenJoinStyle.MiterJoin)) # pen width should needs to be saved in the shape list
 
@@ -395,7 +395,7 @@ class DrawingWidget(QWidget):
             # draw a dashed line in the middle of the canvas
             pen.setStyle(Qt.PenStyle.DashLine)
             qp.setPen(pen)
- 
+
             draw_dotted_45degree_lines(qp, self.shapes)
 
             qp.drawLine(int(inner_coords[0][0]), int(y1), int(inner_coords[0][0]), int(y2))
@@ -447,7 +447,7 @@ class DrawingWidget(QWidget):
 
 
             if current_index not in getClassicIndicesLineDeleteList():
-                
+
                 # Draw the dashed line
                 qp.drawLine(int(start_x_top), int(start_y_top), int(end_x_top), int(end_y_top))
                 classic_cuts.append(([start_x_top, start_y_top, end_x_top, end_y_top], current_index))
@@ -632,7 +632,7 @@ class DrawingWidget(QWidget):
         self.render(painter)  # Render the current drawing to the image
         return image
 
-    
+
     def drawSquare(self, qp, start, end, color, pen_width, filled):
         self.penAndBrushSetup(qp, color, pen_width, filled)
 
@@ -800,16 +800,16 @@ class DrawingWidget(QWidget):
                     self.begin, self.end = snapShapeToClassicCuts(self.classic_cuts, getShapeMode(), self.begin, self.end, self.width(), self.height())
 
                     shape_preview = [self.begin, self.end, getShapeMode(), shape_color, [], getPenWidth(), getFilled()]
-    
+
                     if getEnableConstraints():
                         if getNumClassicLines() > 1:
                             # Validate against occupied cells
                             if not is_shape_placement_valid(shape_preview, self.shapes):
                                 return  # Don't place shape
-                        
+
                             elif shape_preview[2] == ShapeMode.Semicircle and does_semicircle_snap_to_border_error(shape_preview, self.border):
                                 return # Don't place shape
-                        else: 
+                        else:
                             return
                 if getShapeMode() == ShapeMode.Line:
                     self.shapes.append([self.begin, self.end, getShapeMode(), shape_color, [], getPenWidth(), False])
@@ -1002,7 +1002,7 @@ class MainWindow(QMainWindow):
         action_save.triggered.connect(lambda: self.save_canvas_as_png())
         action_save_svg = QAction("Export SVG", self)
         action_save_svg.triggered.connect(lambda: self.exportSVG())
-        action_guide_export = QAction("Export Guide", self)
+        action_guide_export = QAction("Weaving Guide", self)
         action_guide_export.triggered.connect(lambda: self.exportGuide())
         action_tutorial = QAction("Tutorial", self)
         action_tutorial.triggered.connect(lambda: self.tutorial())
