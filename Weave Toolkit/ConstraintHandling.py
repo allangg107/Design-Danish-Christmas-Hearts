@@ -118,11 +118,11 @@ def is_shape_placement_valid(shape, shapes):
     
     # Checks if the semicircles placed in outermost cells covers more than one cell by looking at
     # the height of the semicircle in comparison to cells
-    elif new_index in outer_cells and shape_type == ShapeMode.Semicircle:
-        semicircle_height = get_semicircle_size(shape[0], shape[1])["height"]
-        if abs(semicircle_height) > cell_height:
-            showWarningTooltip("Semicircles in the outermost cells cannot be larger than one cell")
-            return False
+    #elif new_index in outer_cells and shape_type == ShapeMode.Semicircle:
+    #    semicircle_height = get_semicircle_size(shape[0], shape[1])["height"]
+    #    if abs(semicircle_height) > cell_height:
+    #        showWarningTooltip("Semicircles in the outermost cells cannot be larger than one cell")
+    #        return False
     
     # Updates the rules for nesting purposes
     elif shape_type == ShapeMode.Semicircle:
