@@ -183,7 +183,7 @@ class DrawingWidget(QWidget):
         if getCurrentPatternType() == PatternType.Classic:
             self.drawCheckerboard(qp, inner_coords)
             shape_color = self.flipSquareColor(shape_color)
-            self.set_classic_cells(self.classic_cuts)
+            self.set_classic_cells(self.classic_cuts, self.border)
             build_cell_adjacency_map()
 
         # Redraw all the previous shapes
@@ -431,7 +431,6 @@ class DrawingWidget(QWidget):
             end_x_bottom = start_x_bottom + line_distance
             end_y_bottom = start_y_bottom - line_distance
 
-
             if current_index not in getClassicIndicesLineDeleteList():
                 # Draw the dashed line
                 qp.drawLine(int(start_x_bottom), int(start_y_bottom), int(end_x_bottom), int(end_y_bottom))
@@ -444,7 +443,6 @@ class DrawingWidget(QWidget):
 
             end_x_top = start_x_top + line_distance
             end_y_top = start_y_top + line_distance
-
 
             if current_index not in getClassicIndicesLineDeleteList():
 
@@ -577,13 +575,19 @@ class DrawingWidget(QWidget):
         y = (a1 * c2 - a2 * c1) / determinant
         return QPointF(x, y)
 
-    def set_classic_cells(self, classic_cuts):
+    def set_classic_cells(self, classic_cuts, border):
         def is_positive_slope(p1, p2):
             dx = p2.x() - p1.x()
             dy = p2.y() - p1.y()
             if dx == 0:
                 return False  # vertical line case, can adjust if needed
             return dy / dx > 0
+
+        def average_y(line):
+            return (line[0].y() + line[1].y()) / 2
+
+        def average_x(line):
+            return (line[0].x() + line[1].x()) / 2
 
         left_to_right = []
         right_to_left = []
@@ -597,9 +601,23 @@ class DrawingWidget(QWidget):
             else:
                 right_to_left.append((p1, p2))
 
-        # Add virtual border lines to each set
-        left_to_right = self.add_virtual_border_lines(left_to_right)
-        right_to_left = self.add_virtual_border_lines(right_to_left)
+        # Separate border lines
+        border_list_left = []
+        border_list_right = []
+        for s_line in border:
+            p1 = QPointF(s_line[0], s_line[1])
+            p2 = QPointF(s_line[2], s_line[3])
+            if is_positive_slope(p1, p2):
+                border_list_left.append((p1, p2))
+            else:
+                border_list_right.append((p1, p2))
+
+        left_to_right.extend(border_list_left)
+        right_to_left.extend(border_list_right)
+
+        # Sort lines for consistent indexing (start from lower-left)
+        left_to_right.sort(key=average_y, reverse=True)       # Bottom to top
+        right_to_left.sort(key=average_x)       # Left to right
 
         cells = []
         index = 0
@@ -620,6 +638,7 @@ class DrawingWidget(QWidget):
                     polygon = QPolygonF([p1, p2, p3, p4])
                     cells.append((polygon, index))
                     index += 1
+
         setClassicCells(cells)
 
 
