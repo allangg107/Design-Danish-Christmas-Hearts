@@ -123,7 +123,6 @@ from GlobalVariables import(
     setClassicCells,
     getEnableConstraints,
     setEnableConstraints,
-    setCellAdjacencyCheck
 )
 
 from ConstraintHandling import (
@@ -134,6 +133,7 @@ from ConstraintHandling import (
     is_shape_placement_valid,
     does_semicircle_snap_to_border_error,
     build_cell_adjacency_map,
+    is_positive_slope
 
 )
 
@@ -525,38 +525,6 @@ class DrawingWidget(QWidget):
         qp.setPen(pen)
 
     # Utility functions for setting classic cells
-    #
-    #  adds the border lines virtually to the cell generation
-    def add_virtual_border_lines(self, diagonals):
-        """
-        Takes a list of (p1, p2) diagonal lines and returns a new list including
-        virtual lines added before the first and after the last.
-        """
-        if len(diagonals) < 2:
-            return diagonals  # Not enough to calculate spacing
-
-        # Estimate direction and spacing
-        first = diagonals[0]
-        second = diagonals[1]
-
-        # Vector difference
-        dx1 = second[0].x() - first[0].x()
-        dy1 = second[0].y() - first[0].y()
-        dx2 = second[1].x() - first[1].x()
-        dy2 = second[1].y() - first[1].y()
-
-        # Create virtual first and last lines
-        before_start = (
-            QPointF(first[0].x() - dx1, first[0].y() - dy1),
-            QPointF(first[1].x() - dx2, first[1].y() - dy2)
-        )
-        after_end = (
-            QPointF(diagonals[-1][0].x() + dx1, diagonals[-1][0].y() + dy1),
-            QPointF(diagonals[-1][1].x() + dx2, diagonals[-1][1].y() + dy2)
-        )
-
-        return [before_start] + diagonals + [after_end]
-
     def line_intersection(self, p1, p2, q1, q2):
         # Line-line intersection using determinant method
         a1 = p2.y() - p1.y()
@@ -576,13 +544,7 @@ class DrawingWidget(QWidget):
         return QPointF(x, y)
 
     def set_classic_cells(self, classic_cuts, border):
-        def is_positive_slope(p1, p2):
-            dx = p2.x() - p1.x()
-            dy = p2.y() - p1.y()
-            if dx == 0:
-                return False  # vertical line case, can adjust if needed
-            return dy / dx > 0
-
+        
         def average_y(line):
             return (line[0].y() + line[1].y()) / 2
 
@@ -640,7 +602,6 @@ class DrawingWidget(QWidget):
                     index += 1
 
         setClassicCells(cells)
-
 
 
     def get_drawing_image(self):
@@ -822,12 +783,14 @@ class DrawingWidget(QWidget):
 
                     if getEnableConstraints():
                         if getNumClassicLines() > 1:
-                            # Validate against occupied cells
-                            if not is_shape_placement_valid(shape_preview, self.shapes):
-                                return  # Don't place shape
-
-                            elif shape_preview[2] == ShapeMode.Semicircle and does_semicircle_snap_to_border_error(shape_preview, self.border):
+                            
+                            if shape_preview[2] == ShapeMode.Semicircle and does_semicircle_snap_to_border_error(shape_preview, self.border):
                                 return # Don't place shape
+                            
+                            # Validate against occupied cells
+                            elif not is_shape_placement_valid(shape_preview, self.shapes, self.border):
+                                return  # Don't place shape
+    
                         else:
                             return
                 if getShapeMode() == ShapeMode.Line:
@@ -1071,7 +1034,6 @@ class MainWindow(QMainWindow):
             setClassicIndicesLineDeleteList([])  # Clear classic indices line delete list
             self.drawing_widget.update()  # Trigger repaint of the drawing widget
             self.update_backside_image()  # Update the backside image
-            setCellAdjacencyCheck(0) # Resets cellAdjacencyCheck
             if getCurrentPatternType() == PatternType.Classic:
 
                 self.setPatternType(PatternType.Classic)  # Reset pattern type to Classic
@@ -1385,7 +1347,6 @@ class MainWindow(QMainWindow):
         """Update the classic lines count when slider changes"""
         self.classic_lines_label.setText(f'Classic Lines: {value}')
         setNumClassicLines(value)
-        setCellAdjacencyCheck(0)
         self.drawing_widget.update()  # Refresh the drawing
 
     def get_color_name(self, qcolor):

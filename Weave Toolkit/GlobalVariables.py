@@ -34,7 +34,6 @@ DEGREE_LINES_BOT = None
 CLASSIC_CELLS = [] # A list of the classic cells on the canvas
 ENABLE_CONSTRAINTS = True # constraints enabling
 CELL_ADJACENCY_MAP = None # A map of adjacent cells
-CELL_ADJACENCY_CHECK = 0
 
 
 """Functions to get the global values"""
@@ -107,9 +106,6 @@ def getEnableConstraints():
 
 def getCellAdjacencyMap():
     return CELL_ADJACENCY_MAP
-
-def getCellAdjacencyCheck():
-    return CELL_ADJACENCY_CHECK
 
 """Functions to set global values"""
 
@@ -231,7 +227,3 @@ def setEnableConstraints(boolval):
 def setCellAdjacencyMap(val):
     global CELL_ADJACENCY_MAP
     CELL_ADJACENCY_MAP = val
-
-def setCellAdjacencyCheck(iter):
-    global CELL_ADJACENCY_CHECK
-    CELL_ADJACENCY_CHECK = (iter)

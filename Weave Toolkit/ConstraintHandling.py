@@ -25,8 +25,6 @@ from GlobalVariables import (
     getClassicCells,
     setCellAdjacencyMap,
     getCellAdjacencyMap,
-    getCellAdjacencyCheck,
-    setCellAdjacencyCheck,
     getCurrentPatternType
 )
 import math
@@ -93,13 +91,13 @@ def semicircle_intersects_border(semicircle_path, border_paths):
 
 
 ## Detects if a shape can be placed in a cell as well as prevent shapes from being placed in the same cell and adjacent cells
-def is_shape_placement_valid(shape, shapes):
+def is_shape_placement_valid(shape, shapes, borders):
     new_path = shape_to_path(shape)
     shape_type = shape[2]
     new_index = get_shape_cell_index(new_path, shape_type, shape_points=(shape[0], shape[1]))
-    cell_height = get_cell_size()["height"]
     cell_adjacency_map = getCellAdjacencyMap()
-    
+    border_paths = convert_borders_to_paths(borders)
+
     if new_index is None and shape_type != ShapeMode.Semicircle:
         return False
     
@@ -108,31 +106,22 @@ def is_shape_placement_valid(shape, shapes):
     rows = cols = int(total_cells**0.5)  # assumes square
     outer_cells = get_outer_cell_indices(rows, cols)
 
-    if getCellAdjacencyCheck() >= 2:
-        return True
-
     # Checks if a non-semicircle is about to be placed in the outermost cells
     if new_index in outer_cells and shape_type != ShapeMode.Semicircle:   
         showWarningTooltip("Only semicircles can be placed in the outermost cells")
         return False  # Not in a valid cell
     
     # Checks if the semicircles placed in outermost cells covers more than one cell by looking at
-    # the height of the semicircle in comparison to cells
-    #elif new_index in outer_cells and shape_type == ShapeMode.Semicircle:
-    #    semicircle_height = get_semicircle_size(shape[0], shape[1])["height"]
-    #    if abs(semicircle_height) > cell_height:
-    #        showWarningTooltip("Semicircles in the outermost cells cannot be larger than one cell")
-    #        return False
-    
-    # Updates the rules for nesting purposes
+    # the distance between the borders and the semicircle
     elif shape_type == ShapeMode.Semicircle:
         semicircle_height = get_semicircle_size(shape[0], shape[1])["height"]
-        semicircle_direction = get_semicircle_size(shape[0], shape[1])["direction"]
-        #print(semicircle_direction)
-        if abs(semicircle_height) > cell_height and semicircle_direction == "down":
-            print("here")
-            setCellAdjacencyCheck(getCellAdjacencyCheck() + 1) 
 
+        for border in border_paths:
+            dist = min_distance_between_paths(new_path, border)
+            if dist < abs(semicircle_height) * 0.5:
+                showWarningTooltip("Semicircles in the outermost cells cannot be larger than one cell")
+                return False
+            
     for existing_shape in shapes:
         existing_path = shape_to_path(existing_shape)
         existing_shape_type = existing_shape[2]
@@ -145,9 +134,8 @@ def is_shape_placement_valid(shape, shapes):
         
         # Checks if shapes a placed in a cell that shares a border with another shapes cell
         if existing_index in cell_adjacency_map.get(new_index, []) and shape_type != ShapeMode.Semicircle:
-            if 2 > getCellAdjacencyCheck():
-                showWarningTooltip("Shapes cannot be placed in adjacent cells")
-                return False
+            showWarningTooltip("Shapes cannot be placed in adjacent cells")
+            return False
             
         # Checks if shapes are about to be placed in the same cell
         elif existing_index == new_index:
@@ -155,6 +143,15 @@ def is_shape_placement_valid(shape, shapes):
             return False  # Same cell occupied
         
     return True
+
+# Tells if a line slope is positive
+def is_positive_slope(p1, p2):
+            dx = p2.x() - p1.x()
+            dy = p2.y() - p1.y()
+            if dx == 0:
+                return False  # vertical line case, can adjust if needed
+            return dy / dx > 0
+
 
 # Gets the index of the cell of a shape
 def get_shape_cell_index(shape_path, shape_type=None, shape_points=None):
@@ -198,6 +195,32 @@ def get_shape_cell_index(shape_path, shape_type=None, shape_points=None):
 
     return None
 
+
+# Calculates the minimum distacne between a semicircle and the border
+def sample_path(path: QPainterPath, interval=1.0):
+    length = path.length()
+    points = []
+    d = 0
+    while d < length:
+        point = path.pointAtPercent(d / length)
+        points.append(point)
+        d += interval
+    return points
+
+def distance_between_points(p1: QPointF, p2: QPointF):
+    return math.hypot(p1.x() - p2.x(), p1.y() - p2.y())
+
+def min_distance_between_paths(path1: QPainterPath, path2: QPainterPath, interval=1.0):
+    points1 = sample_path(path1, interval)
+    points2 = sample_path(path2, interval)
+    min_distance = float('inf')
+    for p1 in points1:
+        for p2 in points2:
+            dist = distance_between_points(p1, p2)
+            if dist < min_distance:
+                min_distance = dist
+    return min_distance
+
 # Utility function for get_semicircle_size
 def find_direction(start_point, end_point):
     # Calculates the angle
@@ -227,17 +250,6 @@ def get_semicircle_size(start_point, end_point):
         "radius_y": radius_y,
         "direction": direction
     }
-
-def get_cell_size():
-    cells = getClassicCells()
-    sizes = []
-    polygon = cells[0][0]   
-    rect = polygon.boundingRect()
-    return {
-            "width": rect.width(),
-            "height": rect.height(),
-            "area": rect.width() * rect.height()
-        }
 
 # Builds an cells adjacency map for detecting of shapes adjacencies
 def build_cell_adjacency_map(tolerance=0.01):
