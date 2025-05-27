@@ -27,7 +27,9 @@ from VectorAlgoUtils import (
     savePixmapToCvImage,
     saveSvgFileAsPixmap,
     rotateImage,
-    get_rgb_from_qcolor
+    get_rgb_from_qcolor,
+    calculate_distance,
+    makeTrans
 )
 
 from VectorAlgoStencils import (
@@ -61,6 +63,7 @@ from GlobalVariables import(
     getShapeColor,
     getBackgroundColor,
     getCurrentPatternType,
+    getClassicIndicesLineDeleteList
 )
 
 # VectorAlgo will be used when the user presses the "Update SVG" button
@@ -136,6 +139,7 @@ def close_line_with_corners(coords, width, height, tol=1e-6):
     return new_coords
 
 def createFinalHeartDisplaySimpleCase(mask, points, foreground_color, background_color):
+    print("Creating Simple Pattern Display")
     if background_color != (255,255,255):
         cv.fillPoly(mask, [points], background_color)
 
@@ -183,9 +187,12 @@ def createFinalHeartDisplaySimpleCase(mask, points, foreground_color, background
     ], dtype=np.int32)
 
     cv.fillPoly(mask, [lower_right_rect], foreground_color)
+
+    print("Finished creating Simple Pattern Display")
     
 
 def createFinalHeartDisplaySymAsymCase(mask, points, foreground_color, background_color):
+    print("Creating Symmetric/Asymmetric Pattern Display")
     if background_color != (255,255,255):
         cv.fillPoly(mask,[points],background_color)
 
@@ -211,36 +218,52 @@ def createFinalHeartDisplaySymAsymCase(mask, points, foreground_color, backgroun
 
         counter += 1
 
+    print("Finished creating Symmetric/Asymmetric Pattern Display")
+
+
 def creatFinalHeartDisplayClassicCase(mask, points, foreground_color, background_color):
-    num_segments = getNumClassicLines() + 1
-    for i in range(len(points)):
-        pt1 = np.array(points[i])
-        pt2 = np.array(points[(i + 1) % len(points)])
-        
-        edge_vector = pt2 - pt1
-        segment_vector = edge_vector / num_segments
+    num_classic_lines = getNumClassicLines()
+    # draw 3 dashed lines going from lower left to upper right and upper left to lower right
+    distance = calculate_distance(points[1], points[3])
+    offset = distance / (num_classic_lines + 1) / 2
+    line_distance = distance / 2
+    # Draw 3 parallel dashed lines going from bottom left to top right
+    current_index = 1
+    for i in range(1, num_classic_lines + 1):
+        if current_index not in getClassicIndicesLineDeleteList():
+            # Calculate start and end points for each line
+            start_x_bottom = points[0][0] + (i * offset)
+            start_y_bottom = points[0][1] + (i * offset)
 
-        # Perpendicular vector to push line inward slightly
-        normal = np.array([-edge_vector[1], edge_vector[0]])
-        normal = normal / np.linalg.norm(normal)
-        inward_offset = normal * 4  # adjust this for inward offset
-        
-        for j in range(num_segments):
-            t = j + 0.5  # center of the segment
-            midpoint = pt1 + segment_vector * t
-            start_pos = midpoint + inward_offset - segment_vector * 0.5
-            end_pos = midpoint + inward_offset + segment_vector * 0.5
+            end_x_bottom = start_x_bottom + line_distance
+            end_y_bottom = start_y_bottom - line_distance
 
-            color = foreground_color if j % 2 == 0 else background_color
-
-            # Draw the line segment
+            # Draw the dashed line
             cv.line(
-                mask,
-                tuple(start_pos.astype(int)),
-                tuple(end_pos.astype(int)),
-                color,
-                thickness=7  # Adjust thickness as needed
-            )
+                mask, 
+                (int(start_x_bottom), int(start_y_bottom)), 
+                (int(end_x_bottom), int(end_y_bottom)), 
+                foreground_color, 
+                3)
+
+        current_index += 1
+
+        if current_index not in getClassicIndicesLineDeleteList():
+            start_x_top = points[0][0] + (i * offset)
+            start_y_top = points[0][1] - (i * offset)
+
+            end_x_top = start_x_top + line_distance
+            end_y_top = start_y_top + line_distance
+
+            # Draw the dashed line
+            cv.line(
+                mask, 
+                (int(start_x_top), int(start_y_top)), 
+                (int(end_x_top), int(end_y_top)), 
+                foreground_color, 
+                3)
+
+        current_index += 1
 
 
 def createFinalHeartDisplay(image, pattern_type):
@@ -248,6 +271,8 @@ def createFinalHeartDisplay(image, pattern_type):
     height, width, _ = image.shape # isolated_pattern's shape is a square
     square_size =   height // 2  # Ensuring a balanced square
     center = (height // 2, width // 2)
+
+    print("FinalHeartDisplay height: ", height)
 
     # Create a blank mask
     mask = np.full_like(image, 255)
@@ -260,6 +285,8 @@ def createFinalHeartDisplay(image, pattern_type):
         [center[0] + half_size, center[1]], # Right
         [center[0], center[1] + half_size]  # Bottom
     ])
+
+    print("distance between points: ", calculate_distance(points[0], points[1]))
     
     foreground_color = get_rgb_from_qcolor(getShapeColor())
     background_color = get_rgb_from_qcolor(getBackgroundColor())
@@ -278,17 +305,18 @@ def createFinalHeartDisplay(image, pattern_type):
     cv.ellipse(mask, halfway_point_upper_left, (radius, radius), 0, -225, -45, line_color, thickness=3)
     cv.ellipse(mask, halfway_point_upper_right, (radius, radius), 0, -135, 45, line_color, 3)
     
-    if getShapeColor() != QColor("black"):
-        cv.ellipse(mask, halfway_point_upper_left, (radius, radius), 0, -225, -45, background_color, thickness=-1)
+    # if getShapeColor() != QColor("black"):
+    cv.ellipse(mask, halfway_point_upper_left, (radius, radius), 0, -225, -45, background_color, thickness=-1)
         
-    if getBackgroundColor() != QColor("white"):
-        cv.ellipse(mask, halfway_point_upper_right, (radius, radius), 0, -135, 45, foreground_color , -1)
+    # if getBackgroundColor() != QColor("white"):
+    cv.ellipse(mask, halfway_point_upper_right, (radius, radius), 0, -135, 45, foreground_color , -1)
         
     # Draw the rotated square (diamond)
     cv.polylines(mask, [points], isClosed=True, color=line_color, thickness=3)
     
     if pattern_type == PatternType.Classic:
-        creatFinalHeartDisplayClassicCase(mask, points, foreground_color, background_color)
+        # creatFinalHeartDisplayClassicCase(mask, points, foreground_color, background_color)
+        pass
     elif pattern_type == PatternType.Simple:
         createFinalHeartDisplaySimpleCase(mask, points, foreground_color, background_color)
     else:
@@ -312,7 +340,10 @@ def createFinalHeartDisplay(image, pattern_type):
     # rotate the heart back to its original, upright, position
     reverse_rotated_mask = rotateImage(rotated_mask, 45)
 
+    print("Finished creating Final Heart Display")
+
     return reverse_rotated_mask
+
 
 def createFinalHeartCutoutPatternExport(size, side_type, pattern_type, n_lines=0, line_color='black', background_color='white'):
     print("pattern type: ", pattern_type)

@@ -172,10 +172,10 @@ class DrawingWidget(QWidget):
 
         # Coordinates of the corners of the inner rotated square
         inner_coords = [
-            (center_x, y1),
-            (x2, center_y),
-            (center_x, y2),
-            (x1, center_y)
+            (center_x, y1), # top
+            (x2, center_y), # right
+            (center_x, y2), # bottom
+            (x1, center_y)  # left
         ]
 
         self.drawRotatedSquareEffect(qp, inner_coords)
@@ -232,6 +232,7 @@ class DrawingWidget(QWidget):
 
 
         # Draw the edges of the inner rotated square
+        # Drawn in order from the top point to the right, bottom and left point (and back to the top)
         for i in range(len(inner_coords)):
             qp.drawLine(int(inner_coords[i][0]), int(inner_coords[i][1]),
                              int(inner_coords[(i+1) % len(inner_coords)][0]),
@@ -414,13 +415,12 @@ class DrawingWidget(QWidget):
         qp.setBrush(brush)
 
         num_classic_lines = getNumClassicLines()
-        # draw 3 dashed lines going from lower left to upper right and upper left to lower right
+        # draw n dashed lines going from lower left to upper right and upper left to lower right
         pen.setStyle(Qt.PenStyle.DashLine)
         qp.setPen(pen)
         distance = calculate_distance(inner_coords[0], inner_coords[2])
         offset = distance / (num_classic_lines + 1) / 2
         line_distance = distance / 2
-        # Draw 3 parallel dashed lines going from bottom left to top right
         classic_cuts = []
         current_index = 1
         for i in range(1, num_classic_lines + 1):

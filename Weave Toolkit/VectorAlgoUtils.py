@@ -26,7 +26,8 @@ from GlobalVariables import (
     getClassicIndicesLineDeleteList,
     setClassicIndicesLineDeleteList,
     getClassicPatternSnapPoints,
-    getClassicPatternClassicLines
+    getClassicPatternClassicLines,
+    getClassicCells
 )
 
 from SideType import (
@@ -875,48 +876,213 @@ def calculate_distance(point1, point2):
         return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
 
 def drawCheckerboardOnPixmap(pixmap, painter):
-    classic_lines_indices = getClassicIndicesLineDeleteList()
-    lines = getNumClassicLines() * 2
     # Draw standard checkerboard pattern
     size = pixmap.size()
     width, height = size.width(), size.height()
+    square_size = height // 2
+    half_size = square_size * 1.5
+    center = (height // 2, width // 2)
 
-    # Calculate square size to get `lines` squares along the diagonal
-    diagonal = math.hypot(width, height)
-    square_size = math.ceil(diagonal / lines)
+    print("checkerboard height:", height)
+
+    points = np.array([
+        [center[0] - half_size, center[1]], # Left
+        [center[0], center[1] - half_size], # Top
+        [center[0] + half_size, center[1]], # Right
+        [center[0], center[1] + half_size]  # Bottom
+    ])
+
+    # Rotate points by -45 degrees around the center
+    angle = 45 * math.pi / 180  # Convert to radians
+    rotated_points = np.zeros_like(points)
+    for i, (x, y) in enumerate(points):
+        # Translate point to origin
+        x_shifted = x - center[0]
+        y_shifted = y - center[1]
+        
+        # Rotate point
+        rotated_x = x_shifted * math.cos(angle) - y_shifted * math.sin(angle)
+        rotated_y = x_shifted * math.sin(angle) + y_shifted * math.cos(angle)
+        
+        # Translate point back
+        rotated_points[i] = [int(rotated_x + center[0]), int(rotated_y + center[1])]
+
+    # Replace original points with rotated ones
+    points = rotated_points
+
+    angle = math.radians(45)  # Your rotation angle
+    sin_angle = math.sin(angle)
+    cos_angle = math.cos(angle)
 
     # Create a temporary pixmap for the checkerboard
     checker_pixmap = QPixmap(size)
     checker_pixmap.fill(Qt.GlobalColor.transparent)
     checker_painter = QPainter(checker_pixmap)
+    checker_painter.setPen(QPen(Qt.GlobalColor.black, 1))
 
-    rows = size.height() // square_size + 2
-    cols = size.width() // square_size + 2
-    for row in range(rows):
-        for col in range(cols):
-            if (row + col) % 2 == 0:
-                color = getShapeColor()
-            else:
-                color = getBackgroundColor()
+    num_classic_lines = getNumClassicLines()
+    # draw n dashed lines going from lower left to upper right and upper left to lower right
+    distance = calculate_distance(points[0], points[1]) * 2
+    offset = distance / (num_classic_lines + 1) / 2
+    line_distance = distance / 2
 
-            x = col * square_size
-            y = row * square_size
-            checker_painter.fillRect(QRect(x, y, square_size, square_size), QBrush(color))
+    # # Draw the classic lines
+    # current_index = 1
+    # for i in range(1, num_classic_lines + 1):
+    #     if current_index not in getClassicIndicesLineDeleteList():
+    #         # Calculate start and end points for each line
+    #         start_x_bottom = points[0][0] + (i *  offset) / 30
+    #         start_y_bottom = points[0][1] + (i * offset)
+
+    #         # Apply rotated vector
+    #         end_x_bottom = points[1][0] + (i * offset)
+    #         end_y_bottom = points[1][1] + (i * offset)
+
+    #         checker_painter.drawLine(int(start_x_bottom), int(start_y_bottom), int(end_x_bottom), int(end_y_bottom))
+    #         # checker_painter.drawEllipse(int(start_x_bottom), int(start_y_bottom), 50, 50)
+
+    #     current_index += 1
+
+    #     if current_index not in getClassicIndicesLineDeleteList():
+    #         start_x_top = points[0][0] + (i * offset)
+    #         start_y_top = points[0][1] - (i * offset)
+
+    #         end_x_top = points[3][0] + (i * offset)
+    #         end_y_top = points[3][1] + (i * offset)
+
+    #         checker_painter.drawLine(int(start_x_top), int(start_y_top), int(end_x_top), int(end_y_top))
+    #         # checker_painter.drawEllipse(int(end_x_top), int(end_y_top), 50, 50)
+
+    #     current_index += 1
+
+    # Calculate the center and size of the grid
+    center_x = (points[0][0] + points[2][0]) / 2
+    center_y = (points[0][1] + points[2][1]) / 2
+
+    # Fill in diamonds in a checker pattern
+    deleted_indices = getClassicIndicesLineDeleteList()
+    num_even_deleted_indices = sum(1 for index in deleted_indices if index % 2 == 0)
+    num_odd_deleted_indices = sum(1 for index in deleted_indices if index % 2 == 1)
+
+    num_rows = num_classic_lines + 1 - num_odd_deleted_indices
+    num_columns = num_classic_lines + 1 - num_even_deleted_indices
+    # Determine if we should use the background color for the first cell
+    use_background_color = True if num_columns % 2 == 1 else False
+
+    print(getClassicCells())
+
+    # Create a checkerboard pattern of rotated squares
+    cells = getClassicCells()
+
+    # Calculate the bounds of all cells
+    min_x = float('inf')
+    min_y = float('inf')
+    max_x = float('-inf')
+    max_y = float('-inf')
+
+    for checker_cell, _ in cells:
+        for j in range(checker_cell.size()):
+            point = checker_cell[j]
+            min_x = min(min_x, point.x())
+            min_y = min(min_y, point.y())
+            max_x = max(max_x, point.x())
+            max_y = max(max_y, point.y())
+
+    # Calculate the current center of the grid
+    current_center_x = (min_x + max_x) / 2
+    current_center_y = (min_y + max_y) / 2
+
+    # Calculate translation needed
+    dx = center_x - current_center_x
+    dy = center_y - current_center_y
+
+    # Apply translation to center all cells
+    centered_cells = []
+    for checker_cell, index in cells:
+        # Create a translated rectangle
+        translated_polygon = QPolygonF()
+        for j in range(checker_cell.size()):
+            point = checker_cell[j]
+            translated_polygon.append(QPointF(point.x() + dx, point.y() + dy))
+        centered_cells.append((translated_polygon, index))
+
+    cells = centered_cells
+
+    # Apply a 45 degree rotation and resize each cell before drawing
+    for checker_cell, index in cells:
+        # Calculate the center of the polygon
+        center = QPointF(0, 0)
+        for j in range(checker_cell.size()):
+            center += checker_cell[j]
+        center /= checker_cell.size()
+        
+        scale_factor = 1.7
+                
+        # Create a resized polygon and adjust its position
+        resized_polygon = QPolygonF()
+        # Scale the polygon's center relative to the global center
+        adjusted_center_x = center_x + scale_factor * (center.x() - center_x)
+        adjusted_center_y = center_y + scale_factor * (center.y() - center_y)
+        center_shift_x = adjusted_center_x - center.x()
+        center_shift_y = adjusted_center_y - center.y()
+
+        for j in range(checker_cell.size()):
+            point = checker_cell[j]
+            # Scale the point around the center
+            scaled_x = center.x() + scale_factor * (point.x() - center.x())
+            scaled_y = center.y() + scale_factor * (point.y() - center.y())
+            # Apply the center shift to maintain proper spacing
+            scaled_x += center_shift_x
+            scaled_y += center_shift_y
+            resized_polygon.append(QPointF(scaled_x, scaled_y))
+                
+        # Create a transformation matrix for rotation
+        transform = QTransform()
+        transform.translate(center_x, center_y)
+        transform.rotate(45)
+        transform.translate(-center_x, -center_y)
+                
+        # Apply the rotation to get the rotated polygon
+        rotated_polygon = QPolygonF()
+        for j in range(resized_polygon.size()):  # Changed from polygon to resized_polygon
+            point = transform.map(resized_polygon[j])  # Changed from polygon to resized_polygon
+            rotated_polygon.append(point)
+        
+        if use_background_color:
+            checker_painter.setBrush(getBackgroundColor())
+        else:
+            checker_painter.setBrush(getShapeColor())
+
+        # if index == 0:
+        #     # Draw the first polygon with a thicker pen
+        #     checker_painter.setPen(QPen(Qt.GlobalColor.black, 5))
+        # elif index == 1:
+        #     # Draw the second polygon with a thicker pen
+        #     checker_painter.setPen(QPen(Qt.GlobalColor.black, 20))
+        # elif index == 2:
+        #     # Draw the third polygon with a thicker pen
+        #     checker_painter.setPen(QPen(Qt.GlobalColor.black, 10))
+        # else:
+        #     checker_painter.setPen(QPen(Qt.GlobalColor.black, 1))
+        
+        checker_painter.drawPolygon(rotated_polygon)
+
+        use_background_color = not use_background_color
+
+        # if getNumClassicLines() % 2 == 1 and ((index + 1) % (getNumClassicLines() + 1 - num_odd_deleted_indices)) == 0:
+        if num_rows % 2 == 0 and ((index + 1) % (num_rows)) == 0:
+            use_background_color = not use_background_color
 
     checker_painter.end()
 
-    rotated = checker_pixmap.transformed(QTransform().rotate(-90), Qt.TransformationMode.SmoothTransformation)
+    painter.drawPixmap(0, 0, checker_pixmap)
 
-    # Draw rotated checkerboard onto the original pixmap using the passed painter
-    x_offset = (pixmap.width() - rotated.width()) // 2 + 20
-    y_offset = (pixmap.height() - rotated.height()) // 2 - 20
-    painter.drawPixmap(x_offset, y_offset, rotated)
 
 def saveSvgFileAsPixmap(filepath, size=QSize(600, 600)):
     renderer = QSvgRenderer(filepath)
 
     pixmap = QPixmap(size)
-    pixmap.fill(getBackgroundColor())  # Fill with background color background
+    pixmap.fill(getBackgroundColor())  # Fill with background color for other patterns
 
     painter = QPainter(pixmap)
     if getCurrentPatternType() == PatternType.Classic:
