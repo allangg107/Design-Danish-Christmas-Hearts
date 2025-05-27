@@ -112,10 +112,18 @@ class GuideWindow(QDialog):
             Take the first strip of the stencil with the circle, this strip should have the circle on it and place it in one hand. Take the 
             first strip of the stencil with the cross, this strip should have the cross on it and place it in the other hand. We now want to take the 
             strip with the cross on it and put it through the strip with the circle on it. If done correctly, the circle should be on the outer side of the weave
-            and the cross should be visible inside the circle. You will know you have done it correctly if it looks like the gif below.  
+            and the cross should be visible inside the circle.
         </div>
         """
-        step6_text = """
+        step6_text = f"""
+        <div>
+            <p>
+             You will know you have done it correctly if it looks like the image below.
+            <br>
+            </p>
+        <img src="{image_list[2]}" width="300">
+        """
+        step7_text = """
         
         <div>
             <p> 
@@ -125,24 +133,22 @@ class GuideWindow(QDialog):
             To continue the weave, finish each strip in order, maintaining the weave pattern. At the end of the weave, you should have the image shown below.
         </div>
         """
-        step7_text = f"""
+        step8_text = f"""
         
         <div>
             <p>
-            <img src="{image_list[2]}" width="300">
-            <br>
             Congratulations! You have completed weaving your customized Danish Christmas heart.
             </p>
         </div>
         """
         
-        return [step0_text, step1_text,step2_text,step3_text,step4_text,step5_text,step6_text,step7_text]
+        return [step0_text, step1_text,step2_text,step3_text,step4_text,step5_text,step6_text,step7_text,step8_text]
     
     def createLayout(self, text_lst, video_lst):
         guide_layout = QVBoxLayout()
         video_step_index = 0
         for i in range(len(text_lst)):
-            if i in (0,1,3,7):
+            if i in (0,1,3,6,8):
                 # Adds text without video
                 guide_layout.addWidget(TextWidget(text_lst[i]))
             
@@ -198,6 +204,7 @@ class StepWidget(QWidget):
         
         self.player = QMediaPlayer(self)
         self.audio_output = QAudioOutput()
+        self.audio_output.setVolume(0)
         self.player.setAudioOutput(self.audio_output)
         self.player.setVideoOutput(video_widget)
         self.player.setSource(QUrl.fromLocalFile(video_file))
