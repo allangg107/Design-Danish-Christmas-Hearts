@@ -788,7 +788,7 @@ class DrawingWidget(QWidget):
                                 return # Don't place shape
                             
                             # Validate against occupied cells
-                            elif not is_shape_placement_valid(shape_preview, self.shapes, self.border):
+                            elif not is_shape_placement_valid(shape_preview, self.shapes):
                                 return  # Don't place shape
     
                         else:
