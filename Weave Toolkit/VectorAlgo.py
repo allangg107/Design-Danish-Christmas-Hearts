@@ -140,8 +140,6 @@ def close_line_with_corners(coords, width, height, tol=1e-6):
 
 def createFinalHeartDisplaySimpleCase(mask, points, foreground_color, background_color):
     print("Creating Simple Pattern Display")
-    if background_color != (255,255,255):
-        cv.fillPoly(mask, [points], background_color)
 
     # Draw diamonds at each corner
     corner_diamond_size = math.ceil(math.sqrt(31**2 / 2) / 2)
@@ -191,32 +189,160 @@ def createFinalHeartDisplaySimpleCase(mask, points, foreground_color, background
     print("Finished creating Simple Pattern Display")
     
 
-def createFinalHeartDisplaySymAsymCase(mask, points, foreground_color, background_color):
+def createFinalHeartDisplaySymAsymCase(mask, points, foreground_color, background_color, distance_from_top, distance_from_bottom):
     print("Creating Symmetric/Asymmetric Pattern Display")
-    if background_color != (255,255,255):
-        cv.fillPoly(mask,[points],background_color)
 
     # Draw diamonds at each corner
-    corner_diamond_size = math.sqrt(31**2 // 2)
-    # distance_of_pattern_top_from_top_diamond = ?
-    # distance_of_pattern_bottom_from_bottom_diamond = ?
+    corner_diamond_size = math.ceil(math.sqrt(31**2 / 2) / 2)
+    corner_diamond_diagonal = math.ceil(math.sqrt(31**2 * 2) / 2)
+
+    sym_asym_top_varying_diamond_diagonal = distance_from_top
+    sym_asym_bottom_varying_diamond_diagonal = distance_from_bottom
     
-    counter = 1
-    for (x, y) in points:
-        diamond = np.array([
-            [x, y - corner_diamond_size],  # Top
-            [x + corner_diamond_size, y],  # Right
-            [x, y + corner_diamond_size],  # Bottom
-            [x - corner_diamond_size, y]   # Left
-        ], dtype=np.int32)
+    left_x, left_y = points[0][0], points[0][1]
+    top_x, top_y = points[1][0], points[1][1]
+    right_x, right_y = points[2][0], points[2][1]
+    bottom_x, bottom_y = points[3][0], points[3][1]
 
-        if counter == 2 or counter == 4:
-            cv.fillPoly(mask, [diamond], background_color)  
-        
-        else:  
-            cv.fillPoly(mask, [diamond], foreground_color)
+    # NOTE: i might need to offset by 1.5 on some of the square/rect sides
+    
+    # left_square = np.array([
+    #     [left_x, left_y],  # Left
+    #     [left_x + corner_diamond_size, left_y - corner_diamond_size],  # Top
+    #     [left_x + corner_diamond_diagonal, left_y],  # Right
+    #     [left_x + corner_diamond_size, left_y + corner_diamond_size]  # Bottom
+    # ], dtype=np.int32)
 
-        counter += 1
+    # cv.fillPoly(mask, [left_square], foreground_color)
+
+    # right_square = np.array([
+    #     [right_x - corner_diamond_diagonal, right_y],  # Left
+    #     [right_x - corner_diamond_size, right_y - corner_diamond_size],  # Top
+    #     [right_x, right_y],  # Right
+    #     [right_x - corner_diamond_size, right_y + corner_diamond_size]  # Bottom
+    # ], dtype=np.int32)
+
+    # cv.fillPoly(mask, [right_square], foreground_color)
+
+    # upper_left_rect = np.array([
+    #     [top_x - corner_diamond_size - sym_asym_top_varying_square_size, top_y + corner_diamond_size + sym_asym_top_varying_square_size],  # Left
+    #     [top_x - corner_diamond_size, top_y + corner_diamond_size],  # Top
+    #     [top_x, top_y + corner_diamond_diagonal],  # Right
+    #     [top_x - sym_asym_top_varying_square_size, top_y + corner_diamond_diagonal + sym_asym_top_varying_square_size]  # Bottom
+    # ], dtype=np.int32)
+
+    # cv.fillPoly(mask, [upper_left_rect], foreground_color)
+
+    # upper_right_rect = np.array([
+    #     [top_x, top_y + corner_diamond_diagonal],  # Left
+    #     [top_x + corner_diamond_size, top_y + corner_diamond_size],  # Top
+    #     [top_x + corner_diamond_size + sym_asym_top_varying_square_size, top_y + corner_diamond_size + sym_asym_top_varying_square_size],  # Right
+    #     [top_x + sym_asym_top_varying_square_size, top_y + corner_diamond_diagonal + sym_asym_top_varying_square_size]  # Bottom
+    # ], dtype=np.int32)
+
+    # cv.fillPoly(mask, [upper_right_rect], foreground_color)
+
+    # lower_left_rect = np.array([
+    #     [bottom_x - corner_diamond_size - sym_asym_bottom_varying_square_size, bottom_y - corner_diamond_size - sym_asym_bottom_varying_square_size],  # Left
+    #     [bottom_x - sym_asym_bottom_varying_square_size, bottom_y - corner_diamond_diagonal - sym_asym_bottom_varying_square_size],  # Top
+    #     [bottom_x, bottom_y - corner_diamond_diagonal],  # Right
+    #     [bottom_x - corner_diamond_size, bottom_y - corner_diamond_size]  # Bottom
+    # ], dtype=np.int32)
+
+    # cv.fillPoly(mask, [lower_left_rect], foreground_color)
+
+    # lower_right_rect = np.array([
+    #     [bottom_x, bottom_y - corner_diamond_diagonal],  # Left
+    #     [bottom_x + sym_asym_bottom_varying_square_size, bottom_y - corner_diamond_diagonal - sym_asym_bottom_varying_square_size],  # Top
+    #     [bottom_x + corner_diamond_size + sym_asym_bottom_varying_square_size, bottom_y - corner_diamond_size - sym_asym_bottom_varying_square_size],  # Right
+    #     [bottom_x + corner_diamond_size, bottom_y - corner_diamond_size]  # Bottom
+    # ], dtype=np.int32)
+
+    # cv.fillPoly(mask, [lower_right_rect], foreground_color)
+
+    top_square = np.array([
+        [top_x - corner_diamond_size, top_y + corner_diamond_size],  # Left
+        [top_x, top_y],  # Top
+        [top_x + corner_diamond_size, top_y + corner_diamond_size],  # Right
+        [top_x, top_y + corner_diamond_diagonal]  # Bottom
+    ], dtype=np.int32)
+
+    cv.fillPoly(mask, [top_square], foreground_color)
+
+    bottom_square = np.array([
+        [bottom_x - corner_diamond_size, bottom_y - corner_diamond_size],  # Left
+        [bottom_x, bottom_y - corner_diamond_diagonal],  # Top
+        [bottom_x + corner_diamond_size, bottom_y - corner_diamond_size],  # Right
+        [bottom_x, bottom_y]  # Bottom
+    ], dtype=np.int32)
+
+    cv.fillPoly(mask, [bottom_square], foreground_color)
+
+    r_top = sym_asym_top_varying_diamond_diagonal / 2
+    offset_y = corner_diamond_diagonal + r_top
+
+    center_x_top = top_x
+    center_y_top = top_y + offset_y
+
+    top_varying_square = np.array([
+        [center_x_top, center_y_top - r_top],  # Top
+        [center_x_top + r_top, center_y_top],  # Right
+        [center_x_top, center_y_top + r_top],  # Bottom
+        [center_x_top - r_top, center_y_top],  # Left
+    ], dtype=np.int32)
+
+    cv.fillPoly(mask, [top_varying_square], foreground_color)
+
+    r_bottom = sym_asym_bottom_varying_diamond_diagonal / 2
+    offset_y = corner_diamond_diagonal + r_bottom
+
+    center_x_bottom = bottom_x
+    center_y_bottom = bottom_y - offset_y
+
+    bottom_varying_square = np.array([
+        [center_x_bottom, center_y_bottom - r_bottom],  # Top
+        [center_x_bottom + r_bottom, center_y_bottom],  # Right
+        [center_x_bottom, center_y_bottom + r_bottom],  # Bottom
+        [center_x_bottom - r_bottom, center_y_bottom],  # Left
+    ], dtype=np.int32)
+
+    cv.fillPoly(mask, [bottom_varying_square], foreground_color)
+
+    upper_left_rect = np.array([
+        [left_x + corner_diamond_size, left_y - corner_diamond_size],  # Left
+        [center_x_top - r_top - corner_diamond_size, center_y_top - corner_diamond_size],  # Top
+        [center_x_top - r_top, center_y_top],  # Right
+        [left_x + corner_diamond_diagonal, left_y]  # Bottom
+    ], dtype=np.int32)
+
+    cv.fillPoly(mask, [upper_left_rect], foreground_color)
+
+    upper_right_rect = np.array([
+        [center_x_top + r_top, center_y_top],  # Left
+        [center_x_top + r_top + corner_diamond_size, center_y_top - corner_diamond_size],  # Top
+        [right_x - corner_diamond_size, right_y - corner_diamond_size],  # Right
+        [right_x - corner_diamond_diagonal, right_y]  # Bottom
+    ], dtype=np.int32)
+
+    cv.fillPoly(mask, [upper_right_rect], foreground_color)
+
+    lower_left_rect = np.array([
+        [left_x + corner_diamond_size, left_y + corner_diamond_size],  # Left
+        [left_x + corner_diamond_diagonal, left_y],  # Top
+        [center_x_bottom - r_bottom, center_y_bottom],  # Right
+        [center_x_bottom - r_bottom - corner_diamond_size, center_y_bottom + corner_diamond_size]  # Bottom
+    ], dtype=np.int32)
+
+    cv.fillPoly(mask, [lower_left_rect], foreground_color)
+
+    lower_right_rect = np.array([
+        [center_x_bottom + r_bottom, center_y_bottom],  # Left
+        [right_x - corner_diamond_diagonal, right_y],  # Top
+        [right_x - corner_diamond_size, right_y + corner_diamond_size],  # Right
+        [center_x_bottom + r_bottom + corner_diamond_size, center_y_bottom + corner_diamond_size]  # Bottom
+    ], dtype=np.int32)
+
+    cv.fillPoly(mask, [lower_right_rect], foreground_color)
 
     print("Finished creating Symmetric/Asymmetric Pattern Display")
 
@@ -313,14 +439,9 @@ def createFinalHeartDisplay(image, pattern_type):
         
     # Draw the rotated square (diamond)
     cv.polylines(mask, [points], isClosed=True, color=line_color, thickness=3)
-    
-    if pattern_type == PatternType.Classic:
-        # creatFinalHeartDisplayClassicCase(mask, points, foreground_color, background_color)
-        pass
-    elif pattern_type == PatternType.Simple:
-        createFinalHeartDisplaySimpleCase(mask, points, foreground_color, background_color)
-    else:
-        createFinalHeartDisplaySymAsymCase(mask, points, foreground_color, background_color)
+
+    if pattern_type != PatternType.Classic:
+        cv.fillPoly(mask, [points], background_color)
     
     rotated_mask = rotateImage(mask, -45)
 
@@ -329,6 +450,11 @@ def createFinalHeartDisplay(image, pattern_type):
     if pattern_type != PatternType.Classic:
         square_width_rounded = square_width_rounded - 31 # and use padding if not Classic
     scaled_pattern = cv.resize(image, (square_width_rounded, square_width_rounded), interpolation=cv.INTER_LANCZOS4)
+
+    # Save scaled_pattern to a file
+    cv.imwrite("scaled_pattern.png", scaled_pattern)
+
+    distance_from_top, distance_from_bottom = findPatternDistanceFromTopAndBottom(scaled_pattern)
 
     # Calculate coordinates to overlay scaled_pattern on the square portion of the heart
     x_center = (rotated_mask.shape[1] - square_width_rounded) // 2
@@ -340,9 +466,72 @@ def createFinalHeartDisplay(image, pattern_type):
     # rotate the heart back to its original, upright, position
     reverse_rotated_mask = rotateImage(rotated_mask, 45)
 
+    # Calculate the offset between original mask and reverse_rotated_mask
+    orig_center = np.array([mask.shape[1]//2, mask.shape[0]//2])
+    rotated_center = np.array([reverse_rotated_mask.shape[1]//2, reverse_rotated_mask.shape[0]//2])
+    offset = rotated_center - orig_center
+    
+    # Transform points to match reverse_rotated_mask coordinates
+    adjusted_points = np.array([
+        [point[0] + offset[0], point[1] + offset[1]] for point in points
+    ], dtype=np.int32)
+
+    if pattern_type == PatternType.Classic:
+        # creatFinalHeartDisplayClassicCase(mask, points, foreground_color, background_color)
+        pass
+    elif pattern_type == PatternType.Simple:
+        createFinalHeartDisplaySimpleCase(reverse_rotated_mask, adjusted_points, foreground_color, background_color)
+    else:
+        createFinalHeartDisplaySymAsymCase(reverse_rotated_mask, adjusted_points, foreground_color, background_color, distance_from_top, distance_from_bottom)
+
     print("Finished creating Final Heart Display")
 
     return reverse_rotated_mask
+
+
+def findPatternDistanceFromTopAndBottom(pattern):
+    """
+    Find the distance from the top and bottom of the pattern to the edges of the square.
+    Returns a tuple (distance_from_top, distance_from_bottom).
+    """
+    height, width = pattern.shape[:2]
+    
+    # Define points for the diagonal line from upper right to lower left
+    upper_right = (width - 1, 0)
+    lower_left = (0, height - 1)
+    
+    # Generate points along the diagonal line
+    # Using Bresenham's line algorithm through OpenCV
+    points = []
+    cv.line(np.zeros((height, width), dtype=np.uint8), upper_right, lower_left, 1, 1, cv.LINE_8, 0)
+    for y in range(height):
+        for x in range(width):
+            # Check if this point is on the line (would be set to 1)
+            # Check if this pixel is part of the pattern (matches shape color)
+            shape_color = get_rgb_from_qcolor(getShapeColor())
+            pixel_color = pattern[y, x]
+            # Allow for some tolerance in color matching due to potential anti-aliasing
+            color_distance = np.sum(np.abs(np.array(pixel_color) - np.array(shape_color)))
+            if color_distance < 15:  # Small tolerance threshold
+                points.append((x, y))
+    
+    if not points:
+        # No pattern found on the diagonal
+        distance_from_top = 0
+        distance_from_bottom = 0
+    else:
+        # Sort points by their distance from upper right corner
+        points.sort(key=lambda p: ((p[0] - upper_right[0])**2 + (p[1] - upper_right[1])**2)**0.5)
+        
+        # First point is top of pattern
+        top_point = points[0]
+        distance_from_top = ((top_point[0] - upper_right[0])**2 + (top_point[1] - upper_right[1])**2)**0.5
+        
+        # Last point is bottom of pattern
+        bottom_point = points[-1]
+        distance_from_bottom = ((bottom_point[0] - lower_left[0])**2 + (bottom_point[1] - lower_left[1])**2)**0.5
+
+    return distance_from_top, distance_from_bottom
 
 
 def createFinalHeartCutoutPatternExport(size, side_type, pattern_type, n_lines=0, line_color='black', background_color='white'):
