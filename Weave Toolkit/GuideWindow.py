@@ -77,7 +77,7 @@ class GuideWindow(QDialog):
             Before weaving, we must fold the stencils. The left stencil is the one with the circle and the right stencil is the one with the cross.
             Take the left stencil and fold it in half, such that the left half is on top of the right half. 
             Take the right stencil and fold it in half, such that the right half is on top of the left half.
-            Follow the gifs below to see how the stencils should be folded.
+            Follow the video below to see how the stencils should be folded.
             
         </div>"""
 
@@ -107,7 +107,7 @@ class GuideWindow(QDialog):
         <h2>Step 5</h2>
         <div>
             <p> 
-            The very first step of the weaving process is the most important because it will affect how the weave will look in the end. There is a gif that is playing
+            The very first step of the weaving process is the most important because it will affect how the weave will look in the end. There is a video that is playing
             to help process the following instructions below.
             Take the first strip of the stencil with the circle, this strip should have the circle on it and place it in one hand. Take the 
             first strip of the stencil with the cross, this strip should have the cross on it and place it in the other hand. We now want to take the 
@@ -177,7 +177,7 @@ class GuideWindow(QDialog):
         #     <strong>You then continue doing step 3 and step 4 until the strip in your dominant hand has been woven all the way through.</strong>You then take the next strip from the stencil closest to your non-dominant hand and weave it {} the next strip in your non-dominant hand.
         #         You then weave it {} the next strip in your non-dominant hand. <strong>You then continue to do step 3 through 5 until the heart is fully woven.</strong></p>
 
-# Used for creating displays text with a gif when called
+# Used for creating displays text with a video when called
 class StepWidget(QWidget):
     def __init__(self, html, video_file, parent=None):
         super().__init__(parent)
@@ -212,7 +212,7 @@ class StepWidget(QWidget):
         self.player.play()
         v.insertWidget(1,video_widget)
 
-# Used for creating displays text without a gif when called
+# Used for creating displays text without a video when called
 class TextWidget(QWidget):
     def __init__(self, html, parent=None):
         super().__init__(parent)
