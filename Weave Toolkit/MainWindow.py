@@ -904,7 +904,15 @@ class MainWindow(QMainWindow):
 
         self.drawing_widget.setFixedSize(500, 500)
         self.drawing_backside.setFixedSize(500, 500)
-        self.setFixedSize(QSize(1200, 700))
+        # Get the screen size and set window size based on screen dimensions
+        screen = QApplication.primaryScreen().geometry()
+        screen_width, screen_height = screen.width(), screen.height()
+        
+        # Set window to 80% of screen width and height
+        window_width = int(screen_width * 0.8)
+        window_height = int(screen_height * 0.8)
+        
+        self.resize(window_width, window_height)
         # self.setWindowState(Qt.WindowState.WindowMaximized)
 
         # self.update_backside_image()
