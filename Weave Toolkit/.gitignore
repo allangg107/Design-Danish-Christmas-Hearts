@@ -5,6 +5,7 @@
 !important_templates/*.svg
 
 # Image outputs
+*.svg
 *.png
 *.jpg
 *.jpeg

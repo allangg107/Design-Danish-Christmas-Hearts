@@ -811,7 +811,10 @@ class DrawingWidget(QWidget):
             self.begin = event.pos()
             self.end = event.pos()
             self.update()
-            self.main_window.update_backside_image()
+            # self.main_window.update_backside_image()
+
+            self.main_window.save_as_svg(getUserOutputSVGFileName() + ".svg", self.main_window.drawing_widget.size())
+            self.main_window.updateDisplaySvg()
 
 
     def set_drawing_mode(self, enabled):
@@ -904,12 +907,18 @@ class MainWindow(QMainWindow):
         self.setFixedSize(QSize(1200, 700))
         # self.setWindowState(Qt.WindowState.WindowMaximized)
 
-        self.update_backside_image()
+        # self.update_backside_image()
+
+        self.save_as_svg(getUserOutputSVGFileName() + ".svg", self.drawing_widget.size())
+        self.updateDisplaySvg()
 
 
     def eventFilter(self, source, event):
         if event.type() == QEvent.Type.MouseButtonRelease and source == self.drawing_widget:
-            self.update_backside_image()
+            # self.update_backside_image()
+
+            self.save_as_svg(getUserOutputSVGFileName() + ".svg", self.drawing_widget.size())
+            self.updateDisplaySvg()
         return super().eventFilter(source, event)
 
 
@@ -1033,11 +1042,12 @@ class MainWindow(QMainWindow):
             self.drawing_widget.end = QPoint()  # Reset end point
             setClassicIndicesLineDeleteList([])  # Clear classic indices line delete list
             self.drawing_widget.update()  # Trigger repaint of the drawing widget
-            self.update_backside_image()  # Update the backside image
+            # self.update_backside_image()  # Update the backside image
+            self.save_as_svg(getUserOutputSVGFileName() + ".svg", self.drawing_widget.size())
+            self.updateDisplaySvg()
+
             if getCurrentPatternType() == PatternType.Classic:
-
                 self.setPatternType(PatternType.Classic)  # Reset pattern type to Classic
-
             else:
                 self.setPatternType(PatternType.Simple)  # Reset pattern type to default
 
@@ -1062,7 +1072,10 @@ class MainWindow(QMainWindow):
             self.free_form_button.setVisible(True)
 
         self.update()
-        self.update_backside_image()
+        # self.update_backside_image()
+
+        self.save_as_svg(getUserOutputSVGFileName() + ".svg", self.drawing_widget.size())
+        self.updateDisplaySvg()
 
         QApplication.processEvents()
 
@@ -1070,7 +1083,10 @@ class MainWindow(QMainWindow):
     def setSideType(self, side):
         setCurrentSideType(side)
         self.update()
-        self.update_backside_image()
+        # self.update_backside_image()
+
+        self.save_as_svg(getUserOutputSVGFileName() + ".svg", self.drawing_widget.size())
+        self.updateDisplaySvg()
 
     def toggleConstraints(self, checked):
         if checked:
@@ -1157,10 +1173,13 @@ class MainWindow(QMainWindow):
         self.drawing_backside.setPixmap(scaled_pixmap)
         self.drawing_backside.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
+
     def editDisplay(self):
         self.backside_label.setText(f"Back Side (not modifiable) - {getCurrentPatternType()}:")
         self.stacked_widget.setCurrentWidget(self.drawing_widget)
-        self.update_backside_image()
+        # self.update_backside_image()
+        self.save_as_svg(getUserOutputSVGFileName() + ".svg", self.drawing_widget.size())
+        self.updateDisplaySvg()
 
 
     def createShapesToolbar(self):
@@ -1388,7 +1407,9 @@ class MainWindow(QMainWindow):
         self.disable_enable_color_button(True)
         self.change_active_color(old_color, True)
         self.update()
-        self.update_backside_image()
+        # self.update_backside_image()
+        self.save_as_svg(getUserOutputSVGFileName() + ".svg", self.drawing_widget.size())
+        self.updateDisplaySvg()
 
 
     def change_background_color(self, color):
@@ -1397,7 +1418,9 @@ class MainWindow(QMainWindow):
         self.disable_enable_color_button(False)
         self.change_active_color(old_color, False)
         self.update()
-        self.update_backside_image()
+        # self.update_backside_image()
+        self.save_as_svg(getUserOutputSVGFileName() + ".svg", self.drawing_widget.size())
+        self.updateDisplaySvg()
 
 
     def keyPressEvent(self, event):
@@ -1419,7 +1442,9 @@ class MainWindow(QMainWindow):
                 self.drawing_widget.shapes.pop()
 
             self.drawing_widget.update()  # Redraw the canvas
-            self.update_backside_image()  # Update the mirrored image
+            # self.update_backside_image()  # Update the mirrored image
+            self.save_as_svg(getUserOutputSVGFileName() + ".svg", self.drawing_widget.size())
+            self.updateDisplaySvg()
 
 
     def save_canvas_as_png(self, filename="canvas_output.png"):
