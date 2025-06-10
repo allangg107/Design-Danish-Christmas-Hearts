@@ -1102,7 +1102,7 @@ def fitClassicCuts(classic_cuts, stencil_pattern, output_name, width, height, si
 
     # Combine classic cuts with stencil pattern
     combined_paths = classic_cut_paths + stencil_paths
-    combined_attributes = [{'stroke': 'black', 'stroke-width': 1, 'fill': 'none'}] * len(classic_cut_paths) + stencil_attributes
+    combined_attributes = [{'stroke': 'white', 'stroke-width': 1, 'fill': 'none'}] * len(classic_cut_paths) + stencil_attributes
 
     # Save the combined result
     wsvg(combined_paths, attributes=combined_attributes, filename=output_name, dimensions=(width, height))

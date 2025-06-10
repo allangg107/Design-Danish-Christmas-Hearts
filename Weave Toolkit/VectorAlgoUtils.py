@@ -918,7 +918,7 @@ def drawCheckerboardOnPixmap(pixmap, painter):
     checker_pixmap = QPixmap(size)
     checker_pixmap.fill(Qt.GlobalColor.transparent)
     checker_painter = QPainter(checker_pixmap)
-    checker_painter.setPen(QPen(Qt.GlobalColor.black, 1))
+    checker_painter.setPen(QPen(Qt.GlobalColor.white, 1))
 
     num_classic_lines = getNumClassicLines()
     # draw n dashed lines going from lower left to upper right and upper left to lower right
@@ -1155,7 +1155,7 @@ def convertLinesToRectangles(input_svg, output_svg):
                 y = min(start.imag, end.imag) - rect_height / 2
 
                 # Add the rectangle to the SVG drawing
-                dwg.add(dwg.rect(insert=(x, y), size=(rect_width, rect_height), fill='black'))
+                dwg.add(dwg.rect(insert=(x, y), size=(rect_width, rect_height), fill='white'))
 
     # Save the new SVG file
     dwg.save()

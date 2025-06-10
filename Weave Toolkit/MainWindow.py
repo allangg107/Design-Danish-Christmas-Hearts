@@ -1292,7 +1292,12 @@ class MainWindow(QMainWindow):
         """)
 
         colors_toolbar.addWidget(rainbow_button)
-
+        
+        # Add spacer for padding between rainbow button and background label
+        spacer = QWidget()
+        spacer.setFixedWidth(20)  # Adjust width as needed for desired padding
+        colors_toolbar.addWidget(spacer)
+        
         background_label = QLabel("Background Colors: ")
         background_label.setStyleSheet("color: black;")
         colors_toolbar.addWidget(background_label)
