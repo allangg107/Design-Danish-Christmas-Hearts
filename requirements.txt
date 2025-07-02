@@ -1,0 +1,13 @@
+# GUI Framework
+PyQt6
+
+# Computer Vision and Image Processing
+opencv-python
+numpy
+
+# SVG Processing and Writing
+svgwrite
+svgpathtools
+
+# Geometric Processing
+shapely
