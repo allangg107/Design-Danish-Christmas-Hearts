@@ -1,5 +1,5 @@
 # Design Toolkit for Danish Christmas Hearts 
-The Danish Christmas Heart is a traditional Christmas tree ornament or decoration that many use to symbolize Danish culture and togetherness. These weaveable hearts are typically designed to be handcrafted together with loved ones during the winter holiday season. We have created a toolkit to help users make custom designs with various pattern types for Christmas Heart weaves.
+The Danish Christmas Heart is a traditional Christmas tree ornament that many use to symbolize Danish culture and togetherness. These weaveable hearts are typically designed to be handcrafted together with loved ones during the winter holiday season. We have created a toolkit to help users make custom designs with various pattern types for Christmas Heart weaves.
 
 Watch an overview of the project here: (recording pending)
 
